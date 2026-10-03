@@ -107,8 +107,9 @@ const emit = defineEmits<{
 
 .section-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-h);
 }
 

@@ -80,6 +80,7 @@ function onAdvance(event: Event) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
+  box-shadow: inset 3px 0 0 var(--civic-bar);
   text-align: left;
   cursor: pointer;
   color: inherit;

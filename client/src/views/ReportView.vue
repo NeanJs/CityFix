@@ -1,206 +1,233 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { issueCategories } from '../data/categories'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
-import type { IssueCategory } from '../types/issue'
+import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
+import type { IssueCategory, IssueSeverity } from '../types/issue'
+import type { ReportIngestDraft } from '../types/reportIngest'
 import AppHeader from '../components/layout/AppHeader.vue'
+import LocationPickerField from '../components/report/LocationPickerField.vue'
 import PhotoCaptureField from '../components/report/PhotoCaptureField.vue'
 import VoiceCaptureField from '../components/report/VoiceCaptureField.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
-import {
-  buildReportSummary,
-  buildReportTitle,
-  inferSeverity,
-  narrativeText,
-} from '../services/report/enrichReport'
+
+const severities: IssueSeverity[] = ['low', 'medium', 'high']
 
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
 const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
-const submitStage = ref<'receive' | 'read' | 'file'>('receive')
-const voiceField = ref<{ reset: () => void } | null>(null)
-const detailsOpen = ref(false)
-const step = ref<1 | 2 | 3>(1)
+const submitStage = ref<'read' | 'file'>('read')
+const phase = ref<'capture' | 'review'>('capture')
+const editing = ref(false)
+const voiceField = ref<{ reset: () => void; stop: () => Promise<Blob | null> } | null>(null)
 
 const form = reactive({
-  title: '',
-  category: 'pothole' as IssueCategory,
-  locationLabel: '',
   photoDataUrl: '',
   transcript: '',
+  locationLabel: '',
 })
-
+const audioBlob = ref<Blob | null>(null)
 const latitude = ref<number | undefined>()
 const longitude = ref<number | undefined>()
-const locating = ref(false)
-const locationError = ref('')
 const submitError = ref('')
 
-const hasCoords = computed(() => latitude.value !== undefined && longitude.value !== undefined)
-const hasPhoto = computed(() => Boolean(form.photoDataUrl))
-const hasNote = computed(() => Boolean(form.transcript.trim()))
-const hasPlace = computed(() => Boolean(form.locationLabel.trim()))
-const canSubmit = computed(() => hasPhoto.value && hasNote.value && hasPlace.value)
-
-const missingKeys = computed(() => {
-  const keys: string[] = []
-  if (!hasPhoto.value) {
-    keys.push('report.missingPhoto')
-  }
-  if (!hasNote.value) {
-    keys.push('report.missingNote')
-  }
-  if (!hasPlace.value) {
-    keys.push('report.missingPlace')
-  }
-  return keys
+const draft = reactive<ReportIngestDraft>({
+  title: '',
+  description: '',
+  transcript: '',
+  summary: '',
+  category: 'pothole',
+  severity: 'medium',
+  locationLabel: '',
+  status: 'submitted',
 })
 
-const accountText = computed(() =>
-  narrativeText({
-    title: form.title,
-    description: form.transcript,
-    transcript: form.transcript,
-    category: form.category,
-  }),
-)
+const hasPhoto = computed(() => Boolean(form.photoDataUrl))
+const hasVoice = computed(() => Boolean(audioBlob.value))
+const hasText = computed(() => Boolean(form.transcript.trim()))
+const canSend = computed(() => hasPhoto.value || hasVoice.value || hasText.value)
+const reviewActive = computed(() => phase.value === 'review')
 
 const submitLabel = computed(() => {
   if (!submitting.value) {
     return t('report.submit')
   }
-  if (submitStage.value === 'receive') {
-    return t('report.stageReceive')
-  }
-  if (submitStage.value === 'read') {
-    return t('report.stageRead')
-  }
-  return t('report.stageFile')
+  return t('report.stageRead')
 })
 
-function useCurrentLocation() {
-  locationError.value = ''
-  if (!navigator.geolocation) {
-    locationError.value = t('report.locationUnavailable')
-    return
+const confirmLabel = computed(() => {
+  if (submitting.value) {
+    return t('report.stageFile')
   }
-  locating.value = true
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      latitude.value = position.coords.latitude
-      longitude.value = position.coords.longitude
-      if (!form.locationLabel.trim()) {
-        form.locationLabel = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`
-      }
-      locating.value = false
-    },
-    () => {
-      locating.value = false
-      locationError.value = t('report.locationDenied')
-    },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
-  )
+  return editing.value ? t('report.confirmEdits') : t('report.confirm')
+})
+
+useAndroidBackHandler(reviewActive, goBack)
+
+function applyDraft(next: ReportIngestDraft) {
+  draft.title = next.title
+  draft.description = next.description
+  draft.transcript = next.transcript
+  draft.summary = next.summary
+  draft.category = next.category
+  draft.severity = next.severity
+  draft.locationLabel = next.locationLabel
+  draft.latitude = next.latitude
+  draft.longitude = next.longitude
+  draft.photoUrl = next.photoUrl
+  draft.trackingId = next.trackingId
+  draft.status = next.status ?? 'submitted'
+  draft.createdAt = next.createdAt
+  if (next.latitude !== undefined) {
+    latitude.value = next.latitude
+  }
+  if (next.longitude !== undefined) {
+    longitude.value = next.longitude
+  }
 }
 
+watch([latitude, longitude], ([lat, lng]) => {
+  draft.latitude = lat
+  draft.longitude = lng
+})
+
 function resetForm() {
-  form.title = ''
-  form.category = 'pothole'
-  form.locationLabel = ''
   form.photoDataUrl = ''
   form.transcript = ''
+  form.locationLabel = ''
+  audioBlob.value = null
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
-  detailsOpen.value = false
-  step.value = 1
+  editing.value = false
+  phase.value = 'capture'
+  applyDraft({
+    title: '',
+    description: '',
+    transcript: '',
+    summary: '',
+    category: 'pothole',
+    severity: 'medium',
+    locationLabel: '',
+    status: 'submitted',
+  })
   voiceField.value?.reset()
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms)
-  })
-}
-
-function goNext() {
-  if (step.value === 1 && hasPhoto.value) {
-    step.value = 2
-    return
-  }
-  if (step.value === 2 && hasNote.value) {
-    step.value = 3
-  }
-}
-
 function goBack() {
-  if (step.value === 3) {
-    step.value = 2
+  if (submitting.value) {
     return
   }
-  if (step.value === 2) {
-    step.value = 1
+  if (phase.value === 'review') {
+    phase.value = 'capture'
+    editing.value = false
+    submitError.value = ''
   }
 }
 
-async function submit() {
+async function send() {
   if (submitting.value) {
     return
   }
   submitError.value = ''
   const note = form.transcript.trim()
-  if (!form.photoDataUrl || !note || !form.locationLabel.trim()) {
+  await voiceField.value?.stop()
+  if (!form.photoDataUrl && !audioBlob.value && !note) {
     submitError.value = t('report.incomplete')
-    if (!form.photoDataUrl) {
-      step.value = 1
-    } else if (!note) {
-      step.value = 2
-    } else {
-      step.value = 3
-    }
     return
   }
   submitting.value = true
-  submitStage.value = 'receive'
+  submitStage.value = 'read'
   try {
-    await wait(380)
-    submitStage.value = 'read'
-    const severity = inferSeverity(accountText.value)
-    const title = buildReportTitle(
-      t(`category.${form.category}`),
-      form.locationLabel,
-      form.title,
-    )
-    const summary = buildReportSummary(
-      t(`severity.${severity}`),
-      t(`category.${form.category}`),
-      form.locationLabel,
-    )
-    await wait(420)
-    submitStage.value = 'file'
-    const issue = await addIssue({
-      title,
-      description: note,
-      transcript: note,
-      summary,
-      category: form.category,
-      severity,
-      locationLabel: form.locationLabel,
+    const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
+    const next = await ingestReport({
+      photo,
+      audio: audioBlob.value ?? undefined,
+      text: note || undefined,
+      locationLabel: form.locationLabel.trim() || undefined,
       latitude: latitude.value,
       longitude: longitude.value,
-      photoDataUrl: form.photoDataUrl,
-      reporterId: reporterId.value,
+      confirmed: false,
     })
-    await wait(280)
-    resetForm()
-    await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
+    applyDraft({
+      ...next,
+      transcript: next.transcript || note,
+      description: next.description || next.transcript || note,
+      locationLabel: next.locationLabel || form.locationLabel.trim(),
+      photoUrl: next.photoUrl || form.photoDataUrl,
+    })
+    editing.value = false
+    phase.value = 'review'
+  } catch {
+    submitError.value = t('report.ingestFailed')
   } finally {
     submitting.value = false
   }
+}
+
+async function confirm() {
+  if (submitting.value) {
+    return
+  }
+  submitError.value = ''
+  submitting.value = true
+  submitStage.value = 'file'
+  try {
+    const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
+    const next = await ingestReport({
+      photo,
+      audio: audioBlob.value ?? undefined,
+      text: form.transcript.trim() || draft.description.trim() || undefined,
+      locationLabel: draft.locationLabel.trim() || undefined,
+      latitude: draft.latitude ?? latitude.value,
+      longitude: draft.longitude ?? longitude.value,
+      confirmed: true,
+      draft: { ...draft },
+    })
+    applyDraft(next)
+    const description =
+      next.description.trim() || next.transcript.trim() || next.summary.trim() || next.title.trim()
+    const issue = await addIssue({
+      title: next.title.trim() || next.summary.trim() || t('report.untitled'),
+      description: description || t('report.untitled'),
+      transcript: next.transcript.trim() || next.description.trim() || form.transcript.trim(),
+      summary: next.summary.trim() || description || t('report.untitled'),
+      category: next.category,
+      severity: next.severity,
+      locationLabel: next.locationLabel.trim() || t('report.locationUnset'),
+      latitude: next.latitude ?? latitude.value,
+      longitude: next.longitude ?? longitude.value,
+      photoDataUrl: next.photoUrl || form.photoDataUrl,
+      reporterId: reporterId.value,
+      trackingId: next.trackingId,
+    })
+    resetForm()
+    await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
+  } catch {
+    submitError.value = t('report.fileFailed')
+  } finally {
+    submitting.value = false
+  }
+}
+
+function setCategory(id: IssueCategory) {
+  if (!editing.value) {
+    return
+  }
+  draft.category = id
+}
+
+function setSeverity(id: IssueSeverity) {
+  if (!editing.value) {
+    return
+  }
+  draft.severity = id
 }
 </script>
 
@@ -208,142 +235,209 @@ async function submit() {
   <section class="report">
     <AppHeader :subtitle="t('report.title')" show-account />
 
-    <ol class="steps" :aria-label="t('report.stepOf', { current: step, total: 3 })">
-      <li :class="{ active: step === 1, done: step > 1 }">{{ t('report.stepPhoto') }}</li>
-      <li :class="{ active: step === 2, done: step > 2 }">{{ t('report.stepVoice') }}</li>
-      <li :class="{ active: step === 3 }">{{ t('report.stepPlace') }}</li>
+    <ol class="steps" :aria-label="t('report.stepOf', { current: phase === 'capture' ? 1 : 2, total: 2 })">
+      <li :class="{ active: phase === 'capture', done: phase === 'review' }">{{ t('report.capture') }}</li>
+      <li :class="{ active: phase === 'review' }">{{ t('report.review') }}</li>
     </ol>
 
-    <GlassPanel padding="lg" tone="fill" class="form-panel">
-      <form class="form" @submit.prevent="submit">
-        <PhotoCaptureField v-if="step === 1" v-model:photo-data-url="form.photoDataUrl" />
+    <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
+      <form class="form" @submit.prevent="send">
+        <p class="lead">{{ t('report.lead') }}</p>
+
+        <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
 
         <VoiceCaptureField
-          v-if="step === 2"
           ref="voiceField"
           v-model:transcript="form.transcript"
+          v-model:audio-blob="audioBlob"
+          :include-note="false"
         />
 
-        <div v-if="step === 3" class="place-step">
-          <div class="field">
-            <span class="field-label">{{ t('report.location') }}</span>
-            <input
-              v-model="form.locationLabel"
-              class="control"
-              type="text"
-              maxlength="160"
-              :placeholder="t('report.locationPlaceholder')"
-              autocomplete="street-address"
-            />
-            <button
-              type="button"
-              class="btn-secondary"
-              :disabled="locating"
-              @click="useCurrentLocation"
-            >
-              {{ locating ? t('report.locating') : t('report.useGps') }}
-            </button>
-            <p v-if="hasCoords" class="coords hint">
-              {{ latitude?.toFixed(5) }}, {{ longitude?.toFixed(5) }}
-            </p>
-            <p v-if="locationError" class="error">{{ locationError }}</p>
-          </div>
+        <label class="field">
+          <span class="field-label">{{ t('report.transcript') }}</span>
+          <p class="hint">{{ t('report.transcriptHint') }}</p>
+          <textarea
+            v-model="form.transcript"
+            class="control"
+            rows="4"
+            maxlength="800"
+            :placeholder="t('report.transcriptPlaceholder')"
+          />
+        </label>
 
-          <details class="details" :open="detailsOpen" @toggle="detailsOpen = ($event.target as HTMLDetailsElement).open">
-            <summary class="field-label">{{ t('report.details') }}</summary>
-            <div class="field">
-              <span class="field-label">{{ t('report.category') }}</span>
-              <div class="category-row" role="group" :aria-label="t('report.category')">
-                <button
-                  v-for="cat in issueCategories"
-                  :key="cat.id"
-                  type="button"
-                  class="category-chip"
-                  :class="{ active: form.category === cat.id }"
-                  @click="form.category = cat.id"
-                >
-                  {{ t(`category.${cat.id}`) }}
-                </button>
-              </div>
-            </div>
-            <label class="field">
-              <span class="field-label">{{ t('report.fieldTitle') }} · {{ t('report.titleOptional') }}</span>
-              <input
-                v-model="form.title"
-                class="control"
-                type="text"
-                maxlength="120"
-                :placeholder="t('report.titlePlaceholder')"
-                autocomplete="off"
-              />
-            </label>
-          </details>
+        <LocationPickerField v-model:latitude="latitude" v-model:longitude="longitude" />
 
-          <GlassPanel padding="md" tone="fill" class="mobile-preview">
-            <p class="section-kicker">{{ t('report.preview') }}</p>
-            <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
-            <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
-            <p class="preview-note">{{ form.transcript.trim() || t('report.missingNote') }}</p>
-            <p class="preview-place">{{ form.locationLabel.trim() || t('report.locationUnset') }}</p>
-          </GlassPanel>
-        </div>
-
-        <div class="step-nav">
-          <button v-if="step > 1" type="button" class="btn-secondary" @click="goBack">
-            {{ t('report.back') }}
-          </button>
-          <button
-            v-if="step === 1"
-            type="button"
-            class="btn"
-            :disabled="!hasPhoto"
-            @click="goNext"
-          >
-            {{ t('report.continue') }}
-          </button>
-          <button
-            v-if="step === 2"
-            type="button"
-            class="btn"
-            :disabled="!hasNote"
-            @click="goNext"
-          >
-            {{ t('report.continue') }}
-          </button>
-        </div>
+        <label class="field">
+          <span class="field-label">{{ t('report.locationName') }}</span>
+          <input
+            v-model="form.locationLabel"
+            class="control"
+            type="text"
+            maxlength="160"
+            :placeholder="t('report.locationPlaceholder')"
+            autocomplete="street-address"
+          />
+        </label>
 
         <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
       </form>
     </GlassPanel>
 
-    <GlassPanel padding="lg" tone="fill" class="summary">
-      <p class="section-kicker">{{ t('report.preview') }}</p>
-      <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
-      <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
-      <p class="preview-note">{{ form.transcript.trim() || '—' }}</p>
-      <dl class="summary-list">
-        <div>
-          <dt>{{ t('report.category') }}</dt>
-          <dd>{{ t(`category.${form.category}`) }}</dd>
+    <div v-if="phase === 'capture'" class="sticky">
+      <p class="sticky-status">{{ canSend ? t('report.ready') : t('report.missingInput') }}</p>
+      <div class="step-nav">
+        <button type="button" class="btn submit" :disabled="submitting || !canSend" @click="send">
+          {{ submitLabel }}
+        </button>
+        <button
+          v-if="submitError"
+          type="button"
+          class="btn-secondary"
+          :disabled="submitting || !canSend"
+          @click="send"
+        >
+          {{ t('report.retry') }}
+        </button>
+      </div>
+    </div>
+
+    <GlassPanel v-else padding="lg" tone="fill" class="form-panel">
+      <form class="form" @submit.prevent="confirm">
+        <p class="lead">{{ t('report.reviewLead') }}</p>
+        <img
+          v-if="form.photoDataUrl || draft.photoUrl"
+          class="preview-photo"
+          :src="draft.photoUrl || form.photoDataUrl"
+          alt=""
+        />
+
+        <div class="summary-list readonly">
+          <div>
+            <dt>{{ t('report.trackingId') }}</dt>
+            <dd>{{ draft.trackingId || t('report.pendingId') }}</dd>
+          </div>
         </div>
-        <div>
-          <dt>{{ t('report.location') }}</dt>
-          <dd>{{ form.locationLabel.trim() || t('report.locationUnset') }}</dd>
+
+        <label class="field">
+          <span class="field-label">{{ t('report.fieldTitle') }}</span>
+          <input
+            v-model="draft.title"
+            class="control"
+            type="text"
+            maxlength="120"
+            :readonly="!editing"
+            :placeholder="t('report.titlePlaceholder')"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="field">
+          <span class="field-label">{{ t('report.category') }}</span>
+          <div class="category-row" role="group" :aria-label="t('report.category')">
+            <button
+              v-for="cat in issueCategories"
+              :key="cat.id"
+              type="button"
+              class="category-chip"
+              :class="{ active: draft.category === cat.id }"
+              :disabled="!editing"
+              @click="setCategory(cat.id)"
+            >
+              {{ t(`category.${cat.id}`) }}
+            </button>
+          </div>
         </div>
-        <div>
-          <dt>{{ t('report.gps') }}</dt>
-          <dd>{{ hasCoords ? t('report.gpsCaptured') : t('report.gpsOptional') }}</dd>
+
+        <div class="field">
+          <span class="field-label">{{ t('sheet.severity') }}</span>
+          <div class="category-row" role="group" :aria-label="t('sheet.severity')">
+            <button
+              v-for="level in severities"
+              :key="level"
+              type="button"
+              class="category-chip"
+              :class="{ active: draft.severity === level }"
+              :disabled="!editing"
+              @click="setSeverity(level)"
+            >
+              {{ t(`severity.${level}`) }}
+            </button>
+          </div>
         </div>
-      </dl>
+
+        <LocationPickerField
+          v-model:latitude="latitude"
+          v-model:longitude="longitude"
+          :disabled="!editing"
+        />
+
+        <label class="field">
+          <span class="field-label">{{ t('report.locationName') }}</span>
+          <input
+            v-model="draft.locationLabel"
+            class="control"
+            type="text"
+            maxlength="160"
+            :readonly="!editing"
+            :placeholder="t('report.locationPlaceholder')"
+            autocomplete="street-address"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">{{ t('report.transcript') }}</span>
+          <textarea
+            v-model="draft.description"
+            class="control"
+            rows="4"
+            maxlength="800"
+            :readonly="!editing"
+            :placeholder="t('report.transcriptPlaceholder')"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">{{ t('report.summary') }}</span>
+          <textarea
+            v-model="draft.summary"
+            class="control"
+            rows="3"
+            maxlength="400"
+            :readonly="!editing"
+          />
+        </label>
+
+        <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
+      </form>
     </GlassPanel>
 
-    <div v-if="step === 3" class="sticky">
-      <p class="sticky-status">
-        {{ canSubmit ? t('report.ready') : missingKeys.map((key) => t(key)).join(' · ') }}
-      </p>
-      <button type="button" class="btn submit" :disabled="submitting" @click="submit">
-        {{ submitLabel }}
-      </button>
+    <div v-if="phase === 'review'" class="sticky">
+      <div class="step-nav">
+        <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
+          {{ t('report.back') }}
+        </button>
+        <button
+          v-if="!editing"
+          type="button"
+          class="btn-secondary"
+          :disabled="submitting"
+          @click="editing = true"
+        >
+          {{ t('report.edit') }}
+        </button>
+        <button type="button" class="btn" :disabled="submitting" @click="confirm">
+          {{ confirmLabel }}
+        </button>
+        <button
+          v-if="submitError"
+          type="button"
+          class="btn-secondary"
+          :disabled="submitting"
+          @click="confirm"
+        >
+          {{ t('report.retry') }}
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -359,7 +453,7 @@ async function submit() {
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem;
 }
 
@@ -387,19 +481,16 @@ async function submit() {
   gap: 0.95rem;
 }
 
-.place-step,
+.lead {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 .field {
   display: grid;
   gap: 0.5rem;
-}
-
-.details {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.details summary {
-  cursor: pointer;
 }
 
 .category-row {
@@ -425,8 +516,8 @@ async function submit() {
   background: var(--ink);
 }
 
-.coords {
-  font-variant-numeric: tabular-nums;
+.category-chip:disabled {
+  cursor: default;
 }
 
 .step-nav {
@@ -439,50 +530,41 @@ async function submit() {
   width: 100%;
 }
 
+.sticky {
+  position: sticky;
+  bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
+  z-index: 8;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-lg);
+  background: var(--glass-regular-bg);
+}
+
+.sticky-status {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
 .error {
   margin: 0;
   font-size: 0.82rem;
   color: var(--danger);
 }
 
-.summary {
-  display: none;
-}
-
-.mobile-preview {
-  display: grid;
-  gap: 0.4rem;
-}
-
 .preview-photo {
   display: block;
   width: 100%;
-  max-height: 10rem;
+  max-height: 14rem;
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 
-.summary-title {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text-h);
-  font-family: var(--font-display);
-  line-height: 1.25;
-}
-
-.preview-note,
-.preview-place {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.92rem;
-}
-
 .summary-list {
   margin: 0;
-  display: grid;
-  gap: 0.7rem;
 }
 
 .summary-list dt {
@@ -497,44 +579,9 @@ async function submit() {
   font-weight: 600;
 }
 
-.sticky {
-  position: sticky;
-  bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
-  z-index: 8;
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: var(--radius-lg);
-}
-
-.sticky-status {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: var(--text-muted);
-}
-
 @media (min-width: 1024px) {
   .report {
-    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.7fr);
-    align-items: start;
-  }
-
-  .report > :first-child,
-  .report > .steps,
-  .report > .sticky {
-    grid-column: 1 / -1;
-  }
-
-  .mobile-preview {
-    display: none;
-  }
-
-  .summary {
-    display: grid;
-    gap: 0.7rem;
-    position: sticky;
-    top: 1.1rem;
+    max-width: 44rem;
   }
 
   .submit {
@@ -543,8 +590,6 @@ async function submit() {
 
   .sticky {
     bottom: 1rem;
-    grid-template-columns: 1fr auto;
-    align-items: center;
   }
 }
 </style>

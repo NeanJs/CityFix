@@ -32,6 +32,7 @@ async function onAccount() {
   <aside class="side" :aria-label="ariaLabel">
     <div class="side-head">
       <p class="side-brand">{{ appName }}</p>
+      <span class="civic-rule" aria-hidden="true" />
       <p class="side-tagline">{{ t(props.taglineKey) }}</p>
     </div>
 
@@ -79,6 +80,7 @@ async function onAccount() {
     overflow-y: auto;
     overscroll-behavior: contain;
     border-right: 1px solid var(--border);
+    background: var(--surface);
   }
 
   .side-head {
@@ -96,17 +98,19 @@ async function onAccount() {
   }
 
   .side-tagline {
-    margin: 0.35rem 0 0;
-    font-size: 0.88rem;
-    font-weight: 400;
+    margin: 0.45rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     color: var(--text-muted);
   }
 
   .side-section {
     margin: 0.4rem 0 0;
     padding: 0 0.55rem;
-    font-size: 0.88rem;
-    font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     color: var(--text-muted);
   }
 
@@ -128,10 +132,15 @@ async function onAccount() {
     cursor: pointer;
   }
 
-  .side-link:hover,
+  .side-link:hover {
+    color: var(--text-h);
+    background: #f1f0f0;
+  }
+
   .side-link.active {
     color: var(--text-h);
     background: #f1f0f0;
+    box-shadow: inset 2px 0 0 var(--civic-bar);
   }
 
   .side-foot {

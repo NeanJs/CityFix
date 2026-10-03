@@ -167,8 +167,10 @@ watch(mapOpen, async () => {
   overflow-x: auto;
   scrollbar-width: none;
   padding: 1.1rem 0.2rem;
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: inset 0 2px 0 var(--civic-bar);
 }
 
 .stats::-webkit-scrollbar {
@@ -228,8 +230,9 @@ watch(mapOpen, async () => {
 
 .section-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-h);
 }
 

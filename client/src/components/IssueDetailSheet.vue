@@ -250,8 +250,9 @@ function advance() {
 
 .row-label {
   margin: 0 0 0.3rem;
-  font-size: 0.88rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 

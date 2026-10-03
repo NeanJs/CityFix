@@ -60,3 +60,5 @@ export const defaultMapCenter: [number, number] = [
 ]
 
 export const defaultMapZoom = parseNumber(import.meta.env.VITE_MAP_DEFAULT_ZOOM, 12)
+
+export const defaultPickerZoom = 16

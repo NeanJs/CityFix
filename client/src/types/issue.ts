@@ -41,4 +41,5 @@ export type NewIssueInput = {
   longitude?: number
   photoDataUrl?: string
   reporterId: string
+  trackingId?: string
 }

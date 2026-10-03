@@ -24,7 +24,10 @@ async function onAccount() {
 
 <template>
   <header class="header">
-    <h1 v-if="subtitle" class="page-title">{{ subtitle }}</h1>
+    <div v-if="subtitle" class="title-block">
+      <h1 class="page-title">{{ subtitle }}</h1>
+      <span class="civic-rule" aria-hidden="true" />
+    </div>
     <button v-if="showAccount" type="button" class="btn-ghost logout" @click="onAccount">
       {{ currentUser ? t('nav.logout') : t('nav.login') }}
     </button>
@@ -34,10 +37,14 @@ async function onAccount() {
 <style scoped>
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.35rem 0 1.25rem;
+}
+
+.title-block {
+  min-width: 0;
 }
 
 .page-title {

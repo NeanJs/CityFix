@@ -37,4 +37,16 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
   min-height: 100svh;
   isolation: isolate;
 }
+
+.app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  height: 3px;
+  background: var(--civic-bar);
+  pointer-events: none;
+}
 </style>

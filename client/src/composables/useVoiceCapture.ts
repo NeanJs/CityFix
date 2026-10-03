@@ -16,6 +16,7 @@ export function useVoiceCapture() {
   const recording = ref(false)
   const elapsed = ref(0)
   const audioUrl = ref('')
+  const audioBlob = ref<Blob | null>(null)
   const transcript = ref('')
   const errorKey = ref('')
   const recognitionSupported = Boolean(recognitionCtor())
@@ -114,6 +115,7 @@ export function useVoiceCapture() {
       return
     }
     revokeUrl()
+    audioBlob.value = null
     chunks = []
     transcript.value = ''
     const mimeType = recorderMime()
@@ -128,6 +130,7 @@ export function useVoiceCapture() {
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
       revokeUrl()
+      audioBlob.value = blob
       audioUrl.value = URL.createObjectURL(blob)
       stopStream()
       mediaRecorder = null
@@ -144,21 +147,49 @@ export function useVoiceCapture() {
 
   function stop() {
     if (!recording.value) {
-      return
+      return Promise.resolve(audioBlob.value)
     }
     recording.value = false
     clearTimer()
     stopRecognition()
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop()
-    } else {
-      stopStream()
+      return new Promise<Blob | null>((resolve) => {
+        const recorder = mediaRecorder
+        if (!recorder) {
+          stopStream()
+          resolve(audioBlob.value)
+          return
+        }
+        const previous = recorder.onstop
+        recorder.onstop = (event) => {
+          previous?.call(recorder, event)
+          resolve(audioBlob.value)
+        }
+        recorder.stop()
+      })
     }
+    stopStream()
+    return Promise.resolve(audioBlob.value)
   }
 
   function reset() {
-    stop()
+    if (recording.value) {
+      recording.value = false
+      clearTimer()
+      stopRecognition()
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.onstop = null
+        try {
+          mediaRecorder.stop()
+        } catch {
+          /* already stopped */
+        }
+      }
+      stopStream()
+      mediaRecorder = null
+    }
     revokeUrl()
+    audioBlob.value = null
     transcript.value = ''
     elapsed.value = 0
     errorKey.value = ''
@@ -180,6 +211,7 @@ export function useVoiceCapture() {
     recording,
     elapsed,
     audioUrl,
+    audioBlob,
     transcript,
     errorKey,
     recognitionSupported,

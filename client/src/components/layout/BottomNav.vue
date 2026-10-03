@@ -85,6 +85,7 @@ const columns = computed(() => props.items.length)
   gap: 0.3rem;
   padding: 0.3rem;
   border-radius: var(--radius-pill);
+  border-width: 1.5px;
 }
 
 .item {

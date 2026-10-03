@@ -111,7 +111,7 @@ export function useIssues() {
     const now = new Date().toISOString()
     const issue: Issue = {
       id: createId(),
-      trackingId: createTrackingId(issues.value.map((item) => item.trackingId)),
+      trackingId: input.trackingId?.trim() || createTrackingId(issues.value.map((item) => item.trackingId)),
       title: input.title?.trim() || input.summary.trim(),
       description: input.description.trim(),
       transcript: input.transcript?.trim() ?? '',

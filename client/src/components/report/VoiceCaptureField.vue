@@ -3,7 +3,15 @@ import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
 
+const props = withDefaults(
+  defineProps<{
+    includeNote?: boolean
+  }>(),
+  { includeNote: true },
+)
+
 const transcript = defineModel<string>('transcript', { default: '' })
+const audioBlob = defineModel<Blob | null>('audioBlob', { default: null })
 
 const { t } = useLocale()
 const voice = useVoiceCapture()
@@ -15,6 +23,10 @@ watch(voice.transcript, (value) => {
   }
 })
 
+watch(voice.audioBlob, (value) => {
+  audioBlob.value = value
+})
+
 async function typeInstead() {
   await nextTick()
   note.value?.focus()
@@ -23,9 +35,10 @@ async function typeInstead() {
 function reset() {
   voice.reset()
   transcript.value = ''
+  audioBlob.value = null
 }
 
-defineExpose({ reset })
+defineExpose({ reset, stop: voice.stop })
 </script>
 
 <template>
@@ -57,7 +70,7 @@ defineExpose({ reset })
         {{ t('report.stopVoice') }}
       </button>
       <button
-        v-if="!voice.recording.value"
+        v-if="props.includeNote && !voice.recording.value"
         type="button"
         class="btn-ghost"
         @click="typeInstead"
@@ -66,7 +79,7 @@ defineExpose({ reset })
       </button>
     </div>
     <audio v-if="voice.audioUrl.value && !voice.recording.value" :src="voice.audioUrl.value" controls />
-    <label class="note">
+    <label v-if="props.includeNote" class="note">
       <span class="field-label">{{ t('report.transcript') }}</span>
       <textarea
         ref="note"

@@ -21,7 +21,10 @@ import { appName } from '../../config/appConfig'
             />
           </svg>
         </div>
-        <p class="name">{{ appName }}</p>
+        <div>
+          <p class="name">{{ appName }}</p>
+          <span class="civic-rule" aria-hidden="true" />
+        </div>
       </div>
     </header>
     <main class="auth-main">
@@ -60,7 +63,7 @@ import { appName } from '../../config/appConfig'
   height: 2rem;
   display: grid;
   place-items: center;
-  color: var(--ink);
+  color: var(--civic-bar);
 }
 
 .mark svg {
