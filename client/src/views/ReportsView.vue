@@ -142,7 +142,7 @@ function formatFiled(iso: string) {
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
     </GlassPanel>
 
-    <div v-else class="list">
+    <div v-else class="list cards">
       <IssueCard
         v-for="issue in filtered"
         :key="issue.id"
@@ -151,6 +151,36 @@ function formatFiled(iso: string) {
         @select="emit('openIssue', $event)"
       />
     </div>
+
+    <GlassPanel v-if="filtered.length > 0" padding="md" tone="paper" class="ledger">
+      <table :aria-label="t('reports.tableLabel')">
+        <thead>
+          <tr>
+            <th>{{ t('reports.colId') }}</th>
+            <th>{{ t('reports.colFiled') }}</th>
+            <th>{{ t('reports.colType') }}</th>
+            <th>{{ t('reports.colSeverity') }}</th>
+            <th>{{ t('reports.colLocation') }}</th>
+            <th>{{ t('reports.colStatus') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="issue in filtered"
+            :key="issue.id"
+            :class="{ highlighted: highlightIssueId === issue.id }"
+            @click="emit('openIssue', issue.id)"
+          >
+            <td class="id">{{ issue.trackingId }}</td>
+            <td>{{ formatFiled(issue.createdAt) }}</td>
+            <td>{{ t(`category.${issue.category}`) }}</td>
+            <td><SeverityPill :severity="issue.severity" /></td>
+            <td>{{ issue.locationLabel }}</td>
+            <td><StatusPill :status="issue.status" /></td>
+          </tr>
+        </tbody>
+      </table>
+    </GlassPanel>
   </section>
 </template>
 
@@ -218,6 +248,52 @@ function formatFiled(iso: string) {
   gap: 0.6rem;
 }
 
+.ledger {
+  display: none;
+  overflow: auto;
+}
+
+.ledger table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ledger th,
+.ledger td {
+  padding: 0.7rem 0.65rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+
+.ledger th {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ledger tbody tr {
+  cursor: pointer;
+}
+
+.ledger tbody tr:hover {
+  background: var(--surface);
+}
+
+.ledger tr.highlighted {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.ledger .id {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
 .results-count {
   margin: 0;
   font-size: 0.75rem;
@@ -253,6 +329,14 @@ function formatFiled(iso: string) {
   .select-wrap {
     min-width: 12rem;
   }
+
+  .cards {
+    display: none;
+  }
+
+  .ledger {
+    display: block;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -266,15 +350,4 @@ function formatFiled(iso: string) {
   }
 }
 
-@media (min-width: 1100px) {
-  .list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1500px) {
-  .list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 </style>

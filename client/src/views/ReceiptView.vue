@@ -54,8 +54,8 @@ function formatWhen(iso: string) {
         <p class="eyebrow">{{ t('receipt.eyebrow') }}</p>
         <h2 class="headline">{{ t('receipt.headline') }}</h2>
         <p class="lede">{{ t('receipt.lede') }}</p>
-        <p class="tracking">{{ issue.trackingId }}</p>
         <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
+        <p class="tracking">{{ issue.trackingId }}</p>
         <SpeakButton
           :text="confirmation"
           play-key="receipt.play"
@@ -148,23 +148,23 @@ function formatWhen(iso: string) {
   max-width: 48ch;
 }
 
-.tracking {
-  margin: 0.55rem 0 0;
-  font-size: clamp(1.8rem, 6vw, 2.4rem);
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  color: var(--text-h);
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-}
-
 .tracking-label {
-  margin: 0 0 0.35rem;
+  margin: 0.35rem 0 0;
   font-size: 0.7rem;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.tracking {
+  margin: 0 0 0.15rem;
+  font-size: clamp(1.55rem, 5.4vw, 2.25rem);
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  color: var(--text-h);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
 }
 
 .record {

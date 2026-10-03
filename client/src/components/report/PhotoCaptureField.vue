@@ -56,6 +56,7 @@ async function onFile(event: Event) {
 
 <style scoped>
 .field {
+  position: relative;
   display: grid;
   gap: 0.4rem;
 }

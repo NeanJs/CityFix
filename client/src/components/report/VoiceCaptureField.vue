@@ -1,16 +1,23 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
+
+const transcript = defineModel<string>('transcript', { default: '' })
 
 const { t } = useLocale()
 const voice = useVoiceCapture()
 
-defineExpose({
-  transcript: voice.transcript,
-  audioUrl: voice.audioUrl,
-  errorKey: voice.errorKey,
-  reset: voice.reset,
+watch(voice.transcript, (value) => {
+  transcript.value = value
 })
+
+function reset() {
+  voice.reset()
+  transcript.value = ''
+}
+
+defineExpose({ reset })
 </script>
 
 <template>

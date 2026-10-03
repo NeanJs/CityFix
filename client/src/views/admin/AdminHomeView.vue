@@ -1,14 +1,24 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
 import IssueCard from '../../components/IssueCard.vue'
 import AppHeader from '../../components/layout/AppHeader.vue'
+import SpeakButton from '../../components/SpeakButton.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 
-const { issues, openCount, resolvedCount } = useIssues()
+const { issues, openCount, resolvedCount, highSeverityCount, issuesCreatedOn } = useIssues()
 const { t } = useLocale()
 const router = useRouter()
+
+const briefing = computed(() => {
+  const today = issuesCreatedOn(new Date())
+  return t('adminHome.briefingSpeech', {
+    count: today.length,
+    high: today.filter((issue) => issue.severity === 'high').length,
+  })
+})
 
 const emit = defineEmits<{
   openIssue: [id: string]
@@ -24,9 +34,17 @@ const emit = defineEmits<{
         <p class="eyebrow">{{ t('adminHome.eyebrow') }}</p>
         <h2 class="headline">{{ t('adminHome.headline') }}</h2>
         <p class="lede">{{ t('adminHome.lede') }}</p>
-        <button type="button" class="btn" @click="router.push('/admin/reports')">
-          {{ t('adminHome.viewAll') }}
-        </button>
+        <div class="hero-actions">
+          <button type="button" class="btn" @click="router.push('/admin/reports')">
+            {{ t('adminHome.viewAll') }}
+          </button>
+          <SpeakButton
+            :text="briefing"
+            play-key="adminHome.playBriefing"
+            playing-key="adminHome.playingBriefing"
+            unavailable-key="adminHome.briefingUnavailable"
+          />
+        </div>
       </div>
     </GlassPanel>
 
@@ -42,6 +60,10 @@ const emit = defineEmits<{
       <GlassPanel padding="md" tone="paper" class="stat">
         <p class="stat-value">{{ issues.length }}</p>
         <p class="stat-label">{{ t('adminHome.onRecord') }}</p>
+      </GlassPanel>
+      <GlassPanel padding="md" tone="paper" class="stat">
+        <p class="stat-value">{{ highSeverityCount }}</p>
+        <p class="stat-label">{{ t('adminHome.highSeverity') }}</p>
       </GlassPanel>
     </div>
 
@@ -107,9 +129,16 @@ const emit = defineEmits<{
   max-width: 52ch;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: start;
+}
+
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
@@ -206,7 +235,7 @@ const emit = defineEmits<{
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-height: 5.25rem;
+    min-height: 4.25rem;
   }
 
   .list {

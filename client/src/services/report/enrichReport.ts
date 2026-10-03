@@ -43,7 +43,7 @@ export function buildReportSummary(
   categoryLabel: string,
   locationLabel: string,
 ) {
-  return `A ${severityLabel.toLowerCase()} ${categoryLabel.toLowerCase()} at ${locationLabel.trim()}.`
+  return `A ${severityLabel.toLowerCase()} severity ${categoryLabel.toLowerCase()} at ${locationLabel.trim()}.`
 }
 
 export function trackingIdFromInternal(id: string) {

@@ -23,7 +23,7 @@ const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'receive' | 'read' | 'file'>('receive')
-const voiceField = ref<InstanceType<typeof VoiceCaptureField> | null>(null)
+const voiceField = ref<{ reset: () => void } | null>(null)
 
 const form = reactive({
   title: '',
@@ -31,6 +31,7 @@ const form = reactive({
   category: 'pothole' as IssueCategory,
   locationLabel: '',
   photoDataUrl: '',
+  transcript: '',
 })
 
 const latitude = ref<number | undefined>()
@@ -40,12 +41,11 @@ const locationError = ref('')
 const submitError = ref('')
 
 const hasCoords = computed(() => latitude.value !== undefined && longitude.value !== undefined)
-const voiceTranscript = computed(() => voiceField.value?.transcript.value.trim() ?? '')
 const accountText = computed(() =>
   narrativeText({
     title: form.title,
     description: form.description,
-    transcript: voiceTranscript.value,
+    transcript: form.transcript,
     category: form.category,
   }),
 )
@@ -93,6 +93,7 @@ function resetForm() {
   form.category = 'pothole'
   form.locationLabel = ''
   form.photoDataUrl = ''
+  form.transcript = ''
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
@@ -110,7 +111,7 @@ async function submit() {
     return
   }
   submitError.value = ''
-  const note = voiceTranscript.value || form.description.trim()
+  const note = form.transcript.trim() || form.description.trim()
   if (!form.photoDataUrl || !note || !form.locationLabel.trim()) {
     submitError.value = t('report.incomplete')
     return
@@ -135,8 +136,8 @@ async function submit() {
     submitStage.value = 'file'
     const issue = await addIssue({
       title,
-      description: form.description.trim() || voiceTranscript.value,
-      transcript: voiceTranscript.value,
+      description: form.description.trim() || form.transcript.trim(),
+      transcript: form.transcript.trim(),
       summary,
       category: form.category,
       severity,
@@ -163,17 +164,16 @@ async function submit() {
       <form class="form" @submit.prevent="submit">
         <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
 
-        <VoiceCaptureField ref="voiceField" />
+        <VoiceCaptureField ref="voiceField" v-model:transcript="form.transcript" />
 
         <label class="field">
           <span>{{ t('report.transcript') }}</span>
           <textarea
+            v-model="form.transcript"
             class="control"
             rows="3"
             maxlength="800"
             :placeholder="t('report.transcriptPlaceholder')"
-            :value="voiceTranscript"
-            readonly
           />
         </label>
 
