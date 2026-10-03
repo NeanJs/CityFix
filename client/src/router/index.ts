@@ -101,12 +101,18 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  if (!user) {
-    return { path: '/login' }
+  if (requiredRole === 'staff') {
+    if (!user) {
+      return { path: '/login' }
+    }
+    if (user.role !== 'staff') {
+      return homePathForRole(user.role)
+    }
+    return true
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    return homePathForRole(user.role)
+  if (user?.role === 'staff') {
+    return homePathForRole('staff')
   }
 
   return true

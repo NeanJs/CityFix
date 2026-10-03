@@ -18,7 +18,7 @@ import {
 } from '../services/report/enrichReport'
 
 const { addIssue } = useIssues()
-const { currentUser } = useAuth()
+const { reporterId } = useAuth()
 const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
@@ -148,7 +148,7 @@ function goBack() {
 }
 
 async function submit() {
-  if (submitting.value || !currentUser.value) {
+  if (submitting.value) {
     return
   }
   submitError.value = ''
@@ -193,7 +193,7 @@ async function submit() {
       latitude: latitude.value,
       longitude: longitude.value,
       photoDataUrl: form.photoDataUrl,
-      reporterId: currentUser.value.id,
+      reporterId: reporterId.value,
     })
     await wait(280)
     resetForm()

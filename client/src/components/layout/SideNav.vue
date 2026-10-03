@@ -15,11 +15,15 @@ const props = defineProps<{
 const route = useRoute()
 const router = useRouter()
 const { t } = useLocale()
-const { logout } = useAuth()
+const { currentUser, logout } = useAuth()
 const activeName = computed(() => route.name)
 
-async function signOut() {
-  await logout()
+async function onAccount() {
+  if (currentUser.value) {
+    await logout()
+    await router.push('/')
+    return
+  }
   await router.push('/login')
 }
 </script>
@@ -47,8 +51,8 @@ async function signOut() {
     </nav>
 
     <div class="side-foot">
-      <button type="button" class="btn-ghost sign-out" @click="signOut">
-        {{ t('nav.logout') }}
+      <button type="button" class="btn-ghost sign-out" @click="onAccount">
+        {{ currentUser ? t('nav.logout') : t('nav.login') }}
       </button>
     </div>
   </aside>

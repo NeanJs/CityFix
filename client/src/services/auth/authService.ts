@@ -9,6 +9,7 @@ import { hashPassword } from './passwordHash'
 
 const usersKey = 'cityfix.users.v1'
 const sessionKey = 'cityfix.session.v1'
+const guestReporterKey = 'cityfix.guestReporter.v1'
 
 export type AuthErrorCode =
   | 'invalidCredentials'
@@ -29,6 +30,7 @@ export class AuthError extends Error {
 
 let users: User[] = []
 let session: AuthSession | null = null
+let guestReporterId = ''
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
 
@@ -108,6 +110,7 @@ export async function bootstrapAuth() {
       users = []
     }
     await seedUsersIfEmpty()
+    await ensureGuestReporter()
     try {
       const rawSession = await readStoreItem(sessionKey)
       if (rawSession) {
@@ -121,6 +124,24 @@ export async function bootstrapAuth() {
     }
   })()
   return bootstrapPromise
+}
+
+async function ensureGuestReporter() {
+  try {
+    const existing = await readStoreItem(guestReporterKey)
+    if (existing?.trim()) {
+      guestReporterId = existing.trim()
+      return
+    }
+  } catch {
+    guestReporterId = ''
+  }
+  guestReporterId = `guest-${createId()}`
+  await writeStoreItem(guestReporterKey, guestReporterId)
+}
+
+export function getGuestReporterId(): string {
+  return guestReporterId
 }
 
 export function getCurrentUser(): PublicUser | null {

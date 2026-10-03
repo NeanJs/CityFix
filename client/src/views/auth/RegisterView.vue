@@ -43,6 +43,8 @@ async function submit() {
     <h1 class="title">{{ t('auth.register') }}</h1>
     <p class="lead">{{ t('auth.registerLead') }}</p>
 
+    <RouterLink class="btn skip" to="/report">{{ t('auth.toReport') }}</RouterLink>
+
     <form class="form" @submit.prevent="submit">
       <label class="field">
         <span class="field-label">{{ t('auth.name') }}</span>
@@ -112,6 +114,11 @@ async function submit() {
 
 .submit {
   width: 100%;
+}
+
+.skip {
+  width: 100%;
+  text-decoration: none;
 }
 
 .error {

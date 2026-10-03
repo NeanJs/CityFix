@@ -15,7 +15,7 @@ import GlassPanel from '../components/ui/GlassPanel.vue'
 const route = useRoute()
 const router = useRouter()
 const { t } = useLocale()
-const { currentUser } = useAuth()
+const { reporterId } = useAuth()
 const { issues, issuesForReporter } = useIssues()
 
 const highlightIssueId = computed(() => {
@@ -29,10 +29,7 @@ const scopedIssues = computed(() => {
   if (isStaffQueue.value) {
     return issues.value
   }
-  if (!currentUser.value) {
-    return []
-  }
-  return issuesForReporter(currentUser.value.id)
+  return issuesForReporter(reporterId.value)
 })
 
 const emit = defineEmits<{

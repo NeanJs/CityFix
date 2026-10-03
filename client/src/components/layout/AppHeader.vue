@@ -9,11 +9,15 @@ defineProps<{
 }>()
 
 const { t } = useLocale()
-const { logout } = useAuth()
+const { currentUser, logout } = useAuth()
 const router = useRouter()
 
-async function signOut() {
-  await logout()
+async function onAccount() {
+  if (currentUser.value) {
+    await logout()
+    await router.push('/')
+    return
+  }
   await router.push('/login')
 }
 </script>
@@ -21,8 +25,8 @@ async function signOut() {
 <template>
   <header class="header">
     <h1 v-if="subtitle" class="page-title">{{ subtitle }}</h1>
-    <button v-if="showAccount" type="button" class="btn-ghost logout" @click="signOut">
-      {{ t('nav.logout') }}
+    <button v-if="showAccount" type="button" class="btn-ghost logout" @click="onAccount">
+      {{ currentUser ? t('nav.logout') : t('nav.login') }}
     </button>
   </header>
 </template>

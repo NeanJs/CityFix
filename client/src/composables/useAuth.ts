@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import {
   bootstrapAuth,
   getCurrentUser,
+  getGuestReporterId,
   login as loginUser,
   logout as logoutUser,
   register as registerUser,
@@ -9,6 +10,7 @@ import {
 import type { PublicUser, RegisterInput } from '../types/user'
 
 const currentUser = ref<PublicUser | null>(null)
+const guestReporterId = ref('')
 const ready = ref(false)
 let hydratePromise: Promise<void> | null = null
 
@@ -19,6 +21,7 @@ export async function hydrateAuth() {
   hydratePromise = (async () => {
     await bootstrapAuth()
     currentUser.value = getCurrentUser()
+    guestReporterId.value = getGuestReporterId()
     ready.value = true
   })()
   return hydratePromise
@@ -27,6 +30,7 @@ export async function hydrateAuth() {
 export function useAuth() {
   const isStaff = computed(() => currentUser.value?.role === 'staff')
   const isCitizen = computed(() => currentUser.value?.role === 'citizen')
+  const reporterId = computed(() => currentUser.value?.id ?? guestReporterId.value)
 
   async function login(email: string, password: string) {
     const user = await loginUser(email, password)
@@ -47,6 +51,7 @@ export function useAuth() {
 
   return {
     currentUser,
+    reporterId,
     isStaff,
     isCitizen,
     ready,

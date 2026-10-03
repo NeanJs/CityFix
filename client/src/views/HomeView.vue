@@ -8,14 +8,12 @@ import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 
-const { currentUser } = useAuth()
+const { reporterId } = useAuth()
 const { issuesForReporter } = useIssues()
 const { t } = useLocale()
 const router = useRouter()
 
-const recentIssues = computed(() =>
-  currentUser.value ? issuesForReporter(currentUser.value.id) : [],
-)
+const recentIssues = computed(() => issuesForReporter(reporterId.value))
 
 const openCount = computed(
   () => recentIssues.value.filter((issue) => issue.status !== 'resolved').length,

@@ -53,6 +53,8 @@ function demoLogin(role: UserRole) {
     <h1 class="title">{{ t('auth.signIn') }}</h1>
     <p class="lead">{{ t('auth.loginLead') }}</p>
 
+    <RouterLink class="btn skip" to="/report">{{ t('auth.toReport') }}</RouterLink>
+
     <div v-if="isDev" class="demo">
       <p class="field-label">{{ t('auth.demoTitle') }}</p>
       <button type="button" class="btn" :disabled="submitting" @click="demoLogin('citizen')">
@@ -128,6 +130,11 @@ function demoLogin(role: UserRole) {
 
 .submit {
   width: 100%;
+}
+
+.skip {
+  width: 100%;
+  text-decoration: none;
 }
 
 .error {
