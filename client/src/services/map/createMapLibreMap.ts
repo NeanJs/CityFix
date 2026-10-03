@@ -7,16 +7,12 @@ import {
 } from '../../config/mapConfig'
 import { ensureMapLibreWorker } from './ensureMapLibreWorker'
 
-export type CreateMapLibreMapOptions = Omit<MapOptions, 'container' | 'style'> & {
-  container: string | HTMLElement
-  style?: MapOptions['style']
-}
+export type CreateMapLibreMapOptions = MapOptions
 
 export function createMapLibreMap(options: CreateMapLibreMapOptions) {
   ensureMapLibreWorker()
 
   return new Map({
-    attributionControl: true,
     cooperativeGestures: true,
     fadeDuration: 0,
     style: resolveMapStyleUrl(),
