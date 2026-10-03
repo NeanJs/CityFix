@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { categoryLabel } from '../data/categories'
+import { useLocale } from '../composables/useLocale'
 import type { Issue, IssueStatus } from '../types/issue'
 import GlassPanel from './ui/GlassPanel.vue'
 import StatusPill from './StatusPill.vue'
@@ -8,6 +8,7 @@ import StatusPill from './StatusPill.vue'
 const props = defineProps<{
   issue: Issue | null
   open: boolean
+  canManageStatus?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,7 +16,14 @@ const emit = defineEmits<{
   statusChange: [id: string, status: IssueStatus]
 }>()
 
-const statusOptions: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
+const { t } = useLocale()
+
+const statusOptions: { id: IssueStatus; labelKey: string }[] = [
+  { id: 'submitted', labelKey: 'status.submitted' },
+  { id: 'in_review', labelKey: 'status.reviewShort' },
+  { id: 'scheduled', labelKey: 'status.scheduled' },
+  { id: 'resolved', labelKey: 'status.resolved' },
+]
 
 const timeline = computed(() => {
   if (!props.issue) {
@@ -24,8 +32,8 @@ const timeline = computed(() => {
   const created = new Date(props.issue.createdAt)
   const updated = new Date(props.issue.updatedAt)
   return [
-    { label: 'Reported', at: created },
-    { label: 'Last update', at: updated },
+    { label: t('sheet.reported'), at: created },
+    { label: t('sheet.updated'), at: updated },
   ]
 })
 
@@ -55,13 +63,13 @@ function onBackdropClick(event: MouseEvent) {
         @click="onBackdropClick"
       >
         <div class="sheet">
-          <GlassPanel padding="lg">
+          <GlassPanel padding="lg" tone="paper">
             <div class="sheet-head">
               <div>
-                <p class="category">{{ categoryLabel(issue.category) }}</p>
+                <p class="stamp">{{ t(`category.${issue.category}`) }}</p>
                 <h2 class="title">{{ issue.title }}</h2>
               </div>
-              <button type="button" class="close" aria-label="Close" @click="emit('close')">
+              <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path
                     d="M6 6l12 12M18 6 6 18"
@@ -73,12 +81,26 @@ function onBackdropClick(event: MouseEvent) {
               </button>
             </div>
 
-            <div class="status-row">
+            <div class="block">
+              <p class="row-label">{{ t('sheet.status') }}</p>
               <StatusPill :status="issue.status" />
-              <p class="location">{{ issue.locationLabel }}</p>
             </div>
 
-            <p class="description">{{ issue.description }}</p>
+            <div class="block">
+              <p class="row-label">{{ t('sheet.location') }}</p>
+              <p class="location">{{ issue.locationLabel }}</p>
+              <p
+                v-if="issue.latitude !== undefined && issue.longitude !== undefined"
+                class="coords hint"
+              >
+                {{ issue.latitude.toFixed(5) }}, {{ issue.longitude.toFixed(5) }}
+              </p>
+            </div>
+
+            <div class="block">
+              <p class="row-label">{{ t('sheet.description') }}</p>
+              <p class="description">{{ issue.description }}</p>
+            </div>
 
             <ul class="timeline">
               <li v-for="entry in timeline" :key="entry.label">
@@ -90,18 +112,18 @@ function onBackdropClick(event: MouseEvent) {
               </li>
             </ul>
 
-            <div class="actions">
-              <p class="actions-label">Update status</p>
+            <div v-if="canManageStatus" class="actions">
+              <p class="row-label">{{ t('sheet.advanceStatus') }}</p>
               <div class="status-buttons">
                 <button
                   v-for="status in statusOptions"
-                  :key="status"
+                  :key="status.id"
                   type="button"
                   class="status-btn"
-                  :class="{ active: issue.status === status }"
-                  @click="emit('statusChange', issue.id, status)"
+                  :class="{ active: issue.status === status.id }"
+                  @click="emit('statusChange', issue.id, status.id)"
                 >
-                  <StatusPill :status="status" />
+                  {{ t(status.labelKey) }}
                 </button>
               </div>
             </div>
@@ -120,8 +142,8 @@ function onBackdropClick(event: MouseEvent) {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
-  background: rgba(15, 23, 42, 0.45);
+  padding: 0.85rem 0.85rem calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(26, 24, 20, 0.42);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -137,34 +159,26 @@ function onBackdropClick(event: MouseEvent) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.category {
-  margin: 0 0 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  margin-bottom: 0.9rem;
 }
 
 .title {
-  margin: 0;
-  font-size: 1.25rem;
+  margin: 0.4rem 0 0;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-h);
-  line-height: 1.3;
+  line-height: 1.25;
+  font-family: var(--font-display);
 }
 
 .close {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.4rem;
+  height: 2.4rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--glass-border);
-  border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   color: var(--text-h);
   cursor: pointer;
 }
@@ -174,22 +188,33 @@ function onBackdropClick(event: MouseEvent) {
   height: 1rem;
 }
 
-.status-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
+.block {
   margin-bottom: 0.85rem;
+}
+
+.row-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .location {
   margin: 0;
-  font-size: 0.88rem;
-  color: var(--text-muted);
+  font-size: 0.92rem;
+  color: var(--text-h);
+  line-height: 1.45;
+}
+
+.coords {
+  margin: 0.3rem 0 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .description {
-  margin: 0 0 1rem;
+  margin: 0;
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text);
@@ -197,31 +222,30 @@ function onBackdropClick(event: MouseEvent) {
 
 .timeline {
   list-style: none;
-  margin: 0 0 1.1rem;
+  margin: 0 0 1rem;
   padding: 0;
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
 .timeline li {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.6rem;
   align-items: flex-start;
 }
 
 .dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  margin-top: 0.35rem;
-  border-radius: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.4rem;
+  border-radius: 0;
   background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.15);
 }
 
 .timeline-label {
   margin: 0;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--text-h);
 }
 
@@ -231,34 +255,30 @@ function onBackdropClick(event: MouseEvent) {
   color: var(--text-muted);
 }
 
-.actions-label {
-  margin: 0 0 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .status-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
 }
 
 .status-btn {
-  padding: 0;
-  border: none;
-  background: none;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   cursor: pointer;
-  border-radius: 999px;
-  opacity: 0.72;
-  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .status-btn.active {
-  opacity: 1;
-  transform: scale(1.03);
+  color: var(--text-h);
+  border-color: var(--accent);
+  background: var(--surface);
 }
 
 .sheet-enter-active,
@@ -279,5 +299,33 @@ function onBackdropClick(event: MouseEvent) {
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet {
   transform: translateY(16px);
+}
+
+@media (min-width: 1024px) {
+  .overlay {
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 1.25rem;
+  }
+
+  .sheet {
+    width: min(28rem, 38vw);
+    max-height: none;
+    height: 100%;
+  }
+
+  .sheet :deep(.panel) {
+    height: 100%;
+    overflow: auto;
+  }
+
+  .status-buttons {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .sheet-enter-from .sheet,
+  .sheet-leave-to .sheet {
+    transform: translateX(18px);
+  }
 }
 </style>

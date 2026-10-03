@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { issueCategories } from '../data/categories'
 import { useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
+import { useLocale } from '../composables/useLocale'
 import type { IssueCategory } from '../types/issue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 
 const { addIssue } = useIssues()
+const { currentUser } = useAuth()
+const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
 
@@ -24,10 +28,12 @@ const locating = ref(false)
 const locationError = ref('')
 const submitError = ref('')
 
+const hasCoords = computed(() => latitude.value !== undefined && longitude.value !== undefined)
+
 function useCurrentLocation() {
   locationError.value = ''
   if (!navigator.geolocation) {
-    locationError.value = 'Location is not available on this device.'
+    locationError.value = t('report.locationUnavailable')
     return
   }
   locating.value = true
@@ -42,7 +48,7 @@ function useCurrentLocation() {
     },
     () => {
       locating.value = false
-      locationError.value = 'Could not access your location. Enter an address instead.'
+      locationError.value = t('report.locationDenied')
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
   )
@@ -59,12 +65,12 @@ function resetForm() {
 }
 
 async function submit() {
-  if (submitting.value) {
+  if (submitting.value || !currentUser.value) {
     return
   }
   submitError.value = ''
   if (!form.title.trim() || !form.description.trim() || !form.locationLabel.trim()) {
-    submitError.value = 'Add a title, description, and location to continue.'
+    submitError.value = t('report.incomplete')
     return
   }
   submitting.value = true
@@ -76,6 +82,7 @@ async function submit() {
       locationLabel: form.locationLabel,
       latitude: latitude.value,
       longitude: longitude.value,
+      reporterId: currentUser.value.id,
     })
     resetForm()
     await router.push({ path: '/reports', query: { highlight: issue.id } })
@@ -87,61 +94,99 @@ async function submit() {
 
 <template>
   <section class="report">
-    <AppHeader subtitle="Tell the city what needs attention" />
+    <AppHeader :subtitle="t('report.title')" show-account />
 
-    <GlassPanel padding="lg" class="form-panel">
+    <GlassPanel padding="lg" tone="paper" class="form-panel">
       <form class="form" @submit.prevent="submit">
         <label class="field">
-          <span>Title</span>
-          <input v-model="form.title" type="text" maxlength="120" placeholder="Short summary" />
-        </label>
-
-        <label class="field">
-          <span>Category</span>
-          <select v-model="form.category">
-            <option v-for="cat in issueCategories" :key="cat.id" :value="cat.id">
-              {{ cat.label }} — {{ cat.hint }}
-            </option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Description</span>
-          <textarea
-            v-model="form.description"
-            rows="4"
-            maxlength="800"
-            placeholder="What happened? Include details crews should know."
+          <span>{{ t('report.fieldTitle') }}</span>
+          <input
+            v-model="form.title"
+            class="control"
+            type="text"
+            maxlength="120"
+            :placeholder="t('report.titlePlaceholder')"
+            autocomplete="off"
           />
         </label>
 
         <div class="field">
-          <span>Location</span>
+          <span>{{ t('report.category') }}</span>
+          <div class="category-row" role="group" :aria-label="t('report.category')">
+            <button
+              v-for="cat in issueCategories"
+              :key="cat.id"
+              type="button"
+              class="category-chip"
+              :class="{ active: form.category === cat.id }"
+              @click="form.category = cat.id"
+            >
+              {{ t(`category.${cat.id}`) }}
+            </button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>{{ t('report.description') }}</span>
+          <textarea
+            v-model="form.description"
+            class="control"
+            rows="4"
+            maxlength="800"
+            :placeholder="t('report.descriptionPlaceholder')"
+          />
+        </label>
+
+        <div class="field">
+          <span>{{ t('report.location') }}</span>
           <input
             v-model="form.locationLabel"
+            class="control"
             type="text"
             maxlength="160"
-            placeholder="Intersection, address, or landmark"
+            :placeholder="t('report.locationPlaceholder')"
+            autocomplete="street-address"
           />
           <button
             type="button"
-            class="ghost"
+            class="btn-ghost"
             :disabled="locating"
             @click="useCurrentLocation"
           >
-            {{ locating ? 'Locating…' : 'Use current location' }}
+            {{ locating ? t('report.locating') : t('report.useGps') }}
           </button>
+          <p v-if="hasCoords" class="coords hint">
+            {{ latitude?.toFixed(5) }}, {{ longitude?.toFixed(5) }}
+          </p>
           <p v-if="locationError" class="error">{{ locationError }}</p>
         </div>
 
-        <p v-if="submitError" class="error">{{ submitError }}</p>
+        <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
 
-        <button type="submit" class="submit" :disabled="submitting">
-          {{ submitting ? 'Submitting…' : 'Submit report' }}
+        <button type="submit" class="btn submit" :disabled="submitting">
+          {{ submitting ? t('report.submitting') : t('report.submit') }}
         </button>
       </form>
     </GlassPanel>
 
+    <GlassPanel padding="lg" tone="paper" class="summary">
+      <p class="section-kicker">{{ t('report.preview') }}</p>
+      <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
+      <dl class="summary-list">
+        <div>
+          <dt>{{ t('report.category') }}</dt>
+          <dd>{{ t(`category.${form.category}`) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('report.location') }}</dt>
+          <dd>{{ form.locationLabel.trim() || t('report.locationUnset') }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('report.gps') }}</dt>
+          <dd>{{ hasCoords ? t('report.gpsCaptured') : t('report.gpsOptional') }}</dd>
+        </div>
+      </dl>
+    </GlassPanel>
   </section>
 </template>
 
@@ -153,7 +198,7 @@ async function submit() {
 
 .form {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.95rem;
 }
 
 .field {
@@ -162,72 +207,103 @@ async function submit() {
 }
 
 .field > span {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
 }
 
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 0.65rem 0.8rem;
-  border-radius: 0.85rem;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-h);
-  font: inherit;
-  font-size: 0.92rem;
+.category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
-textarea {
-  resize: vertical;
-  min-height: 6.5rem;
-}
-
-.ghost {
-  width: fit-content;
-  margin-top: 0.15rem;
-  padding: 0.45rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--accent);
-  font-size: 0.8rem;
-  font-weight: 600;
+.category-chip {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
   cursor: pointer;
 }
 
-.ghost:disabled {
-  opacity: 0.6;
-  cursor: wait;
+.category-chip.active {
+  color: var(--text-h);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.coords {
+  font-variant-numeric: tabular-nums;
 }
 
 .submit {
-  margin-top: 0.25rem;
   width: 100%;
-  padding: 0.8rem 1rem;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #042f2e;
-  cursor: pointer;
-  background: linear-gradient(135deg, #5eead4, #38bdf8);
-  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.25);
-}
-
-.submit:disabled {
-  opacity: 0.7;
-  cursor: wait;
+  margin-top: 0.15rem;
 }
 
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #f87171;
+  color: #b42318;
 }
 
+.summary {
+  display: none;
+}
+
+.summary-title {
+  margin: 0 0 0.85rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-h);
+  font-family: var(--font-display);
+  line-height: 1.25;
+}
+
+.summary-list {
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.summary-list dt {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.summary-list dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+@media (min-width: 1024px) {
+  .report {
+    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.7fr);
+    align-items: start;
+  }
+
+  .report > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .summary {
+    display: block;
+    position: sticky;
+    top: 1.1rem;
+  }
+
+  .submit {
+    width: fit-content;
+  }
+}
 </style>

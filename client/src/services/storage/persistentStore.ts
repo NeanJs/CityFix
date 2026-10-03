@@ -16,3 +16,11 @@ export async function writeStoreItem(key: string, value: string): Promise<void> 
   }
   localStorage.setItem(key, value)
 }
+
+export async function removeStoreItem(key: string): Promise<void> {
+  if (isNativePlatform()) {
+    await Preferences.remove({ key })
+    return
+  }
+  localStorage.removeItem(key)
+}

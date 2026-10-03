@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { seedCitizenId } from '../data/seedUsers'
 import { seedIssues } from '../data/seedIssues'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
@@ -21,6 +22,13 @@ function createId() {
   return `issue-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function normalizeIssue(issue: Issue): Issue {
+  return {
+    ...issue,
+    reporterId: issue.reporterId || seedCitizenId,
+  }
+}
+
 export async function bootstrapIssues() {
   if (bootstrapPromise) {
     return bootstrapPromise
@@ -36,7 +44,7 @@ export async function bootstrapIssues() {
       if (raw) {
         const parsed = JSON.parse(raw) as Issue[]
         if (Array.isArray(parsed) && parsed.length > 0) {
-          issues.value = parsed
+          issues.value = parsed.map(normalizeIssue)
           storeReady.value = true
           return
         }
@@ -66,6 +74,10 @@ export function useIssues() {
     () => issues.value.filter((issue) => issue.status === 'resolved').length,
   )
 
+  function issuesForReporter(reporterId: string) {
+    return sortedIssues.value.filter((issue) => issue.reporterId === reporterId)
+  }
+
   async function addIssue(input: NewIssueInput) {
     const now = new Date().toISOString()
     const issue: Issue = {
@@ -77,6 +89,7 @@ export function useIssues() {
       locationLabel: input.locationLabel.trim(),
       latitude: input.latitude,
       longitude: input.longitude,
+      reporterId: input.reporterId,
       createdAt: now,
       updatedAt: now,
     }
@@ -108,6 +121,7 @@ export function useIssues() {
     issues: sortedIssues,
     openCount,
     resolvedCount,
+    issuesForReporter,
     addIssue,
     updateStatus,
     getIssue,

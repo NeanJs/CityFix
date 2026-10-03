@@ -1,15 +1,29 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { appName } from '../../config/appConfig'
+import { useAuth } from '../../composables/useAuth'
+import { useLocale } from '../../composables/useLocale'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 
 defineProps<{
   subtitle?: string
+  showAccount?: boolean
 }>()
+
+const { t } = useLocale()
+const { logout } = useAuth()
+const router = useRouter()
+
+async function signOut() {
+  await logout()
+  await router.push('/login')
+}
 </script>
 
 <template>
   <header class="header">
     <div class="brand">
-      <div class="mark" aria-hidden="true">
+      <div class="mark mark-mobile" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
           <path
             d="M12 2.5 4 8v8l8 5.5L20 16V8l-8-5.5Z"
@@ -23,53 +37,99 @@ defineProps<{
           />
         </svg>
       </div>
-      <div>
-        <p class="name">{{ appName }}</p>
-        <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
+      <div class="titles">
+        <p class="name name-mobile">{{ appName }}</p>
+        <h1 v-if="subtitle" class="page-title">{{ subtitle }}</h1>
       </div>
+    </div>
+    <div class="actions">
+      <LanguageSwitcher class="locale-mobile" />
+      <button v-if="showAccount" type="button" class="btn-ghost logout-mobile" @click="signOut">
+        {{ t('nav.logout') }}
+      </button>
     </div>
   </header>
 </template>
 
 <style scoped>
 .header {
-  padding: 0.25rem 0 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0 0.85rem;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
 .mark {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.4rem;
+  height: 2.4rem;
   display: grid;
   place-items: center;
-  border-radius: 0.95rem;
+  border-radius: var(--radius-md);
   color: var(--accent);
-  background: linear-gradient(145deg, rgba(45, 212, 191, 0.25), rgba(14, 165, 233, 0.12));
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .mark svg {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.titles {
+  min-width: 0;
 }
 
 .name {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-h);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-.subtitle {
+.page-title {
   margin: 0.1rem 0 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  font-family: var(--font-display);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.logout-mobile {
+  min-height: 2.4rem;
+}
+
+@media (min-width: 1024px) {
+  .mark-mobile,
+  .name-mobile,
+  .locale-mobile,
+  .logout-mobile {
+    display: none;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 1.7rem;
+  }
 }
 </style>

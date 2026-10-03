@@ -17,6 +17,7 @@ export type Issue = {
   locationLabel: string
   latitude?: number
   longitude?: number
+  reporterId: string
   createdAt: string
   updatedAt: string
 }
@@ -28,4 +29,5 @@ export type NewIssueInput = {
   locationLabel: string
   latitude?: number
   longitude?: number
+  reporterId: string
 }

@@ -1,4 +1,5 @@
 import type { Issue } from '../types/issue'
+import { seedCitizenId } from './seedUsers'
 
 export const seedIssues: Issue[] = [
   {
@@ -10,6 +11,7 @@ export const seedIssues: Issue[] = [
     locationLabel: 'Main St & 4th Ave',
     latitude: 49.2827,
     longitude: -123.1207,
+    reporterId: seedCitizenId,
     createdAt: '2026-03-28T14:20:00.000Z',
     updatedAt: '2026-03-29T09:10:00.000Z',
   },
@@ -20,6 +22,7 @@ export const seedIssues: Issue[] = [
     category: 'lighting',
     status: 'scheduled',
     locationLabel: 'Harbor Park, north gate',
+    reporterId: seedCitizenId,
     createdAt: '2026-03-25T22:05:00.000Z',
     updatedAt: '2026-03-27T16:40:00.000Z',
   },
@@ -30,6 +33,7 @@ export const seedIssues: Issue[] = [
     category: 'trash',
     status: 'resolved',
     locationLabel: 'Oak Plaza bus stop',
+    reporterId: seedCitizenId,
     createdAt: '2026-03-20T11:30:00.000Z',
     updatedAt: '2026-03-22T08:15:00.000Z',
   },

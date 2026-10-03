@@ -1,33 +1,35 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { NavItem } from '../../config/nav'
+import { useLocale } from '../../composables/useLocale'
+
+const props = defineProps<{
+  items: readonly NavItem[]
+  ariaLabel: string
+}>()
 
 const route = useRoute()
 const router = useRouter()
-
-const items = [
-  { name: 'home', path: '/', label: 'Home' },
-  { name: 'reports', path: '/reports', label: 'Reports' },
-  { name: 'report', path: '/report', label: 'Report' },
-] as const
-
+const { t } = useLocale()
 const activeName = computed(() => route.name)
+const columns = computed(() => props.items.length)
 </script>
 
 <template>
-  <nav class="nav" aria-label="Primary">
-    <div class="dock">
+  <nav class="nav" :aria-label="ariaLabel">
+    <div class="dock" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
       <button
         v-for="item in items"
         :key="item.name"
         type="button"
         class="item"
-        :class="{ active: activeName === item.name }"
+        :class="{ active: activeName === item.name, emphasis: item.emphasis }"
         :aria-current="activeName === item.name ? 'page' : undefined"
         @click="router.push(item.path)"
       >
         <span class="icon" aria-hidden="true">
-          <svg v-if="item.name === 'home'" viewBox="0 0 24 24" fill="none">
+          <svg v-if="item.icon === 'home' || item.icon === 'dashboard'" viewBox="0 0 24 24" fill="none">
             <path
               d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
               stroke="currentColor"
@@ -35,15 +37,7 @@ const activeName = computed(() => route.name)
               stroke-linejoin="round"
             />
           </svg>
-          <svg v-else-if="item.name === 'reports'" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2-3-2V6a2 2 0 0 1 2-2Z"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none">
+          <svg v-else-if="item.icon === 'report'" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 5v14M5 12h14"
               stroke="currentColor"
@@ -51,8 +45,16 @@ const activeName = computed(() => route.name)
               stroke-linecap="round"
             />
           </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none">
+            <path
+              d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2-3-2V6a2 2 0 0 1 2-2Z"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+          </svg>
         </span>
-        <span class="label">{{ item.label }}</span>
+        <span class="label">{{ t(item.labelKey) }}</span>
       </button>
     </div>
   </nav>
@@ -65,7 +67,7 @@ const activeName = computed(() => route.name)
   right: 0;
   bottom: 0;
   z-index: 30;
-  padding: 0.5rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.45rem 0.85rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 
@@ -80,14 +82,13 @@ const activeName = computed(() => route.name)
   max-width: 28rem;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
-  padding: 0.45rem;
-  border-radius: 1.25rem;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border);
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--dock-shadow);
 }
 
@@ -96,33 +97,50 @@ const activeName = computed(() => route.name)
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.55rem 0.35rem;
-  border: none;
-  border-radius: 0.95rem;
+  padding: 0.45rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition:
     background 0.2s ease,
     color 0.2s ease,
+    border-color 0.2s ease,
     transform 0.15s ease;
 }
 
 .item:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .item.active {
   color: var(--text-h);
-  background: linear-gradient(160deg, rgba(45, 212, 191, 0.22), rgba(14, 165, 233, 0.12));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.item.emphasis .icon {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+
+.item.emphasis.active .icon {
+  background: var(--accent-hover);
 }
 
 .icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .label {
