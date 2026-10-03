@@ -56,14 +56,11 @@ import { appName } from '../../config/appConfig'
 }
 
 .mark {
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2rem;
+  height: 2rem;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  color: var(--ink);
 }
 
 .mark svg {
@@ -73,8 +70,8 @@ import { appName } from '../../config/appConfig'
 
 .name {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--text-h);
   font-family: var(--font-display);

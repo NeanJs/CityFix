@@ -214,7 +214,7 @@ async function submit() {
       <li :class="{ active: step === 3 }">{{ t('report.stepPlace') }}</li>
     </ol>
 
-    <GlassPanel padding="lg" tone="paper" class="form-panel">
+    <GlassPanel padding="lg" tone="fill" class="form-panel">
       <form class="form" @submit.prevent="submit">
         <PhotoCaptureField v-if="step === 1" v-model:photo-data-url="form.photoDataUrl" />
 
@@ -279,7 +279,7 @@ async function submit() {
             </label>
           </details>
 
-          <GlassPanel padding="md" tone="paper" class="mobile-preview">
+          <GlassPanel padding="md" tone="fill" class="mobile-preview">
             <p class="section-kicker">{{ t('report.preview') }}</p>
             <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
             <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
@@ -316,7 +316,7 @@ async function submit() {
       </form>
     </GlassPanel>
 
-    <GlassPanel padding="lg" tone="paper" class="summary">
+    <GlassPanel padding="lg" tone="fill" class="summary">
       <p class="section-kicker">{{ t('report.preview') }}</p>
       <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
       <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
@@ -411,9 +411,9 @@ async function submit() {
 .category-chip {
   min-height: 2.25rem;
   padding: 0.35rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: #f1f0f0;
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 650;
@@ -421,9 +421,8 @@ async function submit() {
 }
 
 .category-chip.active {
-  color: var(--text-h);
-  border-color: var(--accent);
-  background: var(--surface);
+  color: var(--accent-ink);
+  background: var(--ink);
 }
 
 .coords {
@@ -505,12 +504,7 @@ async function submit() {
   display: grid;
   gap: 0.45rem;
   padding: 0.75rem 0.85rem;
-  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--dock-shadow);
 }
 
 .sticky-status {

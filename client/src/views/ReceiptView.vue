@@ -40,7 +40,7 @@ function formatWhen(iso: string) {
   <section class="receipt">
     <AppHeader :subtitle="t('receipt.title')" show-account />
 
-    <GlassPanel v-if="!issue" padding="lg" tone="paper" class="empty">
+    <GlassPanel v-if="!issue" padding="lg" tone="fill" class="empty">
       <p class="empty-title">{{ t('receipt.missingTitle') }}</p>
       <p class="hint">{{ t('receipt.missingHint') }}</p>
       <button type="button" class="btn" @click="router.push('/report')">
@@ -48,7 +48,7 @@ function formatWhen(iso: string) {
       </button>
     </GlassPanel>
 
-    <GlassPanel v-else padding="lg" tone="paper" class="record">
+    <GlassPanel v-else padding="lg" tone="fill" class="record">
       <p class="headline">{{ t('receipt.headline') }}</p>
       <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
       <p class="tracking">{{ issue.trackingId }}</p>
@@ -94,7 +94,7 @@ function formatWhen(iso: string) {
   margin: 0;
   font-size: clamp(1.35rem, 4vw, 1.85rem);
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.03em;
   color: var(--text-h);
   font-family: var(--font-display);

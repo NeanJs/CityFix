@@ -95,8 +95,8 @@ defineExpose({ reset })
   min-height: 3.25rem;
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 .meter.live {

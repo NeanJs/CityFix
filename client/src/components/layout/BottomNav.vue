@@ -18,7 +18,7 @@ const columns = computed(() => props.items.length)
 
 <template>
   <nav class="nav" :aria-label="ariaLabel">
-    <div class="dock" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
+    <div class="dock glass-dock" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
       <button
         v-for="item in items"
         :key="item.name"
@@ -83,13 +83,8 @@ const columns = computed(() => props.items.length)
   margin: 0 auto;
   display: grid;
   gap: 0.3rem;
-  padding: 0.4rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--dock-shadow);
+  padding: 0.3rem;
+  border-radius: var(--radius-pill);
 }
 
 .item {
@@ -98,13 +93,12 @@ const columns = computed(() => props.items.length)
   align-items: center;
   gap: 0.2rem;
   padding: 0.45rem 0.3rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: none;
+  border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-muted);
-  font-size: 0.66rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 500;
   cursor: pointer;
   transition:
     background 0.2s ease,
@@ -119,23 +113,11 @@ const columns = computed(() => props.items.length)
 
 .item.active {
   color: var(--text-h);
-  background: var(--surface);
-  border-color: var(--border);
+  background: #f1f0f0;
 }
 
 .item.emphasis .icon {
-  width: 2rem;
-  height: 2rem;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: 1px solid var(--accent);
-}
-
-.item.emphasis.active .icon {
-  background: var(--accent-hover);
+  color: var(--text-h);
 }
 
 .icon svg {

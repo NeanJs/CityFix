@@ -49,7 +49,7 @@ function demoLogin(role: UserRole) {
 </script>
 
 <template>
-  <GlassPanel padding="lg" tone="paper" class="card">
+  <GlassPanel padding="lg" tone="fill" class="card">
     <h1 class="title">{{ t('auth.signIn') }}</h1>
     <p class="lead">{{ t('auth.loginLead') }}</p>
 
@@ -98,8 +98,9 @@ function demoLogin(role: UserRole) {
 
 .title {
   margin: 0;
-  font-size: 1.55rem;
-  font-weight: 700;
+  font-size: 2.25rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   font-family: var(--font-display);
   color: var(--text-h);
 }
@@ -136,9 +137,9 @@ function demoLogin(role: UserRole) {
 }
 
 .switch {
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 650;
+  color: var(--text-h);
+  font-size: 0.88rem;
+  font-weight: 500;
   text-decoration: none;
 }
 </style>

@@ -87,7 +87,7 @@ useAndroidBackHandler(detailOpen, closeDetail)
 @media (min-width: 1024px) {
   .shell {
     display: grid;
-    grid-template-columns: 15.5rem minmax(0, 1fr);
+    grid-template-columns: 14.5rem minmax(0, 1fr);
     align-items: start;
   }
 }

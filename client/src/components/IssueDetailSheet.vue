@@ -85,7 +85,7 @@ function advance() {
         @click="onBackdropClick"
       >
         <div class="sheet">
-          <GlassPanel padding="lg" tone="paper">
+          <GlassPanel padding="lg" tone="fill">
             <div class="sheet-head">
               <div>
                 <p class="stamp">{{ issue.trackingId }}</p>
@@ -180,9 +180,7 @@ function advance() {
   align-items: flex-end;
   justify-content: center;
   padding: 0.85rem 0.85rem calc(6.75rem + env(safe-area-inset-bottom, 0px));
-  background: rgba(18, 24, 32, 0.46);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(9, 9, 10, 0.28);
 }
 
 .sheet {
@@ -201,8 +199,8 @@ function advance() {
 
 .title {
   margin: 0.4rem 0 0;
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 1.7rem;
+  font-weight: 400;
   color: var(--text-h);
   line-height: 1.25;
   font-family: var(--font-display);
@@ -219,7 +217,7 @@ function advance() {
   object-fit: cover;
   margin: 0.9rem 0;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: none;
 }
 
 .pills {
@@ -234,9 +232,9 @@ function advance() {
   height: 2.4rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: #f1f0f0;
   color: var(--text-h);
   cursor: pointer;
 }
@@ -252,8 +250,8 @@ function advance() {
 
 .row-label {
   margin: 0 0 0.3rem;
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: 0.88rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 

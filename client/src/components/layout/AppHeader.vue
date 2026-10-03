@@ -30,17 +30,17 @@ async function signOut() {
 <style scoped>
 .header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.1rem 0 0.75rem;
+  padding: 0.35rem 0 1.25rem;
 }
 
 .page-title {
   margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 2.25rem;
+  font-weight: 400;
+  line-height: 1.16;
   letter-spacing: -0.02em;
   color: var(--text-h);
   font-family: var(--font-display);
@@ -56,7 +56,7 @@ async function signOut() {
   }
 
   .page-title {
-    font-size: 1.7rem;
+    font-size: 2.75rem;
   }
 }
 </style>

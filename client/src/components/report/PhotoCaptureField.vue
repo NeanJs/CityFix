@@ -69,8 +69,8 @@ async function onFile(event: Event) {
   padding: 0;
   overflow: hidden;
   border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  background: #f1f0f0;
   color: var(--text-muted);
   cursor: pointer;
 }

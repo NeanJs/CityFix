@@ -123,7 +123,7 @@ watch(mapOpen, async () => {
           </div>
         </div>
 
-        <GlassPanel v-if="queue.length === 0" padding="lg" tone="paper" class="empty">
+        <GlassPanel v-if="queue.length === 0" padding="lg" tone="fill" class="empty">
           <p class="empty-title">{{ t('adminHome.emptyTitle') }}</p>
           <p class="hint">{{ t('adminHome.emptyHint') }}</p>
         </GlassPanel>
@@ -140,7 +140,7 @@ watch(mapOpen, async () => {
         </div>
       </div>
 
-      <GlassPanel padding="sm" tone="paper" class="map-panel" :class="{ collapsed: !mapOpen }">
+      <GlassPanel padding="sm" tone="fill" class="map-panel" :class="{ collapsed: !mapOpen }">
         <div class="map-head">
           <h2 class="section-title">{{ t('adminHome.map') }}</h2>
           <button type="button" class="btn-ghost map-toggle" @click="toggleMap">
@@ -158,14 +158,17 @@ watch(mapOpen, async () => {
 <style scoped>
 .desk {
   display: grid;
-  gap: 0.85rem;
+  gap: 1.5rem;
 }
 
 .stats {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.75rem;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 1.1rem 0.2rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 .stats::-webkit-scrollbar {
@@ -174,34 +177,34 @@ watch(mapOpen, async () => {
 
 .stat {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.2rem;
   justify-items: start;
-  flex: 1 0 6.25rem;
-  min-height: 3.1rem;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
+  flex: 1 0 6.5rem;
+  padding: 0.25rem 0.85rem;
+  border: none;
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
-.stat.active {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+.stat.active .stat-value {
+  color: var(--text-h);
 }
 
 .stat-value {
-  font-size: 1.2rem;
-  font-weight: 750;
-  color: var(--text-h);
+  font-size: 2.4rem;
+  font-weight: 400;
+  line-height: 1.05;
   letter-spacing: -0.03em;
+  color: var(--text-h);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: 0.88rem;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -226,16 +229,14 @@ watch(mapOpen, async () => {
 .section-title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-h);
-  font-family: var(--font-display);
 }
 
 .map-body {
   height: 14rem;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
 }
 
 .queue {
@@ -269,7 +270,7 @@ watch(mapOpen, async () => {
 
 .list {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
 
 @media (min-width: 720px) {

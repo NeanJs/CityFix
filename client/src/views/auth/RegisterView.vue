@@ -39,7 +39,7 @@ async function submit() {
 </script>
 
 <template>
-  <GlassPanel padding="lg" tone="paper" class="card">
+  <GlassPanel padding="lg" tone="fill" class="card">
     <h1 class="title">{{ t('auth.register') }}</h1>
     <p class="lead">{{ t('auth.registerLead') }}</p>
 
@@ -87,8 +87,9 @@ async function submit() {
 
 .title {
   margin: 0;
-  font-size: 1.55rem;
-  font-weight: 700;
+  font-size: 2.25rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   font-family: var(--font-display);
   color: var(--text-h);
 }

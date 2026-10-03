@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { useLocale } from '../composables/useLocale'
 import { nextStatus } from '../services/report/statusFlow'
 import type { Issue } from '../types/issue'
-import GlassPanel from './ui/GlassPanel.vue'
 import SeverityPill from './SeverityPill.vue'
 import StatusPill from './StatusPill.vue'
 
@@ -46,68 +45,73 @@ function onAdvance(event: Event) {
     @keydown.enter.prevent="emit('select', props.issue.id)"
     @keydown.space.prevent="emit('select', props.issue.id)"
   >
-    <GlassPanel padding="md" tone="paper" interactive>
-      <div class="body">
-        <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
-          <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
+    <div class="body">
+      <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
+        <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
+      </div>
+      <div class="copy">
+        <div class="topline">
+          <h3 class="title">{{ props.issue.title }}</h3>
+          <StatusPill :status="props.issue.status" />
         </div>
-        <div class="copy">
-          <div class="topline">
-            <h3 class="title">{{ props.issue.title }}</h3>
-            <StatusPill :status="props.issue.status" />
-          </div>
-          <p class="location">{{ props.issue.locationLabel }}</p>
-          <div class="meta">
-            <span class="stamp">{{ props.issue.trackingId }}</span>
-            <SeverityPill :severity="props.issue.severity" />
-            <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
-            <button
-              v-if="props.showAdvance && upcoming"
-              type="button"
-              class="btn advance"
-              @click="onAdvance"
-            >
-              {{ t('adminHome.advance') }}
-            </button>
-          </div>
+        <p class="location">{{ props.issue.locationLabel }}</p>
+        <div class="meta">
+          <span class="stamp">{{ props.issue.trackingId }}</span>
+          <SeverityPill :severity="props.issue.severity" />
+          <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
+          <button
+            v-if="props.showAdvance && upcoming"
+            type="button"
+            class="btn advance"
+            @click="onAdvance"
+          >
+            {{ t('adminHome.advance') }}
+          </button>
         </div>
       </div>
-    </GlassPanel>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .issue-card {
   width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
   text-align: left;
   cursor: pointer;
   color: inherit;
   font: inherit;
 }
 
-.issue-card.highlighted :deep(.panel) {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 1px var(--accent),
-    var(--paper-shadow);
+.issue-card.highlighted {
+  background: var(--surface);
+}
+
+.issue-card.highlighted .title {
+  color: var(--ink);
+}
+
+@media (hover: hover) {
+  .issue-card:hover {
+    background: var(--surface);
+  }
 }
 
 .body {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.85rem;
   align-items: stretch;
 }
 
 .thumb-wrap {
   flex-shrink: 0;
   width: 4.5rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
+  background: #f1f0f0;
 }
 
 .thumb {
@@ -122,7 +126,7 @@ function onAdvance(event: Event) {
   min-width: 0;
   flex: 1;
   display: grid;
-  gap: 0.3rem;
+  gap: 0.25rem;
   align-content: start;
 }
 
@@ -136,14 +140,14 @@ function onAdvance(event: Event) {
 .title {
   margin: 0;
   font-size: 1.02rem;
-  font-weight: 650;
+  font-weight: 500;
   color: var(--text-h);
   line-height: 1.3;
 }
 
 .location {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.4;
 }
@@ -152,19 +156,19 @@ function onAdvance(event: Event) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .when {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .advance {
-  min-height: 2.15rem;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.78rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.8rem;
 }
 
 @media (min-width: 720px) {

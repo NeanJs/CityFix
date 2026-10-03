@@ -86,7 +86,7 @@ function formatFiled(iso: string) {
       show-account
     />
 
-    <GlassPanel padding="md" tone="paper" class="toolbar">
+    <GlassPanel padding="md" tone="fill" class="toolbar">
       <label class="search">
         <span class="sr-label">{{ t('reports.search') }}</span>
         <input
@@ -125,7 +125,7 @@ function formatFiled(iso: string) {
       {{ t('reports.count', { filtered: filtered.length, total: scopedIssues.length }) }}
     </p>
 
-    <GlassPanel v-if="scopedIssues.length === 0" padding="lg" tone="paper" class="empty">
+    <GlassPanel v-if="scopedIssues.length === 0" padding="lg" tone="fill" class="empty">
       <p class="empty-title">
         {{ t(isStaffQueue ? 'reports.emptyStaffTitle' : 'reports.emptyCitizenTitle') }}
       </p>
@@ -137,7 +137,7 @@ function formatFiled(iso: string) {
       </button>
     </GlassPanel>
 
-    <GlassPanel v-else-if="filtered.length === 0" padding="lg" tone="paper" class="empty">
+    <GlassPanel v-else-if="filtered.length === 0" padding="lg" tone="fill" class="empty">
       <p class="empty-title">{{ t('reports.noMatches') }}</p>
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
     </GlassPanel>
@@ -163,7 +163,7 @@ function formatFiled(iso: string) {
         />
       </div>
 
-      <GlassPanel padding="md" tone="paper" class="ledger">
+      <GlassPanel padding="md" tone="fill" class="ledger">
         <table :aria-label="t('reports.tableLabel')">
           <thead>
             <tr>
@@ -240,24 +240,23 @@ function formatFiled(iso: string) {
   flex-shrink: 0;
   min-height: 2.15rem;
   padding: 0.35rem 0.65rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
+  border-radius: var(--radius-pill);
+  border: none;
+  background: #f1f0f0;
   color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 650;
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .chip.active {
-  color: var(--text-h);
-  border-color: var(--accent);
-  background: var(--surface);
+  color: var(--accent-ink);
+  background: var(--ink);
 }
 
 .list {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .ledger {
