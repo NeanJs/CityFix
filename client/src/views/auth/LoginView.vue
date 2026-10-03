@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import GlassPanel from '../../components/ui/GlassPanel.vue'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 import { demoAccounts, demoPassword } from '../../data/seedUsers'
 import { AuthError, homePathForRole } from '../../services/auth/authService'
-import GlassPanel from '../../components/ui/GlassPanel.vue'
+import type { UserRole } from '../../types/user'
 
 const { t } = useLocale()
 const { login } = useAuth()
@@ -17,14 +18,14 @@ const submitting = ref(false)
 const errorKey = ref('')
 const isDev = import.meta.env.DEV
 
-async function submit() {
+async function signIn(nextEmail: string, nextPassword: string) {
   if (submitting.value) {
     return
   }
   errorKey.value = ''
   submitting.value = true
   try {
-    const user = await login(email.value, password.value)
+    const user = await login(nextEmail, nextPassword)
     await router.replace(homePathForRole(user.role))
   } catch (error) {
     errorKey.value =
@@ -33,6 +34,18 @@ async function submit() {
     submitting.value = false
   }
 }
+
+function submit() {
+  return signIn(email.value, password.value)
+}
+
+function demoLogin(role: UserRole) {
+  const account = demoAccounts.find((item) => item.role === role)
+  if (!account) {
+    return
+  }
+  return signIn(account.email, demoPassword)
+}
 </script>
 
 <template>
@@ -40,9 +53,20 @@ async function submit() {
     <h1 class="title">{{ t('auth.signIn') }}</h1>
     <p class="lead">{{ t('auth.loginLead') }}</p>
 
+    <div v-if="isDev" class="demo">
+      <p class="field-label">{{ t('auth.demoTitle') }}</p>
+      <button type="button" class="btn" :disabled="submitting" @click="demoLogin('citizen')">
+        {{ t('auth.demoCitizen') }}
+      </button>
+      <button type="button" class="btn-secondary" :disabled="submitting" @click="demoLogin('staff')">
+        {{ t('auth.demoStaff') }}
+      </button>
+    </div>
+
     <form class="form" @submit.prevent="submit">
+      <p v-if="isDev" class="field-label">{{ t('auth.orManual') }}</p>
       <label class="field">
-        <span>{{ t('auth.email') }}</span>
+        <span class="field-label">{{ t('auth.email') }}</span>
         <input
           v-model="email"
           class="control"
@@ -52,7 +76,7 @@ async function submit() {
         />
       </label>
       <label class="field">
-        <span>{{ t('auth.password') }}</span>
+        <span class="field-label">{{ t('auth.password') }}</span>
         <input v-model="password" class="control" type="password" autocomplete="current-password" />
       </label>
       <p v-if="errorKey" class="error" role="alert">{{ t(errorKey) }}</p>
@@ -62,14 +86,6 @@ async function submit() {
     </form>
 
     <RouterLink class="switch" to="/register">{{ t('auth.toRegister') }}</RouterLink>
-
-    <div v-if="isDev" class="demo">
-      <p class="demo-title">{{ t('auth.demoTitle') }}</p>
-      <p v-for="account in demoAccounts" :key="account.id" class="hint">
-        {{ account.role === 'staff' ? t('auth.demoStaff') : t('auth.demoCitizen') }}:
-        {{ account.email }} / {{ demoPassword }}
-      </p>
-    </div>
   </GlassPanel>
 </template>
 
@@ -77,7 +93,7 @@ async function submit() {
 .card {
   width: min(100%, 26rem);
   display: grid;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 
 .title {
@@ -91,7 +107,12 @@ async function submit() {
 .lead {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
+}
+
+.demo {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .form {
@@ -104,14 +125,6 @@ async function submit() {
   gap: 0.35rem;
 }
 
-.field > span {
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
 .submit {
   width: 100%;
 }
@@ -119,7 +132,7 @@ async function submit() {
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #b42318;
+  color: var(--danger);
 }
 
 .switch {
@@ -127,21 +140,5 @@ async function submit() {
   font-size: 0.85rem;
   font-weight: 650;
   text-decoration: none;
-}
-
-.demo {
-  display: grid;
-  gap: 0.25rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--border);
-}
-
-.demo-title {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 </style>

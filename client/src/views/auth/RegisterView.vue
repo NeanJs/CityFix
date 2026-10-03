@@ -45,7 +45,7 @@ async function submit() {
 
     <form class="form" @submit.prevent="submit">
       <label class="field">
-        <span>{{ t('auth.name') }}</span>
+        <span class="field-label">{{ t('auth.name') }}</span>
         <input
           v-model="displayName"
           class="control"
@@ -55,7 +55,7 @@ async function submit() {
         />
       </label>
       <label class="field">
-        <span>{{ t('auth.email') }}</span>
+        <span class="field-label">{{ t('auth.email') }}</span>
         <input
           v-model="email"
           class="control"
@@ -65,7 +65,7 @@ async function submit() {
         />
       </label>
       <label class="field">
-        <span>{{ t('auth.password') }}</span>
+        <span class="field-label">{{ t('auth.password') }}</span>
         <input v-model="password" class="control" type="password" autocomplete="new-password" />
       </label>
       <p v-if="errorKey" class="error" role="alert">{{ t(errorKey) }}</p>
@@ -109,14 +109,6 @@ async function submit() {
   gap: 0.35rem;
 }
 
-.field > span {
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
 .submit {
   width: 100%;
 }
@@ -124,7 +116,7 @@ async function submit() {
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #b42318;
+  color: var(--danger);
 }
 
 .switch {

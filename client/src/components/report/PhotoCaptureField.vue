@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { compressImageFile } from '../../services/media/compressImage'
+import { ref } from 'vue'
 
 const photoDataUrl = defineModel<string>('photoDataUrl', { default: '' })
 
@@ -28,16 +28,17 @@ async function onFile(event: Event) {
 
 <template>
   <div class="field">
-    <span>{{ t('report.photo') }}</span>
+    <span class="field-label">{{ t('report.photo') }}</span>
     <p class="hint">{{ t('report.photoHint') }}</p>
-    <div v-if="photoDataUrl" class="preview">
-      <img :src="photoDataUrl" alt="" />
-    </div>
+    <button type="button" class="stage" @click="cameraInput?.click()">
+      <img v-if="photoDataUrl" :src="photoDataUrl" alt="" />
+      <span v-else class="stage-empty">{{ t('report.takePhoto') }}</span>
+    </button>
     <div class="actions">
-      <button type="button" class="btn-ghost" @click="cameraInput?.click()">
+      <button type="button" class="btn" @click="cameraInput?.click()">
         {{ photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto') }}
       </button>
-      <button type="button" class="btn-ghost" @click="galleryInput?.click()">
+      <button type="button" class="btn-secondary" @click="galleryInput?.click()">
         {{ t('report.choosePhoto') }}
       </button>
     </div>
@@ -58,29 +59,33 @@ async function onFile(event: Event) {
 .field {
   position: relative;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
-.field > span {
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
-.preview {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+.stage {
+  display: grid;
+  place-items: center;
+  min-height: 16rem;
+  padding: 0;
   overflow: hidden;
-  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
-.preview img {
+.stage img {
   display: block;
   width: 100%;
-  max-height: 16rem;
+  height: 16rem;
   object-fit: cover;
+}
+
+.stage-empty {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--text-h);
 }
 
 .actions {
@@ -100,6 +105,14 @@ async function onFile(event: Event) {
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #b42318;
+  color: var(--danger);
+}
+
+@media (min-width: 720px) {
+  .stage,
+  .stage img {
+    min-height: 20rem;
+    height: 20rem;
+  }
 }
 </style>

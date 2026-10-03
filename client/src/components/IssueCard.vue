@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useLocale } from '../composables/useLocale'
+import { nextStatus } from '../services/report/statusFlow'
 import type { Issue } from '../types/issue'
 import GlassPanel from './ui/GlassPanel.vue'
 import SeverityPill from './SeverityPill.vue'
@@ -8,13 +10,16 @@ import StatusPill from './StatusPill.vue'
 const props = defineProps<{
   issue: Issue
   highlighted?: boolean
+  showAdvance?: boolean
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
+  advance: [id: string]
 }>()
 
 const { t } = useLocale()
+const upcoming = computed(() => nextStatus(props.issue.status))
 
 function formatWhen(iso: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -22,43 +27,53 @@ function formatWhen(iso: string) {
     day: 'numeric',
   }).format(new Date(iso))
 }
+
+function onAdvance(event: Event) {
+  event.stopPropagation()
+  if (upcoming.value) {
+    emit('advance', props.issue.id)
+  }
+}
 </script>
 
 <template>
-  <button
-    type="button"
+  <div
     class="issue-card"
     :class="{ highlighted: props.highlighted }"
+    role="button"
+    tabindex="0"
     @click="emit('select', props.issue.id)"
+    @keydown.enter.prevent="emit('select', props.issue.id)"
+    @keydown.space.prevent="emit('select', props.issue.id)"
   >
     <GlassPanel padding="md" tone="paper" interactive>
-      <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
-        <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
-      </div>
-      <div class="row">
-        <div class="meta">
-          <span class="stamp">{{ props.issue.trackingId }}</span>
-          <span class="stamp">{{ t(`category.${props.issue.category}`) }}</span>
-          <SeverityPill :severity="props.issue.severity" />
-          <StatusPill :status="props.issue.status" />
+      <div class="body">
+        <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
+          <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
         </div>
-        <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
+        <div class="copy">
+          <div class="topline">
+            <h3 class="title">{{ props.issue.title }}</h3>
+            <StatusPill :status="props.issue.status" />
+          </div>
+          <p class="location">{{ props.issue.locationLabel }}</p>
+          <div class="meta">
+            <span class="stamp">{{ props.issue.trackingId }}</span>
+            <SeverityPill :severity="props.issue.severity" />
+            <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
+            <button
+              v-if="props.showAdvance && upcoming"
+              type="button"
+              class="btn advance"
+              @click="onAdvance"
+            >
+              {{ t('adminHome.advance') }}
+            </button>
+          </div>
+        </div>
       </div>
-      <h3 class="title">{{ props.issue.title }}</h3>
-      <p class="location">
-        <svg class="pin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linejoin="round"
-          />
-          <circle cx="12" cy="10" r="2.25" stroke="currentColor" stroke-width="1.5" />
-        </svg>
-        {{ props.issue.locationLabel }}
-      </p>
     </GlassPanel>
-  </button>
+  </div>
 </template>
 
 <style scoped>
@@ -80,26 +95,57 @@ function formatWhen(iso: string) {
     var(--paper-shadow);
 }
 
+.body {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
 .thumb-wrap {
-  margin: -0.15rem -0.15rem 0.65rem;
+  flex-shrink: 0;
+  width: 4.5rem;
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--border);
+  background: var(--surface-raised);
 }
 
 .thumb {
   display: block;
   width: 100%;
-  height: 7.5rem;
+  height: 100%;
+  min-height: 4.5rem;
   object-fit: cover;
 }
 
-.row {
+.copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+}
+
+.topline {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  gap: 0.6rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: var(--text-h);
+  line-height: 1.3;
+}
+
+.location {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .meta {
@@ -110,35 +156,20 @@ function formatWhen(iso: string) {
 }
 
 .when {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
-.title {
-  margin: 0 0 0.35rem;
-  font-size: 1rem;
-  font-weight: 650;
-  color: var(--text-h);
-  line-height: 1.3;
+.advance {
+  min-height: 2.15rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
 }
 
-.location {
-  margin: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.pin {
-  width: 0.9rem;
-  height: 0.9rem;
-  flex-shrink: 0;
-  margin-top: 0.12rem;
-  color: var(--accent);
+@media (min-width: 720px) {
+  .thumb-wrap {
+    width: 5.5rem;
+  }
 }
 </style>

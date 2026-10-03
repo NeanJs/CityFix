@@ -99,7 +99,7 @@ useAndroidBackHandler(detailOpen, closeDetail)
 .main {
   width: 100%;
   padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.9rem
-    calc(6rem + env(safe-area-inset-bottom, 0px));
+    calc(7.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 1024px) {

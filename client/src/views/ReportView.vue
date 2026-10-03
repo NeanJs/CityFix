@@ -24,10 +24,11 @@ const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'receive' | 'read' | 'file'>('receive')
 const voiceField = ref<{ reset: () => void } | null>(null)
+const detailsOpen = ref(false)
+const step = ref<1 | 2 | 3>(1)
 
 const form = reactive({
   title: '',
-  description: '',
   category: 'pothole' as IssueCategory,
   locationLabel: '',
   photoDataUrl: '',
@@ -41,10 +42,29 @@ const locationError = ref('')
 const submitError = ref('')
 
 const hasCoords = computed(() => latitude.value !== undefined && longitude.value !== undefined)
+const hasPhoto = computed(() => Boolean(form.photoDataUrl))
+const hasNote = computed(() => Boolean(form.transcript.trim()))
+const hasPlace = computed(() => Boolean(form.locationLabel.trim()))
+const canSubmit = computed(() => hasPhoto.value && hasNote.value && hasPlace.value)
+
+const missingKeys = computed(() => {
+  const keys: string[] = []
+  if (!hasPhoto.value) {
+    keys.push('report.missingPhoto')
+  }
+  if (!hasNote.value) {
+    keys.push('report.missingNote')
+  }
+  if (!hasPlace.value) {
+    keys.push('report.missingPlace')
+  }
+  return keys
+})
+
 const accountText = computed(() =>
   narrativeText({
     title: form.title,
-    description: form.description,
+    description: form.transcript,
     transcript: form.transcript,
     category: form.category,
   }),
@@ -89,7 +109,6 @@ function useCurrentLocation() {
 
 function resetForm() {
   form.title = ''
-  form.description = ''
   form.category = 'pothole'
   form.locationLabel = ''
   form.photoDataUrl = ''
@@ -97,6 +116,8 @@ function resetForm() {
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
+  detailsOpen.value = false
+  step.value = 1
   voiceField.value?.reset()
 }
 
@@ -106,14 +127,41 @@ function wait(ms: number) {
   })
 }
 
+function goNext() {
+  if (step.value === 1 && hasPhoto.value) {
+    step.value = 2
+    return
+  }
+  if (step.value === 2 && hasNote.value) {
+    step.value = 3
+  }
+}
+
+function goBack() {
+  if (step.value === 3) {
+    step.value = 2
+    return
+  }
+  if (step.value === 2) {
+    step.value = 1
+  }
+}
+
 async function submit() {
   if (submitting.value || !currentUser.value) {
     return
   }
   submitError.value = ''
-  const note = form.transcript.trim() || form.description.trim()
+  const note = form.transcript.trim()
   if (!form.photoDataUrl || !note || !form.locationLabel.trim()) {
     submitError.value = t('report.incomplete')
+    if (!form.photoDataUrl) {
+      step.value = 1
+    } else if (!note) {
+      step.value = 2
+    } else {
+      step.value = 3
+    }
     return
   }
   submitting.value = true
@@ -136,8 +184,8 @@ async function submit() {
     submitStage.value = 'file'
     const issue = await addIssue({
       title,
-      description: form.description.trim() || form.transcript.trim(),
-      transcript: form.transcript.trim(),
+      description: note,
+      transcript: note,
       summary,
       category: form.category,
       severity,
@@ -160,97 +208,119 @@ async function submit() {
   <section class="report">
     <AppHeader :subtitle="t('report.title')" show-account />
 
+    <ol class="steps" :aria-label="t('report.stepOf', { current: step, total: 3 })">
+      <li :class="{ active: step === 1, done: step > 1 }">{{ t('report.stepPhoto') }}</li>
+      <li :class="{ active: step === 2, done: step > 2 }">{{ t('report.stepVoice') }}</li>
+      <li :class="{ active: step === 3 }">{{ t('report.stepPlace') }}</li>
+    </ol>
+
     <GlassPanel padding="lg" tone="paper" class="form-panel">
       <form class="form" @submit.prevent="submit">
-        <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+        <PhotoCaptureField v-if="step === 1" v-model:photo-data-url="form.photoDataUrl" />
 
-        <VoiceCaptureField ref="voiceField" v-model:transcript="form.transcript" />
+        <VoiceCaptureField
+          v-if="step === 2"
+          ref="voiceField"
+          v-model:transcript="form.transcript"
+        />
 
-        <label class="field">
-          <span>{{ t('report.transcript') }}</span>
-          <textarea
-            v-model="form.transcript"
-            class="control"
-            rows="3"
-            maxlength="800"
-            :placeholder="t('report.transcriptPlaceholder')"
-          />
-        </label>
-
-        <label class="field">
-          <span>{{ t('report.description') }}</span>
-          <textarea
-            v-model="form.description"
-            class="control"
-            rows="3"
-            maxlength="800"
-            :placeholder="t('report.descriptionPlaceholder')"
-          />
-        </label>
-
-        <div class="field">
-          <span>{{ t('report.category') }}</span>
-          <div class="category-row" role="group" :aria-label="t('report.category')">
+        <div v-if="step === 3" class="place-step">
+          <div class="field">
+            <span class="field-label">{{ t('report.location') }}</span>
+            <input
+              v-model="form.locationLabel"
+              class="control"
+              type="text"
+              maxlength="160"
+              :placeholder="t('report.locationPlaceholder')"
+              autocomplete="street-address"
+            />
             <button
-              v-for="cat in issueCategories"
-              :key="cat.id"
               type="button"
-              class="category-chip"
-              :class="{ active: form.category === cat.id }"
-              @click="form.category = cat.id"
+              class="btn-secondary"
+              :disabled="locating"
+              @click="useCurrentLocation"
             >
-              {{ t(`category.${cat.id}`) }}
+              {{ locating ? t('report.locating') : t('report.useGps') }}
             </button>
+            <p v-if="hasCoords" class="coords hint">
+              {{ latitude?.toFixed(5) }}, {{ longitude?.toFixed(5) }}
+            </p>
+            <p v-if="locationError" class="error">{{ locationError }}</p>
           </div>
+
+          <details class="details" :open="detailsOpen" @toggle="detailsOpen = ($event.target as HTMLDetailsElement).open">
+            <summary class="field-label">{{ t('report.details') }}</summary>
+            <div class="field">
+              <span class="field-label">{{ t('report.category') }}</span>
+              <div class="category-row" role="group" :aria-label="t('report.category')">
+                <button
+                  v-for="cat in issueCategories"
+                  :key="cat.id"
+                  type="button"
+                  class="category-chip"
+                  :class="{ active: form.category === cat.id }"
+                  @click="form.category = cat.id"
+                >
+                  {{ t(`category.${cat.id}`) }}
+                </button>
+              </div>
+            </div>
+            <label class="field">
+              <span class="field-label">{{ t('report.fieldTitle') }} · {{ t('report.titleOptional') }}</span>
+              <input
+                v-model="form.title"
+                class="control"
+                type="text"
+                maxlength="120"
+                :placeholder="t('report.titlePlaceholder')"
+                autocomplete="off"
+              />
+            </label>
+          </details>
+
+          <GlassPanel padding="md" tone="paper" class="mobile-preview">
+            <p class="section-kicker">{{ t('report.preview') }}</p>
+            <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
+            <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
+            <p class="preview-note">{{ form.transcript.trim() || t('report.missingNote') }}</p>
+            <p class="preview-place">{{ form.locationLabel.trim() || t('report.locationUnset') }}</p>
+          </GlassPanel>
         </div>
 
-        <label class="field">
-          <span>{{ t('report.fieldTitle') }} · {{ t('report.titleOptional') }}</span>
-          <input
-            v-model="form.title"
-            class="control"
-            type="text"
-            maxlength="120"
-            :placeholder="t('report.titlePlaceholder')"
-            autocomplete="off"
-          />
-        </label>
-
-        <div class="field">
-          <span>{{ t('report.location') }}</span>
-          <input
-            v-model="form.locationLabel"
-            class="control"
-            type="text"
-            maxlength="160"
-            :placeholder="t('report.locationPlaceholder')"
-            autocomplete="street-address"
-          />
-          <button
-            type="button"
-            class="btn-ghost"
-            :disabled="locating"
-            @click="useCurrentLocation"
-          >
-            {{ locating ? t('report.locating') : t('report.useGps') }}
+        <div class="step-nav">
+          <button v-if="step > 1" type="button" class="btn-secondary" @click="goBack">
+            {{ t('report.back') }}
           </button>
-          <p v-if="hasCoords" class="coords hint">
-            {{ latitude?.toFixed(5) }}, {{ longitude?.toFixed(5) }}
-          </p>
-          <p v-if="locationError" class="error">{{ locationError }}</p>
+          <button
+            v-if="step === 1"
+            type="button"
+            class="btn"
+            :disabled="!hasPhoto"
+            @click="goNext"
+          >
+            {{ t('report.continue') }}
+          </button>
+          <button
+            v-if="step === 2"
+            type="button"
+            class="btn"
+            :disabled="!hasNote"
+            @click="goNext"
+          >
+            {{ t('report.continue') }}
+          </button>
         </div>
 
         <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
-
-        <button type="submit" class="btn submit" :disabled="submitting">
-          {{ submitLabel }}
-        </button>
       </form>
     </GlassPanel>
 
     <GlassPanel padding="lg" tone="paper" class="summary">
       <p class="section-kicker">{{ t('report.preview') }}</p>
+      <img v-if="form.photoDataUrl" class="preview-photo" :src="form.photoDataUrl" alt="" />
       <h2 class="summary-title">{{ form.title.trim() || t('report.untitled') }}</h2>
+      <p class="preview-note">{{ form.transcript.trim() || '—' }}</p>
       <dl class="summary-list">
         <div>
           <dt>{{ t('report.category') }}</dt>
@@ -266,6 +336,15 @@ async function submit() {
         </div>
       </dl>
     </GlassPanel>
+
+    <div v-if="step === 3" class="sticky">
+      <p class="sticky-status">
+        {{ canSubmit ? t('report.ready') : missingKeys.map((key) => t(key)).join(' · ') }}
+      </p>
+      <button type="button" class="btn submit" :disabled="submitting" @click="submit">
+        {{ submitLabel }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -275,22 +354,52 @@ async function submit() {
   gap: 0.85rem;
 }
 
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.steps li {
+  padding: 0.45rem 0.4rem;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.steps li.active {
+  color: var(--text-h);
+  border-bottom-color: var(--accent);
+}
+
+.steps li.done {
+  color: var(--text-h);
+  border-bottom-color: var(--text-muted);
+}
+
 .form {
   display: grid;
   gap: 0.95rem;
 }
 
+.place-step,
 .field {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
-.field > span {
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+.details {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.details summary {
+  cursor: pointer;
 }
 
 .category-row {
@@ -306,7 +415,7 @@ async function submit() {
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -321,28 +430,54 @@ async function submit() {
   font-variant-numeric: tabular-nums;
 }
 
+.step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .submit {
   width: 100%;
-  margin-top: 0.15rem;
 }
 
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #b42318;
+  color: var(--danger);
 }
 
 .summary {
   display: none;
 }
 
+.mobile-preview {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.preview-photo {
+  display: block;
+  width: 100%;
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
 .summary-title {
-  margin: 0 0 0.85rem;
-  font-size: 1.25rem;
+  margin: 0;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-h);
   font-family: var(--font-display);
   line-height: 1.25;
+}
+
+.preview-note,
+.preview-place {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
 }
 
 .summary-list {
@@ -352,10 +487,8 @@ async function submit() {
 }
 
 .summary-list dt {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -365,24 +498,59 @@ async function submit() {
   font-weight: 600;
 }
 
+.sticky {
+  position: sticky;
+  bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
+  z-index: 8;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--dock-shadow);
+}
+
+.sticky-status {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
 @media (min-width: 1024px) {
   .report {
     grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.7fr);
     align-items: start;
   }
 
-  .report > :first-child {
+  .report > :first-child,
+  .report > .steps,
+  .report > .sticky {
     grid-column: 1 / -1;
   }
 
+  .mobile-preview {
+    display: none;
+  }
+
   .summary {
-    display: block;
+    display: grid;
+    gap: 0.7rem;
     position: sticky;
     top: 1.1rem;
   }
 
   .submit {
     width: fit-content;
+  }
+
+  .sticky {
+    bottom: 1rem;
+    grid-template-columns: 1fr auto;
+    align-items: center;
   }
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
 
@@ -7,10 +7,18 @@ const transcript = defineModel<string>('transcript', { default: '' })
 
 const { t } = useLocale()
 const voice = useVoiceCapture()
+const note = ref<HTMLTextAreaElement | null>(null)
 
 watch(voice.transcript, (value) => {
-  transcript.value = value
+  if (voice.recording.value || value) {
+    transcript.value = value
+  }
 })
+
+async function typeInstead() {
+  await nextTick()
+  note.value?.focus()
+}
 
 function reset() {
   voice.reset()
@@ -22,7 +30,7 @@ defineExpose({ reset })
 
 <template>
   <div class="field">
-    <span>{{ t('report.voice') }}</span>
+    <span class="field-label">{{ t('report.voice') }}</span>
     <p class="hint">{{ t('report.voiceHint') }}</p>
     <div class="meter" :class="{ live: voice.recording.value }">
       <span class="time">{{ voice.formatElapsed() }}</span>
@@ -40,16 +48,35 @@ defineExpose({ reset })
       <button
         v-if="!voice.recording.value"
         type="button"
-        class="btn-ghost"
+        class="btn"
         @click="voice.start"
       >
         {{ voice.audioUrl.value ? t('report.rerecordVoice') : t('report.startVoice') }}
       </button>
-      <button v-else type="button" class="btn-ghost" @click="voice.stop">
+      <button v-else type="button" class="btn" @click="voice.stop">
         {{ t('report.stopVoice') }}
+      </button>
+      <button
+        v-if="!voice.recording.value"
+        type="button"
+        class="btn-ghost"
+        @click="typeInstead"
+      >
+        {{ t('report.typeInstead') }}
       </button>
     </div>
     <audio v-if="voice.audioUrl.value && !voice.recording.value" :src="voice.audioUrl.value" controls />
+    <label class="note">
+      <span class="field-label">{{ t('report.transcript') }}</span>
+      <textarea
+        ref="note"
+        v-model="transcript"
+        class="control"
+        rows="4"
+        maxlength="800"
+        :placeholder="t('report.transcriptPlaceholder')"
+      />
+    </label>
     <p v-if="voice.errorKey.value" class="error">{{ t(voice.errorKey.value) }}</p>
   </div>
 </template>
@@ -57,15 +84,7 @@ defineExpose({ reset })
 <style scoped>
 .field {
   display: grid;
-  gap: 0.4rem;
-}
-
-.field > span {
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+  gap: 0.5rem;
 }
 
 .meter {
@@ -73,7 +92,7 @@ defineExpose({ reset })
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 3rem;
+  min-height: 3.25rem;
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -88,11 +107,10 @@ defineExpose({ reset })
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   color: var(--text-h);
-  font-family: var(--font-display);
 }
 
 .state {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 650;
   color: var(--text-muted);
 }
@@ -103,6 +121,11 @@ defineExpose({ reset })
   gap: 0.4rem;
 }
 
+.note {
+  display: grid;
+  gap: 0.35rem;
+}
+
 audio {
   width: 100%;
 }
@@ -110,6 +133,6 @@ audio {
 .error {
   margin: 0;
   font-size: 0.82rem;
-  color: #b42318;
+  color: var(--danger);
 }
 </style>

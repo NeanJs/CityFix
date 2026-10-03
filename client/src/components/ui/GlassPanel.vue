@@ -8,7 +8,7 @@ withDefaults(
   {
     padding: 'md',
     interactive: false,
-    tone: 'glass',
+    tone: 'paper',
   },
 )
 </script>
@@ -44,7 +44,7 @@ withDefaults(
   border-radius: inherit;
   background: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.32) 0%,
     rgba(255, 255, 255, 0.04) 38%,
     transparent 62%
   );

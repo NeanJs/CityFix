@@ -1,31 +1,32 @@
 :root {
-  --text: #3d3a33;
-  --text-muted: #6f6a60;
-  --text-h: #1a1814;
-  --bg-top: #efe8d8;
-  --bg: #e8e0d0;
-  --bg-bottom: #d8cfc0;
-  --surface: #f7f1e6;
-  --surface-raised: #fbf7ef;
-  --border: #d0c6b4;
-  --accent: #7a5c32;
-  --accent-hover: #634a28;
-  --accent-ink: #f7f1e6;
-  --ink: #1c2430;
+  --text: #2a3340;
+  --text-muted: #5c6674;
+  --text-h: #121820;
+  --bg-top: #e8eef4;
+  --bg: #dfe6ee;
+  --bg-bottom: #d2dae4;
+  --surface: #f5f7fa;
+  --surface-raised: #fbfcfd;
+  --border: #c4ced9;
+  --accent: #8a6a38;
+  --accent-hover: #6f552c;
+  --accent-ink: #f7f4ee;
+  --ink: #121820;
+  --danger: #9a3a30;
 
-  --glass-bg: rgba(247, 241, 230, 0.5);
-  --glass-bg-strong: rgba(247, 241, 230, 0.8);
-  --glass-border: rgba(255, 248, 235, 0.55);
-  --glass-border-hover: rgba(122, 92, 50, 0.42);
-  --glass-blur: 18px;
-  --glass-shadow: 0 14px 32px rgba(28, 36, 48, 0.08);
-  --glass-shadow-hover: 0 18px 36px rgba(28, 36, 48, 0.12);
-  --dock-shadow: 0 12px 32px rgba(28, 36, 48, 0.16);
-  --paper-shadow: 0 8px 20px rgba(28, 36, 48, 0.05);
+  --glass-bg: rgba(245, 247, 250, 0.52);
+  --glass-bg-strong: rgba(245, 247, 250, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.62);
+  --glass-border-hover: rgba(138, 106, 56, 0.45);
+  --glass-blur: 16px;
+  --glass-shadow: 0 12px 28px rgba(18, 24, 32, 0.08);
+  --glass-shadow-hover: 0 16px 32px rgba(18, 24, 32, 0.12);
+  --dock-shadow: 0 10px 28px rgba(18, 24, 32, 0.16);
+  --paper-shadow: 0 6px 16px rgba(18, 24, 32, 0.05);
 
-  --radius-sm: 0.3rem;
-  --radius-md: 0.4rem;
-  --radius-lg: 0.55rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.35rem;
+  --radius-lg: 0.45rem;
   --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, ui-serif,
     Georgia, serif;
 
@@ -36,27 +37,30 @@
   --space-5: 1.25rem;
   --space-6: 1.5rem;
 
-  --status-submitted-fg: #3d4a5c;
-  --status-submitted-bg: rgba(61, 74, 92, 0.1);
-  --status-submitted-bd: rgba(61, 74, 92, 0.28);
+  --status-submitted-fg: #2f3d52;
+  --status-submitted-bg: rgba(47, 61, 82, 0.1);
+  --status-submitted-bd: rgba(47, 61, 82, 0.28);
   --status-review-fg: #6a4f1d;
   --status-review-bg: rgba(180, 132, 40, 0.14);
   --status-review-bd: rgba(166, 120, 36, 0.35);
-  --status-scheduled-fg: #3a4f6a;
-  --status-scheduled-bg: rgba(58, 79, 106, 0.12);
-  --status-scheduled-bd: rgba(58, 79, 106, 0.3);
-  --status-resolved-fg: #35553a;
-  --status-resolved-bg: rgba(53, 85, 58, 0.12);
-  --status-resolved-bd: rgba(53, 85, 58, 0.32);
-  --severity-low-fg: #35553a;
-  --severity-low-bg: rgba(53, 85, 58, 0.1);
-  --severity-low-bd: rgba(53, 85, 58, 0.28);
+  --status-scheduled-fg: #2d4a6a;
+  --status-scheduled-bg: rgba(45, 74, 106, 0.12);
+  --status-scheduled-bd: rgba(45, 74, 106, 0.3);
+  --status-resolved-fg: #2c4d34;
+  --status-resolved-bg: rgba(44, 77, 52, 0.12);
+  --status-resolved-bd: rgba(44, 77, 52, 0.32);
+  --severity-low-fg: #2c4d34;
+  --severity-low-bg: rgba(44, 77, 52, 0.1);
+  --severity-low-bd: rgba(44, 77, 52, 0.28);
   --severity-medium-fg: #6a4f1d;
   --severity-medium-bg: rgba(180, 132, 40, 0.14);
   --severity-medium-bd: rgba(166, 120, 36, 0.35);
   --severity-high-fg: #7a2f28;
   --severity-high-bg: rgba(154, 58, 48, 0.12);
   --severity-high-bd: rgba(154, 58, 48, 0.34);
+  --severity-high-mark: #9a3a30;
+  --severity-medium-mark: #b48428;
+  --severity-low-mark: #3d6a48;
 
   font-family:
     system-ui,
@@ -109,18 +113,22 @@ select:focus-visible {
 
 .hint {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   line-height: 1.45;
   color: var(--text-muted);
 }
 
 .section-kicker {
   margin: 0 0 0.35rem;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text-muted);
+}
+
+.field-label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-h);
 }
 
 .btn {
@@ -129,12 +137,12 @@ select:focus-visible {
   justify-content: center;
   width: fit-content;
   min-height: 2.75rem;
-  padding: 0.65rem 1.05rem;
+  padding: 0.65rem 1.1rem;
   border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 650;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -167,7 +175,7 @@ select:focus-visible {
   padding: 0.65rem 1.05rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: var(--surface-raised);
   color: var(--text-h);
   font-size: 0.88rem;
   font-weight: 650;
@@ -176,6 +184,10 @@ select:focus-visible {
     background 0.15s ease,
     border-color 0.15s ease,
     transform 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-muted);
 }
 
 .btn-secondary:active {
@@ -189,13 +201,18 @@ select:focus-visible {
   width: fit-content;
   min-height: 2.4rem;
   padding: 0.4rem 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--accent);
-  font-size: 0.8rem;
+  color: var(--text);
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .btn-ghost:disabled {
@@ -211,7 +228,7 @@ select:focus-visible {
   background: var(--surface-raised);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
 }
 
 .control::placeholder {
@@ -233,7 +250,7 @@ textarea.control {
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
 }

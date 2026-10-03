@@ -142,7 +142,7 @@ function formatFiled(iso: string) {
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
     </GlassPanel>
 
-    <div v-else class="list cards">
+    <div v-if="filtered.length > 0 && !isStaffQueue" class="list">
       <IssueCard
         v-for="issue in filtered"
         :key="issue.id"
@@ -152,35 +152,47 @@ function formatFiled(iso: string) {
       />
     </div>
 
-    <GlassPanel v-if="filtered.length > 0" padding="md" tone="paper" class="ledger">
-      <table :aria-label="t('reports.tableLabel')">
-        <thead>
-          <tr>
-            <th>{{ t('reports.colId') }}</th>
-            <th>{{ t('reports.colFiled') }}</th>
-            <th>{{ t('reports.colType') }}</th>
-            <th>{{ t('reports.colSeverity') }}</th>
-            <th>{{ t('reports.colLocation') }}</th>
-            <th>{{ t('reports.colStatus') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="issue in filtered"
-            :key="issue.id"
-            :class="{ highlighted: highlightIssueId === issue.id }"
-            @click="emit('openIssue', issue.id)"
-          >
-            <td class="id">{{ issue.trackingId }}</td>
-            <td>{{ formatFiled(issue.createdAt) }}</td>
-            <td>{{ t(`category.${issue.category}`) }}</td>
-            <td><SeverityPill :severity="issue.severity" /></td>
-            <td>{{ issue.locationLabel }}</td>
-            <td><StatusPill :status="issue.status" /></td>
-          </tr>
-        </tbody>
-      </table>
-    </GlassPanel>
+    <div v-if="filtered.length > 0 && isStaffQueue" class="staff-results">
+      <div class="list cards">
+        <IssueCard
+          v-for="issue in filtered"
+          :key="issue.id"
+          :issue="issue"
+          :highlighted="highlightIssueId === issue.id"
+          @select="emit('openIssue', $event)"
+        />
+      </div>
+
+      <GlassPanel padding="md" tone="paper" class="ledger">
+        <table :aria-label="t('reports.tableLabel')">
+          <thead>
+            <tr>
+              <th>{{ t('reports.colId') }}</th>
+              <th>{{ t('reports.colFiled') }}</th>
+              <th>{{ t('reports.colType') }}</th>
+              <th>{{ t('reports.colSeverity') }}</th>
+              <th>{{ t('reports.colLocation') }}</th>
+              <th>{{ t('reports.colStatus') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="issue in filtered"
+              :key="issue.id"
+              :class="[`severity-${issue.severity}`, { highlighted: highlightIssueId === issue.id }]"
+              @click="emit('openIssue', issue.id)"
+            >
+              <td class="id">{{ issue.trackingId }}</td>
+              <td>{{ formatFiled(issue.createdAt) }}</td>
+              <td>{{ t(`category.${issue.category}`) }}</td>
+              <td><SeverityPill :severity="issue.severity" /></td>
+              <td>{{ issue.locationLabel }}</td>
+              <td><StatusPill :status="issue.status" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </GlassPanel>
+    </div>
   </section>
 </template>
 
@@ -232,7 +244,7 @@ function formatFiled(iso: string) {
   border: 1px solid var(--border);
   background: var(--surface-raised);
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -268,23 +280,30 @@ function formatFiled(iso: string) {
 }
 
 .ledger th {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .ledger tbody tr {
   cursor: pointer;
+  box-shadow: inset 3px 0 0 var(--severity-medium-mark);
+}
+
+.ledger tbody tr.severity-high {
+  box-shadow: inset 3px 0 0 var(--severity-high-mark);
+}
+
+.ledger tbody tr.severity-low {
+  box-shadow: inset 3px 0 0 var(--severity-low-mark);
 }
 
 .ledger tbody tr:hover {
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 
 .ledger tr.highlighted {
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--surface-raised);
 }
 
 .ledger .id {
@@ -296,10 +315,8 @@ function formatFiled(iso: string) {
 
 .results-count {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -349,5 +366,4 @@ function formatFiled(iso: string) {
     grid-column: auto;
   }
 }
-
 </style>

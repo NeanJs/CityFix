@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
-import SeverityPill from '../components/SeverityPill.vue'
 import SpeakButton from '../components/SpeakButton.vue'
 import StatusPill from '../components/StatusPill.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
@@ -49,61 +48,31 @@ function formatWhen(iso: string) {
       </button>
     </GlassPanel>
 
-    <template v-else>
-      <GlassPanel padding="lg" class="hero">
-        <p class="eyebrow">{{ t('receipt.eyebrow') }}</p>
-        <h2 class="headline">{{ t('receipt.headline') }}</h2>
-        <p class="lede">{{ t('receipt.lede') }}</p>
-        <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
-        <p class="tracking">{{ issue.trackingId }}</p>
-        <SpeakButton
-          :text="confirmation"
-          play-key="receipt.play"
-          playing-key="receipt.playing"
-          unavailable-key="receipt.playUnavailable"
-        />
-      </GlassPanel>
-
-      <GlassPanel padding="lg" tone="paper" class="record">
-        <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
-        <h3 class="title">{{ issue.title }}</h3>
-        <div class="pills">
-          <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
-          <SeverityPill :severity="issue.severity" />
-          <StatusPill :status="issue.status" />
-        </div>
-        <dl class="facts">
-          <div>
-            <dt>{{ t('receipt.summary') }}</dt>
-            <dd>{{ issue.summary }}</dd>
-          </div>
-          <div v-if="issue.transcript">
-            <dt>{{ t('receipt.transcript') }}</dt>
-            <dd>{{ issue.transcript }}</dd>
-          </div>
-          <div v-if="issue.description && issue.description !== issue.transcript">
-            <dt>{{ t('receipt.description') }}</dt>
-            <dd>{{ issue.description }}</dd>
-          </div>
-          <div>
-            <dt>{{ t('receipt.location') }}</dt>
-            <dd>{{ issue.locationLabel }}</dd>
-          </div>
-          <div>
-            <dt>{{ t('receipt.filed') }}</dt>
-            <dd>{{ formatWhen(issue.createdAt) }}</dd>
-          </div>
-        </dl>
-        <div class="actions">
-          <button type="button" class="btn" @click="router.push('/reports')">
-            {{ t('receipt.viewReports') }}
-          </button>
-          <button type="button" class="btn-secondary" @click="router.push('/report')">
-            {{ t('receipt.fileAnother') }}
-          </button>
-        </div>
-      </GlassPanel>
-    </template>
+    <GlassPanel v-else padding="lg" tone="paper" class="record">
+      <p class="headline">{{ t('receipt.headline') }}</p>
+      <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
+      <p class="tracking">{{ issue.trackingId }}</p>
+      <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+      <h2 class="title">{{ issue.title }}</h2>
+      <StatusPill :status="issue.status" />
+      <p class="summary">{{ issue.summary }}</p>
+      <p class="place">{{ issue.locationLabel }}</p>
+      <p class="hint">{{ formatWhen(issue.createdAt) }}</p>
+      <div class="actions">
+        <button type="button" class="btn" @click="router.push('/reports')">
+          {{ t('receipt.viewReports') }}
+        </button>
+        <button type="button" class="btn-secondary" @click="router.push('/report')">
+          {{ t('receipt.fileAnother') }}
+        </button>
+      </div>
+      <SpeakButton
+        :text="confirmation"
+        play-key="receipt.play"
+        playing-key="receipt.playing"
+        unavailable-key="receipt.playUnavailable"
+      />
+    </GlassPanel>
   </section>
 </template>
 
@@ -113,26 +82,17 @@ function formatWhen(iso: string) {
   gap: 0.85rem;
 }
 
-.hero,
-.empty {
+.empty,
+.record {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.55rem;
   justify-items: start;
 }
 
-.eyebrow {
+.empty-title,
+.headline {
   margin: 0;
-  font-size: 0.7rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.headline,
-.empty-title {
-  margin: 0;
-  font-size: clamp(1.45rem, 4.6vw, 2rem);
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -140,42 +100,26 @@ function formatWhen(iso: string) {
   font-family: var(--font-display);
 }
 
-.lede {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-  max-width: 48ch;
-}
-
 .tracking-label {
-  margin: 0.35rem 0 0;
-  font-size: 0.7rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .tracking {
-  margin: 0 0 0.15rem;
-  font-size: clamp(1.55rem, 5.4vw, 2.25rem);
+  margin: 0;
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
   font-weight: 750;
   letter-spacing: 0.04em;
   color: var(--text-h);
-  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-}
-
-.record {
-  display: grid;
-  gap: 0.75rem;
 }
 
 .photo {
   display: block;
   width: 100%;
-  max-height: 18rem;
+  max-height: 16rem;
   object-fit: cover;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
@@ -183,34 +127,14 @@ function formatWhen(iso: string) {
 
 .title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-h);
-  font-family: var(--font-display);
 }
 
-.pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.facts {
+.summary,
+.place {
   margin: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.facts dt {
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.facts dd {
-  margin: 0.2rem 0 0;
   color: var(--text);
   line-height: 1.5;
 }
@@ -222,13 +146,8 @@ function formatWhen(iso: string) {
 }
 
 @media (min-width: 1024px) {
-  .receipt {
-    grid-template-columns: minmax(16rem, 0.85fr) minmax(0, 1.15fr);
-    align-items: start;
-  }
-
-  .receipt > :first-child {
-    grid-column: 1 / -1;
+  .record {
+    max-width: 40rem;
   }
 }
 </style>

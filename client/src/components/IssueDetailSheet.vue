@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLocale } from '../composables/useLocale'
+import { nextStatus } from '../services/report/statusFlow'
 import type { Issue, IssueStatus } from '../types/issue'
 import GlassPanel from './ui/GlassPanel.vue'
 import SeverityPill from './SeverityPill.vue'
 import SpeakButton from './SpeakButton.vue'
-import StatusPill from './StatusPill.vue'
+import StatusTrack from './StatusTrack.vue'
 
 const props = defineProps<{
   issue: Issue | null
@@ -20,13 +21,6 @@ const emit = defineEmits<{
 
 const { t } = useLocale()
 
-const statusOptions: { id: IssueStatus; labelKey: string }[] = [
-  { id: 'submitted', labelKey: 'status.submitted' },
-  { id: 'in_review', labelKey: 'status.reviewShort' },
-  { id: 'scheduled', labelKey: 'status.scheduled' },
-  { id: 'resolved', labelKey: 'status.resolved' },
-]
-
 const confirmation = computed(() => {
   if (!props.issue) {
     return ''
@@ -35,6 +29,15 @@ const confirmation = computed(() => {
     category: t(`category.${props.issue.category}`).toLowerCase(),
     trackingId: props.issue.trackingId,
   })
+})
+
+const upcoming = computed(() => (props.issue ? nextStatus(props.issue.status) : null))
+
+const showTranscript = computed(() => {
+  if (!props.issue?.transcript) {
+    return false
+  }
+  return props.issue.transcript.trim() !== props.issue.description.trim()
 })
 
 const timeline = computed(() => {
@@ -60,6 +63,13 @@ function onBackdropClick(event: MouseEvent) {
   if (event.target === event.currentTarget) {
     emit('close')
   }
+}
+
+function advance() {
+  if (!props.issue || !upcoming.value) {
+    return
+  }
+  emit('statusChange', props.issue.id, upcoming.value)
 }
 </script>
 
@@ -93,20 +103,23 @@ function onBackdropClick(event: MouseEvent) {
               </button>
             </div>
 
-            <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+            <StatusTrack :status="issue.status" />
 
-            <div class="block">
-              <p class="row-label">{{ t('sheet.trackingId') }}</p>
-              <p class="location">{{ issue.trackingId }}</p>
+            <div v-if="canManageStatus && upcoming" class="advance-wrap">
+              <button type="button" class="btn" @click="advance">
+                {{
+                  upcoming === 'resolved'
+                    ? t('sheet.markResolved')
+                    : t('sheet.advanceTo', { status: t(`status.${upcoming}`) })
+                }}
+              </button>
             </div>
 
-            <div class="block">
-              <p class="row-label">{{ t('sheet.status') }}</p>
-              <div class="pills">
-                <StatusPill :status="issue.status" />
-                <SeverityPill :severity="issue.severity" />
-                <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
-              </div>
+            <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+
+            <div class="pills">
+              <SeverityPill :severity="issue.severity" />
+              <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
             </div>
 
             <div class="block">
@@ -125,7 +138,7 @@ function onBackdropClick(event: MouseEvent) {
               </p>
             </div>
 
-            <div v-if="issue.transcript" class="block">
+            <div v-if="showTranscript" class="block">
               <p class="row-label">{{ t('sheet.transcript') }}</p>
               <p class="description">{{ issue.transcript }}</p>
             </div>
@@ -133,15 +146,6 @@ function onBackdropClick(event: MouseEvent) {
             <div class="block">
               <p class="row-label">{{ t('sheet.description') }}</p>
               <p class="description">{{ issue.description }}</p>
-            </div>
-
-            <div class="block">
-              <SpeakButton
-                :text="confirmation"
-                play-key="sheet.play"
-                playing-key="sheet.playing"
-                unavailable-key="sheet.playUnavailable"
-              />
             </div>
 
             <ul class="timeline">
@@ -154,21 +158,12 @@ function onBackdropClick(event: MouseEvent) {
               </li>
             </ul>
 
-            <div v-if="canManageStatus" class="actions">
-              <p class="row-label">{{ t('sheet.advanceStatus') }}</p>
-              <div class="status-buttons">
-                <button
-                  v-for="status in statusOptions"
-                  :key="status.id"
-                  type="button"
-                  class="status-btn"
-                  :class="{ active: issue.status === status.id }"
-                  @click="emit('statusChange', issue.id, status.id)"
-                >
-                  {{ t(status.labelKey) }}
-                </button>
-              </div>
-            </div>
+            <SpeakButton
+              :text="confirmation"
+              play-key="sheet.play"
+              playing-key="sheet.playing"
+              unavailable-key="sheet.playUnavailable"
+            />
           </GlassPanel>
         </div>
       </div>
@@ -184,10 +179,10 @@ function onBackdropClick(event: MouseEvent) {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0.85rem 0.85rem calc(5.75rem + env(safe-area-inset-bottom, 0px));
-  background: rgba(26, 24, 20, 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  padding: 0.85rem 0.85rem calc(6.75rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(18, 24, 32, 0.46);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .sheet {
@@ -213,12 +208,16 @@ function onBackdropClick(event: MouseEvent) {
   font-family: var(--font-display);
 }
 
+.advance-wrap {
+  margin: 0.85rem 0 0.35rem;
+}
+
 .photo {
   display: block;
   width: 100%;
   max-height: 14rem;
   object-fit: cover;
-  margin-bottom: 0.9rem;
+  margin: 0.9rem 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
@@ -227,6 +226,7 @@ function onBackdropClick(event: MouseEvent) {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  margin-bottom: 0.85rem;
 }
 
 .close {
@@ -252,10 +252,8 @@ function onBackdropClick(event: MouseEvent) {
 
 .row-label {
   margin: 0 0 0.3rem;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -296,7 +294,6 @@ function onBackdropClick(event: MouseEvent) {
   width: 0.45rem;
   height: 0.45rem;
   margin-top: 0.4rem;
-  border-radius: 0;
   background: var(--accent);
 }
 
@@ -311,32 +308,6 @@ function onBackdropClick(event: MouseEvent) {
   margin: 0.1rem 0 0;
   font-size: 0.78rem;
   color: var(--text-muted);
-}
-
-.status-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
-}
-
-.status-btn {
-  min-height: 2.4rem;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.status-btn.active {
-  color: var(--text-h);
-  border-color: var(--accent);
-  background: var(--surface);
 }
 
 .sheet-enter-active,
@@ -375,10 +346,6 @@ function onBackdropClick(event: MouseEvent) {
   .sheet :deep(.panel) {
     height: 100%;
     overflow: auto;
-  }
-
-  .status-buttons {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .sheet-enter-from .sheet,
