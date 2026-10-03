@@ -79,7 +79,7 @@ const emit = defineEmits<{
 .hero-value {
   margin: 0;
   font-size: 3.5rem;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
   color: var(--text-h);
@@ -108,7 +108,7 @@ const emit = defineEmits<{
 .section-title {
   margin: 0;
   font-size: 1.02rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--text-h);
 }
@@ -121,7 +121,7 @@ const emit = defineEmits<{
 .empty-title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-h);
 }
 

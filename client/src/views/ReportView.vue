@@ -246,6 +246,20 @@ function setSeverity(id: IssueSeverity) {
 
         <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
 
+        <LocationPickerField v-model:latitude="latitude" v-model:longitude="longitude" />
+
+        <label class="field">
+          <span class="field-label">{{ t('report.locationName') }}</span>
+          <input
+            v-model="form.locationLabel"
+            class="control"
+            type="text"
+            maxlength="160"
+            :placeholder="t('report.locationPlaceholder')"
+            autocomplete="street-address"
+          />
+        </label>
+
         <VoiceCaptureField
           ref="voiceField"
           v-model:transcript="form.transcript"
@@ -446,6 +460,7 @@ function setSeverity(id: IssueSeverity) {
 .report {
   display: grid;
   gap: 0.85rem;
+  padding-bottom: 1rem;
 }
 
 .steps {
@@ -479,6 +494,7 @@ function setSeverity(id: IssueSeverity) {
 .form {
   display: grid;
   gap: 0.95rem;
+  padding-bottom: 7.5rem;
 }
 
 .lead {
@@ -582,6 +598,10 @@ function setSeverity(id: IssueSeverity) {
 @media (min-width: 1024px) {
   .report {
     max-width: 44rem;
+  }
+
+  .form {
+    padding-bottom: 0;
   }
 
   .submit {

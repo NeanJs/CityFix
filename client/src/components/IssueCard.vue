@@ -141,7 +141,7 @@ function onAdvance(event: Event) {
 .title {
   margin: 0;
   font-size: 1.02rem;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-h);
   line-height: 1.3;
 }

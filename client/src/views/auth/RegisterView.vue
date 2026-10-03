@@ -90,7 +90,7 @@ async function submit() {
 .title {
   margin: 0;
   font-size: 2.25rem;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: -0.02em;
   font-family: var(--font-display);
   color: var(--text-h);

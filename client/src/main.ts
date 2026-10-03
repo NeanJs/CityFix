@@ -4,6 +4,7 @@ import { hydrateAuth } from './composables/useAuth'
 import { bootstrapIssues } from './composables/useIssues'
 import { hydrateLocale } from './composables/useLocale'
 import { router } from './router'
+import '@fontsource-variable/source-sans-3'
 import './style.css'
 import App from './App.vue'
 

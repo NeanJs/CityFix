@@ -94,7 +94,7 @@ function formatWhen(iso: string) {
   margin: 0;
   font-size: clamp(1.35rem, 4vw, 1.85rem);
   line-height: 1.15;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text-h);
   font-family: var(--font-display);

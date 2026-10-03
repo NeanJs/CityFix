@@ -74,7 +74,7 @@ import { appName } from '../../config/appConfig'
 .name {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-h);
   font-family: var(--font-display);

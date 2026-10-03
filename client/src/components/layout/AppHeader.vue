@@ -50,7 +50,7 @@ async function onAccount() {
 .page-title {
   margin: 0;
   font-size: 2.25rem;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.16;
   letter-spacing: -0.02em;
   color: var(--text-h);

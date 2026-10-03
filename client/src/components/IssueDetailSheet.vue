@@ -200,7 +200,7 @@ function advance() {
 .title {
   margin: 0.4rem 0 0;
   font-size: 1.7rem;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--text-h);
   line-height: 1.25;
   font-family: var(--font-display);
