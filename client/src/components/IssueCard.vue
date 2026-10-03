@@ -2,6 +2,7 @@
 import { useLocale } from '../composables/useLocale'
 import type { Issue } from '../types/issue'
 import GlassPanel from './ui/GlassPanel.vue'
+import SeverityPill from './SeverityPill.vue'
 import StatusPill from './StatusPill.vue'
 
 const props = defineProps<{
@@ -31,9 +32,14 @@ function formatWhen(iso: string) {
     @click="emit('select', props.issue.id)"
   >
     <GlassPanel padding="md" tone="paper" interactive>
+      <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
+        <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
+      </div>
       <div class="row">
         <div class="meta">
+          <span class="stamp">{{ props.issue.trackingId }}</span>
           <span class="stamp">{{ t(`category.${props.issue.category}`) }}</span>
+          <SeverityPill :severity="props.issue.severity" />
           <StatusPill :status="props.issue.status" />
         </div>
         <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
@@ -74,9 +80,23 @@ function formatWhen(iso: string) {
     var(--paper-shadow);
 }
 
+.thumb-wrap {
+  margin: -0.15rem -0.15rem 0.65rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: 7.5rem;
+  object-fit: cover;
+}
+
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.5rem;

@@ -1,8 +1,9 @@
 import { computed, ref } from 'vue'
 import { seedCitizenId } from '../data/seedUsers'
 import { seedIssues } from '../data/seedIssues'
+import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
-import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
+import type { Issue, IssueSeverity, IssueStatus, NewIssueInput } from '../types/issue'
 
 const storageKey = 'cityfix.issues.v1'
 
@@ -10,6 +11,8 @@ const issues = ref<Issue[]>([])
 const hydrated = ref(false)
 const storeReady = ref(false)
 let bootstrapPromise: Promise<void> | null = null
+
+const severities: IssueSeverity[] = ['low', 'medium', 'high']
 
 async function persist() {
   await writeStoreItem(storageKey, JSON.stringify(issues.value))
@@ -22,10 +25,21 @@ function createId() {
   return `issue-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function isSeverity(value: unknown): value is IssueSeverity {
+  return typeof value === 'string' && severities.includes(value as IssueSeverity)
+}
+
 function normalizeIssue(issue: Issue): Issue {
+  const description = issue.description?.trim() ?? ''
+  const transcript = issue.transcript?.trim() ?? ''
   return {
     ...issue,
+    trackingId: issue.trackingId || trackingIdFromInternal(issue.id),
     reporterId: issue.reporterId || seedCitizenId,
+    transcript,
+    summary: issue.summary?.trim() || description || transcript,
+    severity: isSeverity(issue.severity) ? issue.severity : 'medium',
+    photoDataUrl: issue.photoDataUrl,
   }
 }
 
@@ -74,21 +88,41 @@ export function useIssues() {
     () => issues.value.filter((issue) => issue.status === 'resolved').length,
   )
 
+  const highSeverityCount = computed(
+    () => issues.value.filter((issue) => issue.severity === 'high').length,
+  )
+
   function issuesForReporter(reporterId: string) {
     return sortedIssues.value.filter((issue) => issue.reporterId === reporterId)
+  }
+
+  function issuesCreatedOn(day: Date) {
+    const start = new Date(day)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 1)
+    return issues.value.filter((issue) => {
+      const created = new Date(issue.createdAt).getTime()
+      return created >= start.getTime() && created < end.getTime()
+    })
   }
 
   async function addIssue(input: NewIssueInput) {
     const now = new Date().toISOString()
     const issue: Issue = {
       id: createId(),
-      title: input.title.trim(),
+      trackingId: createTrackingId(issues.value.map((item) => item.trackingId)),
+      title: input.title?.trim() || input.summary.trim(),
       description: input.description.trim(),
+      transcript: input.transcript?.trim() ?? '',
+      summary: input.summary.trim(),
       category: input.category,
+      severity: input.severity,
       status: 'submitted',
       locationLabel: input.locationLabel.trim(),
       latitude: input.latitude,
       longitude: input.longitude,
+      photoDataUrl: input.photoDataUrl,
       reporterId: input.reporterId,
       createdAt: now,
       updatedAt: now,
@@ -121,7 +155,9 @@ export function useIssues() {
     issues: sortedIssues,
     openCount,
     resolvedCount,
+    highSeverityCount,
     issuesForReporter,
+    issuesCreatedOn,
     addIssue,
     updateStatus,
     getIssue,

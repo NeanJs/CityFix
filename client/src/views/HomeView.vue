@@ -36,8 +36,8 @@ const emit = defineEmits<{
           {{ t('home.newReport') }}
         </button>
         <ol class="marks">
-          <li>{{ t('home.stepDescribe') }}</li>
-          <li>{{ t('home.stepLocate') }}</li>
+          <li>{{ t('home.stepPhoto') }}</li>
+          <li>{{ t('home.stepVoice') }}</li>
           <li>{{ t('home.stepTrack') }}</li>
         </ol>
       </div>

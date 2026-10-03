@@ -5,8 +5,6 @@ import { appName } from '../../config/appConfig'
 import type { NavItem } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
-import LanguageSwitcher from './LanguageSwitcher.vue'
-
 const props = defineProps<{
   items: readonly NavItem[]
   sectionKey: string
@@ -91,7 +89,6 @@ async function signOut() {
     </nav>
 
     <div class="side-foot">
-      <LanguageSwitcher />
       <button type="button" class="btn-secondary sign-out" @click="signOut">
         {{ t('nav.logout') }}
       </button>

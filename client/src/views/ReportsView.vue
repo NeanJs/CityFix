@@ -8,6 +8,8 @@ import { useLocale } from '../composables/useLocale'
 import type { IssueCategory, IssueStatus } from '../types/issue'
 import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
+import SeverityPill from '../components/SeverityPill.vue'
+import StatusPill from '../components/StatusPill.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 
 const route = useRoute()
@@ -53,7 +55,8 @@ const filtered = computed(() => {
     if (!q) {
       return true
     }
-    const haystack = `${issue.title} ${issue.description} ${issue.locationLabel}`.toLowerCase()
+    const haystack =
+      `${issue.trackingId} ${issue.title} ${issue.description} ${issue.locationLabel}`.toLowerCase()
     return haystack.includes(q)
   })
 })
@@ -65,6 +68,15 @@ const statusFilters: { id: 'all' | IssueStatus; labelKey: string }[] = [
   { id: 'scheduled', labelKey: 'status.scheduled' },
   { id: 'resolved', labelKey: 'status.resolved' },
 ]
+
+function formatFiled(iso: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso))
+}
 </script>
 
 <template>

@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useLocale } from '../composables/useLocale'
 import type { Issue, IssueStatus } from '../types/issue'
 import GlassPanel from './ui/GlassPanel.vue'
+import SeverityPill from './SeverityPill.vue'
+import SpeakButton from './SpeakButton.vue'
 import StatusPill from './StatusPill.vue'
 
 const props = defineProps<{
@@ -24,6 +26,16 @@ const statusOptions: { id: IssueStatus; labelKey: string }[] = [
   { id: 'scheduled', labelKey: 'status.scheduled' },
   { id: 'resolved', labelKey: 'status.resolved' },
 ]
+
+const confirmation = computed(() => {
+  if (!props.issue) {
+    return ''
+  }
+  return t('receipt.confirmationSpeech', {
+    category: t(`category.${props.issue.category}`).toLowerCase(),
+    trackingId: props.issue.trackingId,
+  })
+})
 
 const timeline = computed(() => {
   if (!props.issue) {
@@ -66,7 +78,7 @@ function onBackdropClick(event: MouseEvent) {
           <GlassPanel padding="lg" tone="paper">
             <div class="sheet-head">
               <div>
-                <p class="stamp">{{ t(`category.${issue.category}`) }}</p>
+                <p class="stamp">{{ issue.trackingId }}</p>
                 <h2 class="title">{{ issue.title }}</h2>
               </div>
               <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
@@ -81,9 +93,25 @@ function onBackdropClick(event: MouseEvent) {
               </button>
             </div>
 
+            <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+
+            <div class="block">
+              <p class="row-label">{{ t('sheet.trackingId') }}</p>
+              <p class="location">{{ issue.trackingId }}</p>
+            </div>
+
             <div class="block">
               <p class="row-label">{{ t('sheet.status') }}</p>
-              <StatusPill :status="issue.status" />
+              <div class="pills">
+                <StatusPill :status="issue.status" />
+                <SeverityPill :severity="issue.severity" />
+                <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
+              </div>
+            </div>
+
+            <div class="block">
+              <p class="row-label">{{ t('sheet.summary') }}</p>
+              <p class="description">{{ issue.summary }}</p>
             </div>
 
             <div class="block">
@@ -97,9 +125,23 @@ function onBackdropClick(event: MouseEvent) {
               </p>
             </div>
 
+            <div v-if="issue.transcript" class="block">
+              <p class="row-label">{{ t('sheet.transcript') }}</p>
+              <p class="description">{{ issue.transcript }}</p>
+            </div>
+
             <div class="block">
               <p class="row-label">{{ t('sheet.description') }}</p>
               <p class="description">{{ issue.description }}</p>
+            </div>
+
+            <div class="block">
+              <SpeakButton
+                :text="confirmation"
+                play-key="sheet.play"
+                playing-key="sheet.playing"
+                unavailable-key="sheet.playUnavailable"
+              />
             </div>
 
             <ul class="timeline">
@@ -169,6 +211,22 @@ function onBackdropClick(event: MouseEvent) {
   color: var(--text-h);
   line-height: 1.25;
   font-family: var(--font-display);
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  margin-bottom: 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .close {

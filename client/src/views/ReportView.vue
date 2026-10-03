@@ -7,19 +7,30 @@ import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import type { IssueCategory } from '../types/issue'
 import AppHeader from '../components/layout/AppHeader.vue'
+import PhotoCaptureField from '../components/report/PhotoCaptureField.vue'
+import VoiceCaptureField from '../components/report/VoiceCaptureField.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
+import {
+  buildReportSummary,
+  buildReportTitle,
+  inferSeverity,
+  narrativeText,
+} from '../services/report/enrichReport'
 
 const { addIssue } = useIssues()
 const { currentUser } = useAuth()
 const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
+const submitStage = ref<'receive' | 'read' | 'file'>('receive')
+const voiceField = ref<InstanceType<typeof VoiceCaptureField> | null>(null)
 
 const form = reactive({
   title: '',
   description: '',
   category: 'pothole' as IssueCategory,
   locationLabel: '',
+  photoDataUrl: '',
 })
 
 const latitude = ref<number | undefined>()
@@ -29,6 +40,28 @@ const locationError = ref('')
 const submitError = ref('')
 
 const hasCoords = computed(() => latitude.value !== undefined && longitude.value !== undefined)
+const voiceTranscript = computed(() => voiceField.value?.transcript.value.trim() ?? '')
+const accountText = computed(() =>
+  narrativeText({
+    title: form.title,
+    description: form.description,
+    transcript: voiceTranscript.value,
+    category: form.category,
+  }),
+)
+
+const submitLabel = computed(() => {
+  if (!submitting.value) {
+    return t('report.submit')
+  }
+  if (submitStage.value === 'receive') {
+    return t('report.stageReceive')
+  }
+  if (submitStage.value === 'read') {
+    return t('report.stageRead')
+  }
+  return t('report.stageFile')
+})
 
 function useCurrentLocation() {
   locationError.value = ''
@@ -59,9 +92,17 @@ function resetForm() {
   form.description = ''
   form.category = 'pothole'
   form.locationLabel = ''
+  form.photoDataUrl = ''
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
+  voiceField.value?.reset()
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 async function submit() {
@@ -69,23 +110,45 @@ async function submit() {
     return
   }
   submitError.value = ''
-  if (!form.title.trim() || !form.description.trim() || !form.locationLabel.trim()) {
+  const note = voiceTranscript.value || form.description.trim()
+  if (!form.photoDataUrl || !note || !form.locationLabel.trim()) {
     submitError.value = t('report.incomplete')
     return
   }
   submitting.value = true
+  submitStage.value = 'receive'
   try {
+    await wait(380)
+    submitStage.value = 'read'
+    const severity = inferSeverity(accountText.value)
+    const title = buildReportTitle(
+      t(`category.${form.category}`),
+      form.locationLabel,
+      form.title,
+    )
+    const summary = buildReportSummary(
+      t(`severity.${severity}`),
+      t(`category.${form.category}`),
+      form.locationLabel,
+    )
+    await wait(420)
+    submitStage.value = 'file'
     const issue = await addIssue({
-      title: form.title,
-      description: form.description,
+      title,
+      description: form.description.trim() || voiceTranscript.value,
+      transcript: voiceTranscript.value,
+      summary,
       category: form.category,
+      severity,
       locationLabel: form.locationLabel,
       latitude: latitude.value,
       longitude: longitude.value,
+      photoDataUrl: form.photoDataUrl,
       reporterId: currentUser.value.id,
     })
+    await wait(280)
     resetForm()
-    await router.push({ path: '/reports', query: { highlight: issue.id } })
+    await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
   } finally {
     submitting.value = false
   }
@@ -98,15 +161,30 @@ async function submit() {
 
     <GlassPanel padding="lg" tone="paper" class="form-panel">
       <form class="form" @submit.prevent="submit">
+        <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+
+        <VoiceCaptureField ref="voiceField" />
+
         <label class="field">
-          <span>{{ t('report.fieldTitle') }}</span>
-          <input
-            v-model="form.title"
+          <span>{{ t('report.transcript') }}</span>
+          <textarea
             class="control"
-            type="text"
-            maxlength="120"
-            :placeholder="t('report.titlePlaceholder')"
-            autocomplete="off"
+            rows="3"
+            maxlength="800"
+            :placeholder="t('report.transcriptPlaceholder')"
+            :value="voiceTranscript"
+            readonly
+          />
+        </label>
+
+        <label class="field">
+          <span>{{ t('report.description') }}</span>
+          <textarea
+            v-model="form.description"
+            class="control"
+            rows="3"
+            maxlength="800"
+            :placeholder="t('report.descriptionPlaceholder')"
           />
         </label>
 
@@ -127,13 +205,14 @@ async function submit() {
         </div>
 
         <label class="field">
-          <span>{{ t('report.description') }}</span>
-          <textarea
-            v-model="form.description"
+          <span>{{ t('report.fieldTitle') }} · {{ t('report.titleOptional') }}</span>
+          <input
+            v-model="form.title"
             class="control"
-            rows="4"
-            maxlength="800"
-            :placeholder="t('report.descriptionPlaceholder')"
+            type="text"
+            maxlength="120"
+            :placeholder="t('report.titlePlaceholder')"
+            autocomplete="off"
           />
         </label>
 
@@ -164,7 +243,7 @@ async function submit() {
         <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
 
         <button type="submit" class="btn submit" :disabled="submitting">
-          {{ submitting ? t('report.submitting') : t('report.submit') }}
+          {{ submitLabel }}
         </button>
       </form>
     </GlassPanel>

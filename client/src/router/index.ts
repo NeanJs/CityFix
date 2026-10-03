@@ -13,6 +13,7 @@ import AdminHomeView from '../views/admin/AdminHomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
 import HomeView from '../views/HomeView.vue'
+import ReceiptView from '../views/ReceiptView.vue'
 import ReportView from '../views/ReportView.vue'
 import ReportsView from '../views/ReportsView.vue'
 
@@ -54,6 +55,11 @@ export const router = createRouter({
       children: [
         { path: '', name: 'home', component: HomeView },
         { path: 'report', name: 'report', component: ReportView },
+        {
+          path: 'report/receipt/:id',
+          name: 'reportReceipt',
+          component: ReceiptView,
+        },
         {
           path: 'reports',
           name: 'reports',

@@ -48,6 +48,15 @@
   --status-resolved-fg: #35553a;
   --status-resolved-bg: rgba(53, 85, 58, 0.12);
   --status-resolved-bd: rgba(53, 85, 58, 0.32);
+  --severity-low-fg: #35553a;
+  --severity-low-bg: rgba(53, 85, 58, 0.1);
+  --severity-low-bd: rgba(53, 85, 58, 0.28);
+  --severity-medium-fg: #6a4f1d;
+  --severity-medium-bg: rgba(180, 132, 40, 0.14);
+  --severity-medium-bd: rgba(166, 120, 36, 0.35);
+  --severity-high-fg: #7a2f28;
+  --severity-high-bg: rgba(154, 58, 48, 0.12);
+  --severity-high-bd: rgba(154, 58, 48, 0.34);
 
   font-family:
     system-ui,

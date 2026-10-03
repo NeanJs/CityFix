@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import { appName } from '../../config/appConfig'
-import LanguageSwitcher from './LanguageSwitcher.vue'
 </script>
 
 <template>
@@ -24,7 +23,6 @@ import LanguageSwitcher from './LanguageSwitcher.vue'
         </div>
         <p class="name">{{ appName }}</p>
       </div>
-      <LanguageSwitcher />
     </header>
     <main class="auth-main">
       <RouterView />

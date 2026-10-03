@@ -3,8 +3,6 @@ import { useRouter } from 'vue-router'
 import { appName } from '../../config/appConfig'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
-import LanguageSwitcher from './LanguageSwitcher.vue'
-
 defineProps<{
   subtitle?: string
   showAccount?: boolean
@@ -42,9 +40,8 @@ async function signOut() {
         <h1 v-if="subtitle" class="page-title">{{ subtitle }}</h1>
       </div>
     </div>
-    <div class="actions">
-      <LanguageSwitcher class="locale-mobile" />
-      <button v-if="showAccount" type="button" class="btn-ghost logout-mobile" @click="signOut">
+    <div v-if="showAccount" class="actions">
+      <button type="button" class="btn-ghost logout-mobile" @click="signOut">
         {{ t('nav.logout') }}
       </button>
     </div>
@@ -122,7 +119,6 @@ async function signOut() {
 @media (min-width: 1024px) {
   .mark-mobile,
   .name-mobile,
-  .locale-mobile,
   .logout-mobile {
     display: none;
   }
