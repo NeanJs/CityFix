@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocale } from '../composables/useLocale'
-import { playIssueFlip } from '../motion/issueFlip'
+import { originFromElement, takePointerOrigin, type PointOrigin } from '../motion/pointerOrigin'
 import { useMotionScope } from '../motion/useMotionScope'
 import { dismissSurface, enterBlocks, presentSurface } from '../motion/transitions'
 import { canRejectStatus, nextStatus } from '../services/report/statusFlow'
@@ -32,6 +32,7 @@ let copiedTimer = 0
 let generation = 0
 let dragPointer: number | null = null
 let dragStartY = 0
+let motionOrigin: PointOrigin | null = null
 const { run } = useMotionScope(overlayRef)
 
 const upcoming = computed(() => (props.issue ? nextStatus(props.issue.status) : null))
@@ -64,7 +65,7 @@ function formatDateTime(date: Date) {
 }
 
 function surfaceOrigin() {
-  return window.matchMedia('(min-width: 1024px)').matches ? 'center' : 'bottom'
+  return motionOrigin ?? (window.matchMedia('(min-width: 1024px)').matches ? 'center' : 'bottom')
 }
 
 function onBackdropClick(event: MouseEvent) {
@@ -119,6 +120,7 @@ function setBodyScrollLocked(locked: boolean) {
 
 async function show() {
   const gen = ++generation
+  motionOrigin = takePointerOrigin() ?? originFromElement(document.activeElement)
   rendered.value = true
   setBodyScrollLocked(true)
   await nextTick()
@@ -136,7 +138,6 @@ async function show() {
   }
   run(() => {
     presentSurface(overlay, sheet, surfaceOrigin())
-    playIssueFlip()
     enterBlocks(sheet.querySelectorAll('[data-enter-block]'))
   })
 }
@@ -146,15 +147,12 @@ async function hide() {
   setBodyScrollLocked(false)
   const overlay = overlayRef.value
   const sheet = sheetRef.value
-  const finish = async () => {
+  const finish = () => {
     if (gen !== generation) {
       return
     }
     rendered.value = false
-    await nextTick()
-    if (gen === generation) {
-      playIssueFlip()
-    }
+    motionOrigin = null
   }
   if (!overlay || !sheet) {
     await finish()
@@ -229,6 +227,7 @@ onBeforeUnmount(() => {
   generation += 1
   copied.value = false
   window.clearTimeout(copiedTimer)
+  motionOrigin = null
   setBodyScrollLocked(false)
 })
 </script>
@@ -263,7 +262,7 @@ onBeforeUnmount(() => {
           <div class="head-copy">
             <div class="head-meta">
               <div class="tracking">
-                <p class="stamp" :data-flip-id="`issue-${issue.id}-tracking`">{{ issue.trackingId }}</p>
+                <p class="stamp">{{ issue.trackingId }}</p>
                 <button
                   type="button"
                   class="copy"
@@ -273,9 +272,9 @@ onBeforeUnmount(() => {
                   <AppIcon :name="copied ? 'check' : 'copy'" size="0.95rem" />
                 </button>
               </div>
-              <StatusPill :status="issue.status" :flip-id="`issue-${issue.id}-status`" />
+              <StatusPill :status="issue.status" />
             </div>
-            <h2 class="title" :data-flip-id="`issue-${issue.id}-title`">{{ issue.title }}</h2>
+            <h2 class="title">{{ issue.title }}</h2>
           </div>
           <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
             <AppIcon name="x" size="1rem" />
@@ -303,7 +302,6 @@ onBeforeUnmount(() => {
             class="photo"
             :src="issue.photoDataUrl"
             alt=""
-            :data-flip-id="`issue-${issue.id}-photo`"
           />
 
           <div class="pills" data-enter-block>
@@ -374,6 +372,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 0;
   background: rgba(9, 9, 10, 0.55);
+  opacity: 0;
 }
 
 .sheet {
@@ -387,6 +386,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: 0 -8px 40px rgba(9, 9, 10, 0.18);
   overflow: hidden;
+  transform-origin: 50% 50%;
 }
 
 .sheet-drag {

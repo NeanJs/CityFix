@@ -4,6 +4,7 @@ export const duration = {
   sm: 0.2,
   md: 0.24,
   lg: 0.32,
+  pop: 0.42,
 } as const
 
 export const travel = {
@@ -16,6 +17,7 @@ export const travel = {
 export const scale = {
   press: 0.98,
   enter: 0.985,
+  pop: 0.86,
 } as const
 
 export const blur = {

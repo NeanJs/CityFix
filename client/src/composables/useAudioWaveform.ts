@@ -1,4 +1,5 @@
 import { onBeforeUnmount, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { readVoiceLevel } from '../services/media/voiceLevel'
 
 export type AudioWaveformFrame = {
   levels: Float32Array
@@ -17,7 +18,6 @@ const minBars = 24
 const maxBars = 140
 const windowSeconds = 2.4
 const storedSeconds = 5
-const noiseFloor = 0.014
 
 export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
   let levels = new Float32Array(0)
@@ -103,23 +103,7 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
     if (!analyser || !timeDomain || !frequencies) {
       return 0
     }
-    analyser.getByteTimeDomainData(timeDomain)
-    let sum = 0
-    for (let index = 0; index < timeDomain.length; index += 1) {
-      const sample = (timeDomain[index] - 128) / 128
-      sum += sample * sample
-    }
-    const rms = Math.sqrt(sum / timeDomain.length)
-    analyser.getByteFrequencyData(frequencies)
-    const voiceBins = Math.min(42, frequencies.length)
-    let voice = 0
-    for (let index = 2; index < voiceBins; index += 1) {
-      voice += frequencies[index]
-    }
-    const voiceLevel = voice / ((voiceBins - 2) * 255)
-    const loudness = Math.min(1, Math.pow(Math.max(0, rms - noiseFloor) * 8.8, 0.68))
-    const texture = Math.min(1, Math.pow(voiceLevel, 0.78))
-    return Math.min(1, loudness * 0.74 + texture * 0.46)
+    return readVoiceLevel(analyser, timeDomain, frequencies).level
   }
 
   function followHead() {

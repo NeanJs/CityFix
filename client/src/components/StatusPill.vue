@@ -5,7 +5,6 @@ import MorphText from './ui/MorphText.vue'
 
 const props = defineProps<{
   status: IssueStatus
-  flipId?: string
 }>()
 
 const { t } = useLocale()
@@ -15,7 +14,6 @@ const { t } = useLocale()
   <span
     class="stamp status"
     :class="`status-${props.status}`"
-    :data-flip-id="props.flipId"
   >
     <MorphText :text="t(`status.${props.status}`)" />
   </span>

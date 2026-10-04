@@ -5,7 +5,6 @@ import { useAndroidBackHandler } from '../../composables/useAndroidBackHandler'
 import { useAuth } from '../../composables/useAuth'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
-import { captureIssueFlip } from '../../motion/issueFlip'
 import IssueDetailSheet from '../IssueDetailSheet.vue'
 import BottomNav from './BottomNav.vue'
 import PageSwitch from './PageSwitch.vue'
@@ -54,14 +53,12 @@ async function refreshIssueFromRemote() {
 }
 
 function openIssue(id: string) {
-  captureIssueFlip(id)
   selectedIssueId.value = id
   detailOpen.value = true
   void refreshIssueFromRemote()
 }
 
 function closeDetail() {
-  captureIssueFlip(selectedIssueId.value)
   detailOpen.value = false
 }
 

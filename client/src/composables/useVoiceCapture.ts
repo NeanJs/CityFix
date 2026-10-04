@@ -1,5 +1,8 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { compressVoiceFile } from '../services/media/compressAudio'
+import { createSpeechEndpoint } from '../services/media/speechEndpoint'
+
+const minRecordingMs = 3000
 
 function recorderMime() {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
@@ -22,6 +25,22 @@ export function useVoiceCapture() {
   let captureGeneration = 0
   let encodePromise: Promise<Blob | null> | null = null
   let stopResolve: ((blob: Blob | null) => void) | null = null
+  let endpointClosing = false
+
+  const endpoint = createSpeechEndpoint({
+    onEnded: () => {
+      if (endpointClosing || !recording.value) {
+        return
+      }
+      void stop()
+    },
+    onCancel: () => {
+      if (endpointClosing || !recording.value) {
+        return
+      }
+      cancel()
+    },
+  })
 
   function clearTimer() {
     if (timer !== null) {
@@ -40,6 +59,12 @@ export function useVoiceCapture() {
   function stopStream() {
     mediaStream.value?.getTracks().forEach((track) => track.stop())
     mediaStream.value = null
+  }
+
+  function stopEndpoint() {
+    endpointClosing = true
+    endpoint.stop()
+    endpointClosing = false
   }
 
   async function finalizeRecording(raw: Blob, generation: number) {
@@ -79,8 +104,15 @@ export function useVoiceCapture() {
       errorKey.value = 'report.voiceUnavailable'
       return
     }
+    endpoint.prime()
     try {
-      mediaStream.value = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStream.value = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      })
     } catch (error) {
       const name = error instanceof DOMException ? error.name : ''
       errorKey.value = name === 'NotAllowedError' ? 'report.voiceDenied' : 'report.voiceFailed'
@@ -104,9 +136,23 @@ export function useVoiceCapture() {
     }
     const generation = captureGeneration
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
+      const durationMs = Date.now() - startedAt
+      const recorded = chunks
+      const type = mediaRecorder?.mimeType || 'audio/webm'
+      chunks = []
       stopStream()
       mediaRecorder = null
+      if (durationMs < minRecordingMs) {
+        if (generation === captureGeneration) {
+          encoding.value = false
+          elapsed.value = 0
+        }
+        stopResolve?.(null)
+        stopResolve = null
+        encodePromise = null
+        return
+      }
+      const blob = new Blob(recorded, { type })
       encodePromise = finalizeRecording(blob, generation)
       void encodePromise.then((file) => {
         stopResolve?.(file)
@@ -120,9 +166,11 @@ export function useVoiceCapture() {
     timer = window.setInterval(() => {
       elapsed.value = Math.floor((Date.now() - startedAt) / 1000)
     }, 250)
+    endpoint.attach(stream)
   }
 
   function stop() {
+    stopEndpoint()
     if (encoding.value && encodePromise) {
       return encodePromise
     }
@@ -156,8 +204,45 @@ export function useVoiceCapture() {
     return Promise.resolve(audioBlob.value)
   }
 
+  function discardRecorder() {
+    chunks = []
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.ondataavailable = null
+      mediaRecorder.onstop = () => {
+        stopStream()
+        mediaRecorder = null
+      }
+      try {
+        mediaRecorder.stop()
+      } catch {
+        stopStream()
+        mediaRecorder = null
+      }
+      return
+    }
+    stopStream()
+    mediaRecorder = null
+  }
+
+  function cancel() {
+    if (!recording.value) {
+      return
+    }
+    captureGeneration += 1
+    stopEndpoint()
+    recording.value = false
+    encoding.value = false
+    encodePromise = null
+    stopResolve?.(null)
+    stopResolve = null
+    clearTimer()
+    discardRecorder()
+    elapsed.value = 0
+  }
+
   function reset() {
     captureGeneration += 1
+    stopEndpoint()
     encoding.value = false
     encodePromise = null
     stopResolve?.(null)
@@ -165,19 +250,7 @@ export function useVoiceCapture() {
     if (recording.value) {
       recording.value = false
       clearTimer()
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.onstop = () => {
-          stopStream()
-          mediaRecorder = null
-        }
-        try {
-          mediaRecorder.stop()
-        } catch {
-          /* already stopped */
-        }
-      }
-      stopStream()
-      mediaRecorder = null
+      discardRecorder()
     }
     revokeUrl()
     audioBlob.value = null
@@ -195,6 +268,7 @@ export function useVoiceCapture() {
 
   onBeforeUnmount(() => {
     reset()
+    endpoint.destroy()
   })
 
   return {

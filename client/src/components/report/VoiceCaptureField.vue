@@ -124,6 +124,9 @@ function onMeter() {
 
 watch(voice.recording, (recording) => {
   if (!recording) {
+    if (!voice.encoding.value && !voice.audioBlob.value) {
+      waveform.value?.clear()
+    }
     return
   }
   playVoiceCaptureEffect('start')
@@ -210,7 +213,6 @@ defineExpose({ reset, stop: voice.stop, awaitTranscript, busy })
         {{ t('report.typeInstead') }}
       </button>
     </div>
-    <audio v-show="voice.audioUrl.value && !voice.recording.value" :src="voice.audioUrl.value" controls />
     <label v-if="props.includeNote" class="note">
       <span class="field-label">{{ t('report.transcript') }}</span>
       <textarea
@@ -301,10 +303,6 @@ defineExpose({ reset, stop: voice.stop, awaitTranscript, busy })
 .note {
   display: grid;
   gap: 0.35rem;
-}
-
-audio {
-  width: 100%;
 }
 
 .error {

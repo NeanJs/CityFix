@@ -85,7 +85,7 @@ export const en = {
     photoRequired: 'Add a photograph to continue.',
     photoFailed: 'Could not read that image. Try another photo.',
     voice: 'Voice note',
-    voiceHint: 'Describe the problem in a short recording.',
+    voiceHint: 'Describe the problem. Recording stops when you finish speaking.',
     voiceWaveform: 'Live recording waveform',
     startVoice: 'Record voice',
     stopVoice: 'Stop recording',

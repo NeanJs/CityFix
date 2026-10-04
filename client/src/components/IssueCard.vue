@@ -52,17 +52,16 @@ function onAdvance(event: Event) {
           class="thumb"
           :src="props.issue.photoDataUrl"
           alt=""
-          :data-flip-id="`issue-${props.issue.id}-photo`"
         />
       </div>
       <div class="copy">
         <div class="topline">
-          <h3 class="title" :data-flip-id="`issue-${props.issue.id}-title`">{{ props.issue.title }}</h3>
-          <StatusPill :status="props.issue.status" :flip-id="`issue-${props.issue.id}-status`" />
+          <h3 class="title">{{ props.issue.title }}</h3>
+          <StatusPill :status="props.issue.status" />
         </div>
         <p class="location">{{ props.issue.locationLabel }}</p>
         <div class="meta">
-          <span class="stamp" :data-flip-id="`issue-${props.issue.id}-tracking`">{{
+          <span class="stamp">{{
             props.issue.trackingId
           }}</span>
           <SeverityPill :severity="props.issue.severity" />

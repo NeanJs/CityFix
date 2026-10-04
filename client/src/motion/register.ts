@@ -1,6 +1,7 @@
 import gsap from 'gsap'
 import { CustomEase } from 'gsap/CustomEase'
 import { Flip } from 'gsap/Flip'
+import { startPointerOrigin } from './pointerOrigin'
 
 let registered = false
 
@@ -10,5 +11,6 @@ export function registerMotion() {
   }
   gsap.registerPlugin(Flip, CustomEase)
   gsap.defaults({ overwrite: 'auto', ease: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+  startPointerOrigin()
   registered = true
 }
