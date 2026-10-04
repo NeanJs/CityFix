@@ -13,12 +13,14 @@ import AdminHomeView from '../views/admin/AdminHomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
 import HomeView from '../views/HomeView.vue'
+import HomepagePreviewView from '../views/HomepagePreviewView.vue'
 import ReportView from '../views/ReportView.vue'
 import ReportsView from '../views/ReportsView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
     guest?: boolean
+    public?: boolean
     role?: UserRole
     issueScope?: 'mine' | 'all'
   }
@@ -46,6 +48,12 @@ export const router = createRouter({
       component: AuthLayout,
       meta: { guest: true },
       children: [{ path: '', name: 'register', component: RegisterView }],
+    },
+    {
+      path: '/homepage-preview',
+      name: 'homepagePreview',
+      component: HomepagePreviewView,
+      meta: { public: true },
     },
     {
       path: '/',
@@ -83,6 +91,10 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  if (to.meta.public) {
+    return true
+  }
+
   await hydrateAuth()
   const { currentUser } = useAuth()
   const user = currentUser.value
