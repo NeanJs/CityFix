@@ -3,7 +3,8 @@ import {
   createReportController,
   getReportByTrackingIdController,
   analyzeReportController,
-  testGeminiController
+  testGeminiController,
+  transcribeAudioController,
 } from "./reports.controllers.js";
 import { analyzeUpload } from "../../middleware/upload.js";
 
@@ -14,7 +15,11 @@ router.post("/", createReportController);
 router.get("/track/:trackingId", getReportByTrackingIdController);
 
 router.post("/analyze", analyzeUpload.single("file"), analyzeReportController);
-
+router.post(
+  "/transcribe",
+  analyzeUpload.single("file"),
+  transcribeAudioController,
+);
 router.get("/test-gemini", testGeminiController);
 
 export default router;

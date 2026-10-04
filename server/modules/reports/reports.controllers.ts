@@ -5,6 +5,7 @@ import {
   getReportByTrackingId,
   testGemini,
 } from "./reports.services.js";
+import { transcribeAudio } from "./audio/audio.service.js";
 import { analyzeImage, analyzeText } from "./ai/ai.service.js";
 
 export async function createReportController(req: Request, res: Response) {
@@ -133,6 +134,42 @@ export async function testGeminiController(_req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Gemini test error:", error);
+
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+export async function transcribeAudioController(req: Request, res: Response) {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({
+        error: "Audio file is required",
+      });
+      return;
+    }
+
+    if (!file.mimetype.startsWith("audio/")) {
+      res.status(400).json({
+        error: "Only audio files are supported",
+      });
+      return;
+    }
+
+    const transcript = await transcribeAudio(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    res.status(200).json({
+      transcript,
+    });
+  } catch (error) {
+    console.error("Audio transcription error:", error);
 
     res.status(500).json({
       error: error instanceof Error ? error.message : String(error),

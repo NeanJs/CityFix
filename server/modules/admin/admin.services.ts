@@ -1,6 +1,8 @@
 import type { SupabaseContext } from "@supabase/server";
 import type { Report } from "../../types/reports.types.js";
 
+import { createClient } from "@supabase/supabase-js";
+
 export async function getAdminReports(
   supabase: SupabaseContext["supabaseAdmin"],
 ): Promise<Report[]> {

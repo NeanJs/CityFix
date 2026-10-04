@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.70.0",
     "@google/genai": "^2.27.0",
     "@supabase/server": "^1.9.0",
     "cors": "^2.8.6",
