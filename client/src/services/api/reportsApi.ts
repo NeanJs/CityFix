@@ -29,8 +29,6 @@ export type CreateReportBody = {
   }
   recommended_action: string
   transcript?: string
-  photo_url?: string
-  audio_url?: string
 }
 
 export type CreateReportInput = {
@@ -42,8 +40,8 @@ export type CreateReportInput = {
   latitude?: number
   longitude?: number
   transcript?: string
-  photoUrl?: string
-  audioUrl?: string
+  photo?: Blob
+  audio?: Blob
 }
 
 export type RemoteReport = {
@@ -110,12 +108,24 @@ function filled(value: string | undefined, fallback: string) {
   return trimmed || fallback
 }
 
-function remoteMediaUrl(value: string | undefined) {
-  const trimmed = value?.trim() ?? ''
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed
+function photoFileName(blob: Blob) {
+  if (blob.type.includes('png')) {
+    return 'photo.png'
   }
-  return ''
+  if (blob.type.includes('webp')) {
+    return 'photo.webp'
+  }
+  return 'photo.jpg'
+}
+
+function audioFileName(blob: Blob) {
+  if (blob.type.includes('mp4')) {
+    return 'voice.mp4'
+  }
+  if (blob.type.includes('mpeg')) {
+    return 'voice.mp3'
+  }
+  return 'voice.webm'
 }
 
 function normalizeCategory(value: string): IssueCategory {
@@ -211,13 +221,26 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   if (transcript) {
     body.transcript = transcript
   }
-  const photoUrl = remoteMediaUrl(input.photoUrl)
-  if (photoUrl) {
-    body.photo_url = photoUrl
+  return body
+}
+
+export function buildCreateReportFormData(input: CreateReportInput) {
+  const payload = buildCreateReportBody(input)
+  const body = new FormData()
+  body.append('issue_type', payload.issue_type)
+  body.append('title', payload.title)
+  body.append('description', payload.description)
+  body.append('severity', payload.severity)
+  body.append('location', JSON.stringify(payload.location))
+  body.append('recommended_action', payload.recommended_action)
+  if (payload.transcript) {
+    body.append('transcript', payload.transcript)
   }
-  const audioUrl = remoteMediaUrl(input.audioUrl)
-  if (audioUrl) {
-    body.audio_url = audioUrl
+  if (input.photo) {
+    body.append('photo', input.photo, photoFileName(input.photo))
+  }
+  if (input.audio) {
+    body.append('audio', input.audio, audioFileName(input.audio))
   }
   return body
 }
@@ -281,9 +304,8 @@ export async function createReport(input: CreateReportInput): Promise<RemoteRepo
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(buildCreateReportBody(input)),
+    body: buildCreateReportFormData(input),
   })
   if (!response.ok) {
     throw new ReportApiError(response.status === 404 ? 'not-found' : 'failed')

@@ -52,6 +52,16 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
+function photoFileName(blob: Blob) {
+  if (blob.type.includes('png')) {
+    return 'photo.png'
+  }
+  if (blob.type.includes('webp')) {
+    return 'photo.webp'
+  }
+  return 'photo.jpg'
+}
+
 function audioFileName(blob: Blob) {
   if (blob.type.includes('mp4')) {
     return 'voice.mp4'
@@ -65,7 +75,7 @@ function audioFileName(blob: Blob) {
 function toFormData(input: ReportIngestInput) {
   const body = new FormData()
   if (input.photo) {
-    body.append('photo', input.photo, 'photo.jpg')
+    body.append('photo', input.photo, photoFileName(input.photo))
   }
   if (input.audio) {
     body.append('audio', input.audio, audioFileName(input.audio))
@@ -86,7 +96,9 @@ function toFormData(input: ReportIngestInput) {
   }
   body.append('confirmed', input.confirmed ? 'true' : 'false')
   if (input.draft) {
-    body.append('report', JSON.stringify(input.draft))
+    const photoUrl = input.draft.photoUrl?.trim() ?? ''
+    const draft = /^https?:\/\//i.test(photoUrl) ? input.draft : { ...input.draft, photoUrl: undefined }
+    body.append('report', JSON.stringify(draft))
   }
   return body
 }
@@ -168,6 +180,9 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
   }
   const response = await fetch(url, {
     method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
     body: toFormData(input),
   })
   if (!response.ok) {

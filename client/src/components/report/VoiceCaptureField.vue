@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
+import AudioWaveform from '../ui/AudioWaveform.vue'
 import MorphText from '../ui/MorphText.vue'
 
 const props = withDefaults(
@@ -17,6 +18,16 @@ const audioBlob = defineModel<Blob | null>('audioBlob', { default: null })
 const { t } = useLocale()
 const voice = useVoiceCapture()
 const note = ref<HTMLTextAreaElement | null>(null)
+const waveform = ref<{ prime: () => void; clear: () => void } | null>(null)
+
+function onMeter() {
+  waveform.value?.prime()
+  if (voice.recording.value) {
+    void voice.stop()
+    return
+  }
+  void voice.start()
+}
 
 watch(voice.transcript, (value) => {
   if (voice.recording.value || value) {
@@ -35,6 +46,7 @@ async function typeInstead() {
 
 function reset() {
   voice.reset()
+  waveform.value?.clear()
   transcript.value = ''
   audioBlob.value = null
 }
@@ -50,20 +62,28 @@ defineExpose({ reset, stop: voice.stop })
       type="button"
       class="meter"
       :class="{ live: voice.recording.value }"
-      @click="voice.recording.value ? voice.stop() : voice.start()"
+      @click="onMeter"
     >
-      <span class="time">{{ voice.formatElapsed() }}</span>
-      <span class="state">
-        <MorphText
-          :text="
-            voice.recording.value
-              ? t('report.stopVoice')
-              : voice.audioUrl.value
-                ? t('report.voiceReady')
-                : t('report.startVoice')
-          "
-        />
+      <span class="meta">
+        <span class="time">{{ voice.formatElapsed() }}</span>
+        <span class="state">
+          <MorphText
+            :text="
+              voice.recording.value
+                ? t('report.stopVoice')
+                : voice.audioUrl.value
+                  ? t('report.voiceReady')
+                  : t('report.startVoice')
+            "
+          />
+        </span>
       </span>
+      <AudioWaveform
+        ref="waveform"
+        class="wave"
+        :stream="voice.mediaStream.value"
+        :label="t('report.voiceWaveform')"
+      />
     </button>
     <div v-if="props.includeNote && !voice.recording.value" class="actions">
       <button type="button" class="btn-ghost" @click="typeInstead">
@@ -93,13 +113,11 @@ defineExpose({ reset, stop: voice.stop })
 }
 
 .meter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.2rem;
   width: 100%;
-  min-height: 3.25rem;
-  padding: 0.65rem 0.8rem;
+  min-height: 5.4rem;
+  padding: 0.65rem 0.8rem 0.45rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
@@ -107,6 +125,17 @@ defineExpose({ reset, stop: voice.stop })
   font: inherit;
   cursor: pointer;
   text-align: start;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.wave {
+  height: 2.7rem;
 }
 
 .meter.live {

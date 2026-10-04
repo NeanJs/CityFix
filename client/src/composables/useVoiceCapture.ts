@@ -21,8 +21,8 @@ export function useVoiceCapture() {
   const errorKey = ref('')
   const recognitionSupported = Boolean(recognitionCtor())
 
+  const mediaStream = ref<MediaStream | null>(null)
   let mediaRecorder: MediaRecorder | null = null
-  let mediaStream: MediaStream | null = null
   let recognition: SpeechRecognition | null = null
   let chunks: Blob[] = []
   let timer: number | null = null
@@ -58,8 +58,8 @@ export function useVoiceCapture() {
   }
 
   function stopStream() {
-    mediaStream?.getTracks().forEach((track) => track.stop())
-    mediaStream = null
+    mediaStream.value?.getTracks().forEach((track) => track.stop())
+    mediaStream.value = null
   }
 
   function startRecognition() {
@@ -108,7 +108,7 @@ export function useVoiceCapture() {
       return
     }
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStream.value = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch (error) {
       const name = error instanceof DOMException ? error.name : ''
       errorKey.value = name === 'NotAllowedError' ? 'report.voiceDenied' : 'report.voiceFailed'
@@ -119,9 +119,13 @@ export function useVoiceCapture() {
     chunks = []
     transcript.value = ''
     const mimeType = recorderMime()
+    const stream = mediaStream.value
+    if (!stream) {
+      return
+    }
     mediaRecorder = mimeType
-      ? new MediaRecorder(mediaStream, { mimeType })
-      : new MediaRecorder(mediaStream)
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream)
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         chunks.push(event.data)
@@ -210,6 +214,7 @@ export function useVoiceCapture() {
   return {
     recording,
     elapsed,
+    mediaStream,
     audioUrl,
     audioBlob,
     transcript,

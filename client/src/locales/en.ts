@@ -96,6 +96,7 @@ export const en = {
     photoFailed: 'Could not read that image. Try another photo.',
     voice: 'Voice note',
     voiceHint: 'Describe the problem in a short recording.',
+    voiceWaveform: 'Live recording waveform',
     startVoice: 'Record voice',
     stopVoice: 'Stop recording',
     rerecordVoice: 'Record again',
