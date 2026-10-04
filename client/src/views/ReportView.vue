@@ -20,7 +20,7 @@ import GlassPanel from '../components/ui/GlassPanel.vue'
 import SeverityPill from '../components/SeverityPill.vue'
 
 const { addIssue } = useIssues()
-const { currentUser, reporterId } = useAuth()
+const { reporterId } = useAuth()
 const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
@@ -63,13 +63,16 @@ const { markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync
 })
 const step = computed<1 | 2>(() => (phase.value === 'review' ? 2 : 1))
 const photoSrc = computed(() => draft.photoUrl || form.photoDataUrl)
-const aiDescription = computed(
-  () =>
-    draft.summary.trim() ||
-    draft.description.trim() ||
-    draft.transcript.trim() ||
-    form.transcript.trim(),
-)
+const reviewTitle = computed(() => draft.title.trim() || t('report.untitled'))
+const reviewSummary = computed(() => draft.summary.trim() || draft.description.trim())
+const citizenWords = computed(() => draft.transcript.trim() || form.transcript.trim())
+const showCitizenWords = computed(() => {
+  const words = citizenWords.value
+  if (!words) {
+    return false
+  }
+  return words.toLowerCase() !== reviewSummary.value.toLowerCase()
+})
 const placeLabel = computed(
   () => draft.locationLabel.trim() || form.locationLabel.trim() || t('report.locationUnset'),
 )
@@ -336,104 +339,97 @@ async function confirm() {
       <p class="lead">{{ phase === 'capture' ? t('report.lead') : t('report.reviewLead') }}</p>
     </header>
 
-    <div class="report-body">
-      <GlassPanel padding="lg" tone="fill" class="map-col">
-        <LocationPickerField
-          v-model:latitude="latitude"
-          v-model:longitude="longitude"
-          :disabled="reviewActive"
-          tall
-        />
-        <label v-if="phase === 'capture'" class="field">
-          <span class="field-label">{{ t('report.locationName') }}</span>
-          <input
-            v-model="form.locationLabel"
-            class="control"
-            type="text"
-            maxlength="160"
-            :placeholder="t('report.locationPlaceholder')"
-            autocomplete="street-address"
-            @input="markLocationLabelManual"
+    <div class="report-body" :class="{ 'is-review': reviewActive }">
+      <template v-if="phase === 'capture'">
+        <GlassPanel padding="lg" tone="fill" class="map-col">
+          <LocationPickerField
+            v-model:latitude="latitude"
+            v-model:longitude="longitude"
+            tall
           />
-        </label>
-        <div v-else class="place-read">
-          <p class="field-label">{{ t('report.locationName') }}</p>
-          <p class="place-value">{{ placeLabel }}</p>
+          <label class="field">
+            <span class="field-label">{{ t('report.locationName') }}</span>
+            <input
+              v-model="form.locationLabel"
+              class="control"
+              type="text"
+              maxlength="160"
+              :placeholder="t('report.locationPlaceholder')"
+              autocomplete="street-address"
+              @input="markLocationLabelManual"
+            />
+          </label>
+        </GlassPanel>
+
+        <div class="report-main">
+          <GlassPanel padding="lg" tone="fill" class="form-panel">
+            <form class="form" @submit.prevent="send">
+              <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+
+              <VoiceCaptureField
+                ref="voiceField"
+                v-model:transcript="form.transcript"
+                v-model:audio-blob="audioBlob"
+                :include-note="false"
+              />
+
+              <label class="field">
+                <span class="field-label">{{ t('report.transcript') }}</span>
+                <p class="hint">{{ t('report.transcriptHint') }}</p>
+                <textarea
+                  v-model="form.transcript"
+                  class="control"
+                  rows="4"
+                  maxlength="800"
+                  :placeholder="t('report.transcriptPlaceholder')"
+                />
+              </label>
+            </form>
+          </GlassPanel>
+        </div>
+      </template>
+
+      <GlassPanel v-else padding="none" tone="fill" class="review-card">
+        <div v-if="photoSrc" class="hero">
+          <img class="hero-photo" :src="photoSrc" alt="" />
+          <span class="hero-badge">{{ t('report.photoBadge') }}</span>
+        </div>
+
+        <div class="review-layout">
+          <div class="review-copy">
+            <h3 class="review-title">{{ reviewTitle }}</h3>
+            <div v-if="reviewSummary" class="review-block">
+              <p class="field-label">{{ t('report.summary') }}</p>
+              <p class="review-text">{{ reviewSummary }}</p>
+            </div>
+            <div v-if="showCitizenWords" class="review-block">
+              <p class="field-label">{{ t('report.yourWords') }}</p>
+              <p class="review-text">{{ citizenWords }}</p>
+            </div>
+            <dl class="facts">
+              <div>
+                <dt class="field-label">{{ t('report.category') }}</dt>
+                <dd class="meta-value">{{ t(`category.${draft.category}`) }}</dd>
+              </div>
+              <div>
+                <dt class="field-label">{{ t('sheet.severity') }}</dt>
+                <dd><SeverityPill :severity="draft.severity" /></dd>
+              </div>
+              <div class="fact-place">
+                <dt class="field-label">{{ t('report.location') }}</dt>
+                <dd class="meta-value">{{ placeLabel }}</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="review-map">
+            <LocationPickerField
+              v-model:latitude="latitude"
+              v-model:longitude="longitude"
+              disabled
+            />
+          </div>
         </div>
       </GlassPanel>
-
-      <div class="report-main">
-        <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
-          <form class="form" @submit.prevent="send">
-            <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
-
-            <VoiceCaptureField
-              ref="voiceField"
-              v-model:transcript="form.transcript"
-              v-model:audio-blob="audioBlob"
-              :include-note="false"
-            />
-
-            <label class="field">
-              <span class="field-label">{{ t('report.transcript') }}</span>
-              <p class="hint">{{ t('report.transcriptHint') }}</p>
-              <textarea
-                v-model="form.transcript"
-                class="control"
-                rows="4"
-                maxlength="800"
-                :placeholder="t('report.transcriptPlaceholder')"
-              />
-            </label>
-          </form>
-        </GlassPanel>
-
-        <GlassPanel v-else padding="none" tone="fill" class="review-card">
-          <div v-if="photoSrc" class="hero">
-            <img class="hero-photo" :src="photoSrc" alt="" />
-            <span class="hero-badge">{{ t('report.photoBadge') }}</span>
-          </div>
-          <div v-else class="hero-empty">{{ t('report.photoEmpty') }}</div>
-
-          <div class="review-body">
-            <div v-if="aiDescription" class="ai-block">
-              <p class="field-label">{{ t('report.aiDescription') }}</p>
-              <p class="ai-text">{{ aiDescription }}</p>
-            </div>
-
-            <div class="meta-grid">
-              <div>
-                <p class="field-label">{{ t('report.fieldTitle') }}</p>
-                <p class="meta-value">{{ draft.title || t('report.untitled') }}</p>
-              </div>
-              <div>
-                <p class="field-label">{{ t('report.category') }}</p>
-                <p class="meta-value">{{ t(`category.${draft.category}`) }}</p>
-              </div>
-              <div>
-                <p class="field-label">{{ t('sheet.severity') }}</p>
-                <SeverityPill :severity="draft.severity" />
-              </div>
-              <div>
-                <p class="field-label">{{ t('report.trackingId') }}</p>
-                <p class="meta-value">{{ draft.trackingId || t('report.pendingId') }}</p>
-              </div>
-            </div>
-
-            <div v-if="currentUser" class="identity">
-              <div>
-                <p class="field-label">{{ t('report.submittedBy') }}</p>
-                <p class="meta-value">{{ currentUser.displayName }}</p>
-              </div>
-              <div>
-                <p class="field-label">{{ t('report.accountEmail') }}</p>
-                <p class="meta-value">{{ currentUser.email }}</p>
-              </div>
-            </div>
-            <p v-else class="hint">{{ t('report.guestReporter') }}</p>
-          </div>
-        </GlassPanel>
-      </div>
     </div>
 
     <footer class="command">
@@ -446,7 +442,7 @@ async function confirm() {
                 ? canSend
                   ? t('report.ready')
                   : t('report.missingInput')
-                : t('report.reviewLead')
+                : t('report.reviewReady')
             }}
           </p>
           <div class="command-actions">
@@ -570,14 +566,8 @@ async function confirm() {
   gap: 0.5rem;
 }
 
-.place-read {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.place-value,
 .meta-value,
-.ai-text {
+.review-text {
   margin: 0;
   color: var(--text-h);
   font-weight: 600;
@@ -612,46 +602,56 @@ async function confirm() {
   font-weight: 650;
 }
 
-.hero-empty {
-  display: grid;
-  place-items: center;
-  min-height: 8rem;
-  background: #f1f0f0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 650;
-}
-
-.review-body {
+.review-layout {
   display: grid;
   gap: 1rem;
-  padding: 1.15rem;
 }
 
-.ai-block {
+.review-copy {
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem 1.15rem 0;
+  min-width: 0;
+}
+
+.review-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  font-family: var(--font-display);
+}
+
+.review-block {
   display: grid;
   gap: 0.4rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: #f7f4ef;
 }
 
-.ai-text {
+.review-text {
   font-weight: 500;
   color: var(--text);
 }
 
-.meta-grid,
-.identity {
+.facts {
   display: grid;
   gap: 0.85rem;
+  margin: 0;
 }
 
-.meta-grid > div,
-.identity > div {
+.facts > div {
   display: grid;
   gap: 0.25rem;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.review-map {
+  padding: 0 1.15rem 1.15rem;
+  min-width: 0;
 }
 
 .command {
@@ -675,6 +675,15 @@ async function confirm() {
   border-radius: var(--radius-pill);
   border-width: 1.5px;
   box-shadow: 0 12px 32px rgba(9, 9, 10, 0.1);
+}
+
+@media (max-width: 1023px) {
+  .command-dock:has(.command-actions > :nth-child(2)),
+  .command-dock:has(.error) {
+    --command-inset: 0.65rem;
+    padding: 0.7rem var(--command-inset) var(--command-inset);
+    border-radius: calc(1.5rem + var(--command-inset));
+  }
 }
 
 .command-row {
@@ -761,7 +770,7 @@ async function confirm() {
     align-content: start;
   }
 
-  .map-col {
+  .report-body:not(.is-review) .map-col {
     position: sticky;
     top: 7.75rem;
     z-index: 1;
@@ -823,9 +832,31 @@ async function confirm() {
 }
 
 @media (min-width: 720px) {
-  .report-body {
+  .report-body:not(.is-review) {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
     align-items: start;
+  }
+
+  .review-layout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr);
+    align-items: start;
+    gap: 0;
+  }
+
+  .review-copy {
+    padding: 1.25rem 1.35rem 1.25rem 1.25rem;
+  }
+
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fact-place {
+    grid-column: 1 / -1;
+  }
+
+  .review-map {
+    padding: 1.25rem 1.25rem 1.25rem 0;
   }
 
   .hero-photo {

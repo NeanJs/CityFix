@@ -84,7 +84,7 @@ const columns = computed(() => props.items.length)
   display: grid;
   gap: 0.3rem;
   padding: 0.3rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-lg);
   border-width: 1.5px;
 }
 
@@ -95,7 +95,7 @@ const columns = computed(() => props.items.length)
   gap: 0.2rem;
   padding: 0.45rem 0.3rem;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
   font-size: 0.7rem;

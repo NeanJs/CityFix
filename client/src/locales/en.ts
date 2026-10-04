@@ -140,8 +140,10 @@ export const en = {
     reviewEyebrow: 'Almost done',
     reviewHeading: 'Review your report',
     reviewLead: 'Check that everything looks right before you submit.',
+    reviewReady: 'Submit sends this report.',
     photoEmpty: 'No photo added',
     photoBadge: 'Report photo',
+    yourWords: 'What you said',
     aiDescription: 'Photo description',
     submittedBy: 'Submitted by',
     accountEmail: 'Account email',
@@ -153,7 +155,6 @@ export const en = {
     ingestFailed: 'Could not read your report. Try again.',
     fileFailed: 'Could not file the report. Try again.',
     trackingId: 'Tracking ID',
-    pendingId: 'Assigned on filing',
     summary: 'Summary',
   },
   receipt: {

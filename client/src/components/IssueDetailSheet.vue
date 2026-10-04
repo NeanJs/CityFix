@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocale } from '../composables/useLocale'
 import { nextStatus } from '../services/report/statusFlow'
 import type { Issue, IssueStatus } from '../types/issue'
-import GlassPanel from './ui/GlassPanel.vue'
 import SeverityPill from './SeverityPill.vue'
 import SpeakButton from './SpeakButton.vue'
 import StatusTrack from './StatusTrack.vue'
@@ -20,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useLocale()
+const overlayRef = ref<HTMLElement | null>(null)
 
 const confirmation = computed(() => {
   if (!props.issue) {
@@ -65,6 +65,33 @@ function onBackdropClick(event: MouseEvent) {
   }
 }
 
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    emit('close')
+  }
+}
+
+function setBodyScrollLocked(locked: boolean) {
+  document.body.style.overflow = locked ? 'hidden' : ''
+}
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    setBodyScrollLocked(isOpen)
+    if (isOpen) {
+      void nextTick(() => {
+        overlayRef.value?.focus()
+      })
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  setBodyScrollLocked(false)
+})
+
 function advance() {
   if (!props.issue || !upcoming.value) {
     return
@@ -78,35 +105,39 @@ function advance() {
     <Transition name="sheet">
       <div
         v-if="open && issue"
+        ref="overlayRef"
         class="overlay"
         role="dialog"
         aria-modal="true"
         :aria-label="issue.title"
+        tabindex="-1"
         @click="onBackdropClick"
+        @keydown="onKeydown"
       >
-        <div class="sheet">
-          <GlassPanel padding="lg" tone="fill">
-            <div class="sheet-head">
-              <div>
-                <p class="stamp">{{ issue.trackingId }}</p>
-                <h2 class="title">{{ issue.title }}</h2>
-              </div>
-              <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path
-                    d="M6 6l12 12M18 6 6 18"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
+        <div class="sheet" @click.stop>
+          <div class="grab" aria-hidden="true" />
+          <header class="sheet-head">
+            <div class="head-copy">
+              <p class="stamp">{{ issue.trackingId }}</p>
+              <h2 class="title">{{ issue.title }}</h2>
             </div>
+            <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6 6 18"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </header>
 
+          <div class="sheet-body">
             <StatusTrack :status="issue.status" />
 
             <div v-if="canManageStatus && upcoming" class="advance-wrap">
-              <button type="button" class="btn" @click="advance">
+              <button type="button" class="btn advance-btn" @click="advance">
                 {{
                   upcoming === 'resolved'
                     ? t('sheet.markResolved')
@@ -169,7 +200,7 @@ function advance() {
               playing-key="sheet.playing"
               unavailable-key="sheet.playUnavailable"
             />
-          </GlassPanel>
+          </div>
         </div>
       </div>
     </Transition>
@@ -184,27 +215,58 @@ function advance() {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0.85rem 0.85rem calc(6.75rem + env(safe-area-inset-bottom, 0px));
-  background: rgba(9, 9, 10, 0.28);
+  padding: 0;
+  background: rgba(9, 9, 10, 0.55);
 }
 
 .sheet {
-  width: min(100%, 32rem);
-  max-height: min(78vh, 640px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: min(92dvh, 100%);
+  background: var(--surface-raised-solid);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -8px 40px rgba(9, 9, 10, 0.18);
+  overflow: hidden;
+}
+
+.grab {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.55rem auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--border);
 }
 
 .sheet-head {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.9rem;
+  padding: 0.65rem 1.15rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised-solid);
+}
+
+.head-copy {
+  min-width: 0;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.15rem calc(1.15rem + env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
 }
 
 .title {
   margin: 0.4rem 0 0;
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-h);
   line-height: 1.25;
@@ -215,6 +277,10 @@ function advance() {
   margin: 0.85rem 0 0.35rem;
 }
 
+.advance-btn {
+  width: 100%;
+}
+
 .photo {
   display: block;
   width: 100%;
@@ -222,7 +288,7 @@ function advance() {
   object-fit: cover;
   margin: 0.9rem 0;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid var(--border);
 }
 
 .pills {
@@ -233,13 +299,14 @@ function advance() {
 }
 
 .close {
-  width: 2.4rem;
-  height: 2.4rem;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
   display: grid;
   place-items: center;
-  border: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: #f1f0f0;
+  background: var(--surface-solid);
   color: var(--text-h);
   cursor: pointer;
 }
@@ -258,6 +325,7 @@ function advance() {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -314,6 +382,10 @@ function advance() {
   color: var(--text-muted);
 }
 
+.sheet :deep(.speak .btn-secondary) {
+  width: 100%;
+}
+
 .sheet-enter-active,
 .sheet-leave-active {
   transition: opacity 0.22s ease;
@@ -321,7 +393,7 @@ function advance() {
 
 .sheet-enter-active .sheet,
 .sheet-leave-active .sheet {
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .sheet-enter-from,
@@ -331,30 +403,56 @@ function advance() {
 
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet {
-  transform: translateY(16px);
+  transform: translateY(100%);
 }
 
 @media (min-width: 1024px) {
   .overlay {
     align-items: stretch;
     justify-content: flex-end;
-    padding: 1.25rem;
+    padding: 0;
   }
 
   .sheet {
-    width: min(28rem, 38vw);
+    width: 28rem;
     max-height: none;
     height: 100%;
+    border-radius: 0;
+    border: none;
+    border-left: 1px solid var(--border);
+    box-shadow: -12px 0 48px rgba(9, 9, 10, 0.14);
   }
 
-  .sheet :deep(.panel) {
-    height: 100%;
-    overflow: auto;
+  .grab {
+    display: none;
+  }
+
+  .sheet-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
+  .sheet-body {
+    padding-bottom: 1.5rem;
+  }
+
+  .title {
+    font-size: 1.7rem;
+  }
+
+  .advance-btn {
+    width: fit-content;
+  }
+
+  .sheet :deep(.speak .btn-secondary) {
+    width: fit-content;
   }
 
   .sheet-enter-from .sheet,
   .sheet-leave-to .sheet {
-    transform: translateX(18px);
+    transform: translateX(100%);
   }
 }
 </style>
