@@ -1,6 +1,7 @@
 import {
   Conversation,
   VoiceConversation,
+  type DisconnectionDetails,
   type Mode,
   type Status,
 } from '@elevenlabs/client'
@@ -8,6 +9,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { elevenLabsAgentId } from '../config/elevenLabsConfig'
 import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
+import { setVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 
 export type VoiceStatus = Status
 export type VoiceMode = Mode
@@ -50,12 +52,17 @@ export function useElevenLabsConversation() {
   const mode = ref<VoiceMode>('listening')
   const errorKey = ref('')
   const starting = ref(false)
+  const completedConversationId = ref('')
 
   let session: VoiceConversation | null = null
   let generation = 0
   let unmuteTimer: ReturnType<typeof setTimeout> | null = null
   let muteSequence = 0
   let desiredMicMuted = false
+  let activeConversationId = ''
+  let liveUserTranscript = ''
+  let discardNextDisconnect = false
+  let didConnect = false
 
   const connected = computed(() => status.value === 'connected')
   const sessionHeld = computed(
@@ -86,15 +93,48 @@ export function useElevenLabsConversation() {
     return readFrequency('output')
   }
 
+  function rememberConversationId(value: string | undefined) {
+    const next = value?.trim() ?? ''
+    if (!next || next.startsWith('room_')) {
+      return
+    }
+    activeConversationId = next
+  }
+
   function getConversationId(target: VoiceConversation | null) {
-    if (!target) {
+    rememberConversationId(activeConversationId)
+    if (target) {
+      try {
+        rememberConversationId(target.getId())
+      } catch {
+        /* session already closed */
+      }
+    }
+    return activeConversationId
+  }
+
+  function captureUserMessage(message: string | undefined, role: string | undefined) {
+    if (role !== 'user') {
+      return
+    }
+    const text = message?.trim() ?? ''
+    if (!text) {
+      return
+    }
+    liveUserTranscript = liveUserTranscript ? `${liveUserTranscript}\n\n${text}` : text
+  }
+
+  function finishConversation(conversationId: string) {
+    const id = conversationId.trim()
+    if (!id) {
       return ''
     }
-    try {
-      return target.getId()?.trim() ?? ''
-    } catch {
-      return ''
-    }
+    setVoiceReportHandoff({
+      conversationId: id,
+      userTranscript: liveUserTranscript,
+    })
+    completedConversationId.value = id
+    return id
   }
 
   function clearUnmuteTimer() {
@@ -146,6 +186,11 @@ export function useElevenLabsConversation() {
 
     starting.value = true
     errorKey.value = ''
+    completedConversationId.value = ''
+    activeConversationId = ''
+    liveUserTranscript = ''
+    discardNextDisconnect = false
+    didConnect = false
     const token = generation + 1
     generation = token
     status.value = 'connecting'
@@ -155,12 +200,53 @@ export function useElevenLabsConversation() {
       const next = await Conversation.startSession({
         agentId: elevenLabsAgentId,
         connectionType: 'webrtc',
+        clientTools: {
+          create_report: async () => {
+            finishConversation(getConversationId(session))
+            return 'The report will be prepared for the resident to review.'
+          },
+          createReport: async () => {
+            finishConversation(getConversationId(session))
+            return 'The report will be prepared for the resident to review.'
+          },
+          file_report: async () => {
+            finishConversation(getConversationId(session))
+            return 'The report will be prepared for the resident to review.'
+          },
+        },
         onConversationCreated: (created) => {
           if (token !== generation || created.type !== 'voice') {
             return
           }
           session = created
+          rememberConversationId(created.getId())
           syncMicToMode(created, token)
+        },
+        onConnect: ({ conversationId }) => {
+          if (token !== generation) {
+            return
+          }
+          rememberConversationId(conversationId)
+        },
+        onConversationMetadata: (metadata) => {
+          if (token !== generation) {
+            return
+          }
+          const record = metadata as { conversation_id?: string; conversationId?: string }
+          rememberConversationId(record.conversation_id || record.conversationId)
+        },
+        onMessage: ({ message, role }) => {
+          if (token !== generation) {
+            return
+          }
+          captureUserMessage(message, role)
+        },
+        onUnhandledClientToolCall: () => {
+          if (token !== generation) {
+            return
+          }
+          finishConversation(getConversationId(session))
+          void session?.endSession()
         },
         onStatusChange: ({ status: nextStatus }) => {
           if (token !== generation) {
@@ -169,6 +255,7 @@ export function useElevenLabsConversation() {
           const prev = status.value
           status.value = nextStatus
           if (prev !== 'connected' && nextStatus === 'connected') {
+            didConnect = true
             playVoiceCaptureEffect('start')
           }
         },
@@ -181,21 +268,33 @@ export function useElevenLabsConversation() {
             syncMicToMode(session, token)
           }
         },
-        onError: () => {
+        onError: (message) => {
           if (token !== generation) {
+            return
+          }
+          if (didConnect || /end_call|disconnect|closed/i.test(message)) {
             return
           }
           errorKey.value = 'voice.failed'
         },
-        onDisconnect: () => {
+        onDisconnect: (details: DisconnectionDetails) => {
           if (token !== generation) {
             return
           }
+          const conversationId = getConversationId(session)
           resetMicTurnState()
           session = null
           status.value = 'disconnected'
           mode.value = 'listening'
           starting.value = false
+          if (discardNextDisconnect) {
+            discardNextDisconnect = false
+            return
+          }
+          if (details.reason === 'user') {
+            return
+          }
+          finishConversation(conversationId)
         },
       })
 
@@ -231,34 +330,37 @@ export function useElevenLabsConversation() {
     }
   }
 
-  async function endSession() {
+  async function endSession(options: { discard?: boolean } = {}) {
     generation += 1
     starting.value = false
     const current = session
     const conversationId = getConversationId(current)
+    discardNextDisconnect = Boolean(options.discard)
     resetMicTurnState()
     current?.setMicMuted(true)
     session = null
     status.value = 'disconnected'
     mode.value = 'listening'
-    if (!current) {
-      return conversationId
+    if (current) {
+      playVoiceCaptureEffect('send')
+      try {
+        await current.endSession()
+      } catch {
+        /* already closed */
+      }
     }
-    playVoiceCaptureEffect('send')
-    try {
-      await current.endSession()
-    } catch {
-      /* already closed */
+    if (options.discard) {
+      return ''
     }
-    return conversationId
+    return finishConversation(conversationId)
   }
 
   onBeforeRouteLeave(() => {
-    void endSession()
+    void endSession({ discard: true })
   })
 
   onBeforeUnmount(() => {
-    void endSession()
+    void endSession({ discard: true })
   })
 
   return {
@@ -268,6 +370,7 @@ export function useElevenLabsConversation() {
     starting,
     connected,
     sessionHeld,
+    completedConversationId,
     startSession,
     endSession,
     getInputFrequency,

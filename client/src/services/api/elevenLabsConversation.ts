@@ -1,4 +1,5 @@
 import { elevenLabsApiKey } from '../../config/elevenLabsConfig'
+import { peekVoiceReportHandoff } from '../voice/voiceReportHandoff'
 import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
 
 type ConversationRole = 'user' | 'agent'
@@ -14,7 +15,7 @@ interface ConversationDetails {
 }
 
 const conversationApiUrl = 'https://api.elevenlabs.io/v1/convai/conversations'
-const retryDelays = [0, 500, 1000, 1500, 2000, 2500]
+const retryDelays = [800, 1200, 1600, 2000, 2500, 3000]
 const pendingStatuses = new Set(['initiated', 'in-progress', 'in_progress', 'processing'])
 
 function wait(delay: number) {
@@ -50,24 +51,40 @@ async function fetchConversation(conversationId: string) {
 
 export async function getConversationUserTranscript(conversationId: string) {
   const id = conversationId.trim()
-  if (!id || !elevenLabsApiKey) {
+  const fallback = peekVoiceReportHandoff(id)?.userTranscript.trim() ?? ''
+  if (!id) {
     throw new ApiRequestError('unavailable')
   }
 
-  let transcript = ''
-  for (const delay of retryDelays) {
-    if (delay) {
+  if (elevenLabsApiKey) {
+    let lastError: unknown
+    let transcript = ''
+    for (const delay of retryDelays) {
       await wait(delay)
+      try {
+        const details = await fetchConversation(id)
+        transcript = userTranscript(details)
+        if (transcript || !pendingStatuses.has(details.status?.toLowerCase() ?? '')) {
+          break
+        }
+      } catch (error) {
+        lastError = error
+      }
     }
-    const details = await fetchConversation(id)
-    transcript = userTranscript(details)
-    if (!pendingStatuses.has(details.status?.toLowerCase() ?? '')) {
-      break
+    if (transcript) {
+      return transcript
     }
-  }
-
-  if (!transcript) {
+    if (fallback) {
+      return fallback
+    }
+    if (lastError) {
+      throw lastError
+    }
     throw new ApiRequestError('failed')
   }
-  return transcript
+
+  if (fallback) {
+    return fallback
+  }
+  throw new ApiRequestError('unavailable')
 }

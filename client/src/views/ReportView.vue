@@ -9,6 +9,7 @@ import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { defaultIssueType } from '../services/report/issueType'
 import { apiErrorMessage } from '../services/api/apiRequestError'
 import { getConversationUserTranscript } from '../services/api/elevenLabsConversation'
+import { takeVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { isAnalyzeImage } from '../services/media/formFile'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
@@ -369,10 +370,14 @@ async function importConversation() {
   submitting.value = true
   submitStage.value = 'read'
   try {
-    const note = await getConversationUserTranscript(pendingConversationId.value)
+    const conversationId = pendingConversationId.value
+    const note = await getConversationUserTranscript(conversationId)
+    takeVoiceReportHandoff(conversationId)
     form.transcript = note
     pendingConversationId.value = ''
-    await router.replace({ name: 'report' })
+    if (route.query.conversation) {
+      await router.replace({ name: 'report' })
+    }
     await analyzeReportInput(note)
   } catch (error) {
     submitError.value = apiErrorMessage(error, t, 'report.voiceConversationFailed')

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useElevenLabsConversation } from '../composables/useElevenLabsConversation'
@@ -18,6 +18,7 @@ const {
   starting,
   connected,
   sessionHeld,
+  completedConversationId,
   startSession,
   endSession,
   getInputFrequency,
@@ -29,7 +30,9 @@ const ending = ref(false)
 const handoffErrorKey = ref('')
 const busy = computed(() => status.value === 'connecting' || starting.value || ending.value)
 const activeErrorKey = computed(() => handoffErrorKey.value || errorKey.value)
-const failed = computed(() => Boolean(activeErrorKey.value) && status.value === 'disconnected')
+const failed = computed(
+  () => Boolean(activeErrorKey.value) && status.value === 'disconnected' && !ending.value,
+)
 
 const phase = computed<GlyphPhase>(() => {
   if (failed.value) {
@@ -78,31 +81,41 @@ function readFrequency() {
 }
 
 useAndroidBackHandler(sessionHeld, () => {
-  void endSession()
+  void endSession({ discard: true })
+})
+
+async function openReport(conversationId: string) {
+  if (ending.value) {
+    return
+  }
+  const id = conversationId.trim()
+  if (!id) {
+    handoffErrorKey.value = 'voice.reportFailed'
+    return
+  }
+  ending.value = true
+  handoffErrorKey.value = ''
+  try {
+    await router.push({
+      name: 'report',
+      query: { conversation: id },
+    })
+  } catch {
+    handoffErrorKey.value = 'voice.reportFailed'
+    ending.value = false
+  }
+}
+
+watch(completedConversationId, (conversationId) => {
+  if (conversationId) {
+    void openReport(conversationId)
+  }
 })
 
 async function onAction() {
   if (connected.value || sessionHeld.value) {
-    if (ending.value) {
-      return
-    }
-    ending.value = true
-    handoffErrorKey.value = ''
     const conversationId = await endSession()
-    if (!conversationId) {
-      handoffErrorKey.value = 'voice.reportFailed'
-      ending.value = false
-      return
-    }
-    try {
-      await router.push({
-        name: 'report',
-        query: { conversation: conversationId },
-      })
-    } catch {
-      handoffErrorKey.value = 'voice.reportFailed'
-      ending.value = false
-    }
+    await openReport(conversationId)
     return
   }
   handoffErrorKey.value = ''
