@@ -209,9 +209,9 @@ export function useVoiceGlyph(canvas: Ref<HTMLCanvasElement | null>, options: Op
     const cosPitch = Math.cos(pitch)
     const sinPitch = Math.sin(pitch)
     const breath = (1 - viewMix) * Math.sin(clock * 1.1) * 0.012
-    const scale = Math.min(width, height) * 0.44 * dpr * (1 + viewMix * 0.16 + energy * 0.05 + breath)
+    const scale = Math.min(width, height) * 0.44 * dpr * (1 + energy * 0.05 + breath)
     const centerX = (width * dpr) / 2
-    const centerY = (height * dpr) / 2 + viewMix * scale * 0.06
+    const centerY = (height * dpr) / 2
     for (let k = 0; k < count; k += 1) {
       const o = k * 3
       const x = positions[o] ?? 0

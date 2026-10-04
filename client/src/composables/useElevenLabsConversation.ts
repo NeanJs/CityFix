@@ -7,6 +7,7 @@ import {
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { elevenLabsAgentId } from '../config/elevenLabsConfig'
+import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
 
 export type VoiceStatus = Status
 export type VoiceMode = Mode
@@ -105,7 +106,11 @@ export function useElevenLabsConversation() {
           if (token !== generation) {
             return
           }
+          const prev = status.value
           status.value = nextStatus
+          if (prev !== 'connected' && nextStatus === 'connected') {
+            playVoiceCaptureEffect('start')
+          }
         },
         onModeChange: ({ mode: nextMode }) => {
           if (token !== generation) {
@@ -169,6 +174,7 @@ export function useElevenLabsConversation() {
     if (!current) {
       return
     }
+    playVoiceCaptureEffect('send')
     try {
       await current.endSession()
     } catch {
