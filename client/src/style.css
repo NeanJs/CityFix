@@ -359,6 +359,7 @@ select:focus-visible {
 textarea.control {
   resize: vertical;
   min-height: 6.5rem;
+  border-radius: var(--radius-lg);
 }
 
 .stamp {

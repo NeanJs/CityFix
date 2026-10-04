@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { appName } from '../../config/appConfig'
 import type { NavItem } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
+import { useNavActiveName } from '../../composables/useNavActiveName'
 import AppIcon from '../ui/AppIcon.vue'
 import SelectionIndicator from '../ui/SelectionIndicator.vue'
 const props = defineProps<{
@@ -14,11 +14,10 @@ const props = defineProps<{
   ariaLabel: string
 }>()
 
-const route = useRoute()
 const router = useRouter()
 const { t } = useLocale()
 const { currentUser, logout } = useAuth()
-const activeName = computed(() => route.name)
+const activeName = useNavActiveName(() => props.items)
 
 async function onAccount() {
   if (currentUser.value) {

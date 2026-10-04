@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import gsap from 'gsap'
+import { Flip } from 'gsap/Flip'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { captureFlip, playFlip } from '../../motion/flip'
 import { duration } from '../../motion/tokens'
 import { easings } from '../../motion/easings'
@@ -14,6 +16,8 @@ const props = withDefaults(
 )
 
 const indicator = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+let moveGeneration = 0
 
 function hostEl() {
   return indicator.value?.parentElement ?? null
@@ -21,6 +25,12 @@ function hostEl() {
 
 function activeEl() {
   return hostEl()?.querySelector('[data-selection-active="true"]') as HTMLElement | null
+}
+
+function resetIndicatorMotion(node: HTMLElement) {
+  Flip.killFlipsOf(node)
+  gsap.killTweensOf(node)
+  gsap.set(node, { clearProps: 'transform' })
 }
 
 function applyBox() {
@@ -44,16 +54,76 @@ function applyBox() {
   return true
 }
 
-async function move() {
+function hideIndicator() {
   const node = indicator.value
   if (!node) {
     return
   }
-  const state = captureFlip(node)
-  await nextTick()
-  if (!applyBox()) {
+  resetIndicatorMotion(node)
+  node.style.opacity = '0'
+}
+
+function settleLayout() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve())
+    })
+  })
+}
+
+function observeSiblings() {
+  const host = hostEl()
+  const node = indicator.value
+  if (!host || !node || !resizeObserver) {
     return
   }
+  resizeObserver.disconnect()
+  resizeObserver.observe(host)
+  for (const child of host.children) {
+    if (child !== node) {
+      resizeObserver.observe(child)
+    }
+  }
+}
+
+function syncPosition() {
+  const node = indicator.value
+  if (!node) {
+    return
+  }
+  resetIndicatorMotion(node)
+  if (!applyBox()) {
+    hideIndicator()
+  }
+}
+
+async function move(animate: boolean) {
+  const generation = ++moveGeneration
+  const node = indicator.value
+  if (!node) {
+    return
+  }
+
+  resetIndicatorMotion(node)
+  const state = animate ? captureFlip(node) : null
+
+  await nextTick()
+  await settleLayout()
+  if (generation !== moveGeneration) {
+    return
+  }
+
+  observeSiblings()
+
+  if (!applyBox()) {
+    hideIndicator()
+    return
+  }
+
+  if (!animate || !state) {
+    return
+  }
+
   playFlip(state, {
     duration: duration.md,
     ease: easings.indicator,
@@ -65,12 +135,20 @@ async function move() {
 watch(
   () => props.activeKey,
   () => {
-    void move()
+    void move(true)
   },
 )
 
 onMounted(() => {
-  applyBox()
+  resizeObserver = new ResizeObserver(() => {
+    syncPosition()
+  })
+  void move(false)
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 </script>
 

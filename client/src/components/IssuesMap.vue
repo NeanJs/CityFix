@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Marker } from 'maplibre-gl'
+import { Marker, type Map as MapLibreMap } from 'maplibre-gl'
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { requestCurrentPosition } from '../composables/useCurrentLocation'
 import { useMapLibre } from '../composables/useMapLibre'
 import { useLocale } from '../composables/useLocale'
 import type { Issue, IssueSeverity } from '../types/issue'
+
+const currentLocationZoom = 14
 
 const props = defineProps<{
   issues: Issue[]
@@ -15,13 +18,63 @@ const emit = defineEmits<{
 
 const { t } = useLocale()
 const container = ref<HTMLElement | null>(null)
-const { map, resizeMap } = useMapLibre(container)
+const { map, resizeMap: resizeMapLibre } = useMapLibre(container)
 const markers: Marker[] = []
+let userAdjusted = false
+let locateStarted = false
+let pendingCenter: [number, number] | null = null
 
 const markerColor: Record<IssueSeverity, string> = {
   high: '#9a3a30',
   medium: '#b48428',
   low: '#3d6a48',
+}
+
+function onDragStart() {
+  userAdjusted = true
+  pendingCenter = null
+}
+
+function mapCanMove(instance: MapLibreMap) {
+  const element = instance.getContainer()
+  return element.clientWidth > 0 && element.clientHeight > 0
+}
+
+function applyCenter(longitude: number, latitude: number) {
+  const instance = map.value
+  if (!instance || userAdjusted) {
+    return
+  }
+  if (!mapCanMove(instance)) {
+    pendingCenter = [longitude, latitude]
+    return
+  }
+  pendingCenter = null
+  instance.easeTo({
+    center: [longitude, latitude],
+    zoom: Math.max(instance.getZoom(), currentLocationZoom),
+    duration: 700,
+  })
+}
+
+async function moveToCurrentLocation() {
+  if (locateStarted) {
+    return
+  }
+  locateStarted = true
+  const result = await requestCurrentPosition()
+  if (!result.ok) {
+    return
+  }
+  applyCenter(result.longitude, result.latitude)
+}
+
+function resizeMap() {
+  resizeMapLibre()
+  if (!pendingCenter || userAdjusted) {
+    return
+  }
+  applyCenter(pendingCenter[0], pendingCenter[1])
 }
 
 function clearMarkers() {
@@ -63,17 +116,26 @@ function syncMarkers() {
   }
 }
 
+function onMapReady() {
+  syncMarkers()
+  void moveToCurrentLocation()
+}
+
 watch(
   () => map.value,
-  (instance) => {
+  (instance, previous) => {
+    if (previous) {
+      previous.off('dragstart', onDragStart)
+    }
     if (!instance) {
       return
     }
+    instance.on('dragstart', onDragStart)
     if (instance.loaded()) {
-      syncMarkers()
+      onMapReady()
       return
     }
-    instance.once('load', syncMarkers)
+    instance.once('load', onMapReady)
   },
   { immediate: true },
 )
