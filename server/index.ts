@@ -2,9 +2,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import reportsRoutes from "./modules/reports/reports.routes.js";
-// import adminRoutes from "./modules/admin/admin.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
 import { supabaseMiddleware } from "./middleware/supabase.js";
-import { reportRateLimit } from "./middleware/rateLimit.js";
+// import { reportRateLimit } from "./middleware/rateLimit.js";
 const app = express();
 
 app.use(cors());
@@ -17,13 +17,13 @@ app.get("/api/health", (_req, res) => {
   });
 });
 app.use("/api/reports", supabaseMiddleware, reportsRoutes);
-// app.use(
-//   "/api/admin",
-//   (req, res, next) => {
-//     supabaseMiddleware(req, res, next, "user");
-//   },
-//   adminRoutes,
-// );
+app.use(
+  "/api/admin",
+  (req, res, next) => {
+    supabaseMiddleware(req, res, next, "user");
+  },
+  adminRoutes,
+);
 
 const PORT = process.env.PORT || 5001;
 
