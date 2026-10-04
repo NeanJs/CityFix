@@ -11,6 +11,7 @@ import { preparePageMotion } from '../motion/pageTransition'
 import { homePathForRole } from '../services/auth/authService'
 import type { UserRole } from '../types/user'
 import AdminHomeView from '../views/admin/AdminHomeView.vue'
+import AdminInsightsView from '../views/admin/AdminInsightsView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
 import ReceiptView from '../views/ReceiptView.vue'
@@ -79,6 +80,11 @@ export const router = createRouter({
           name: 'adminReports',
           component: ReportsView,
           meta: { issueScope: 'all' },
+        },
+        {
+          path: 'insights',
+          name: 'adminInsights',
+          component: AdminInsightsView,
         },
       ],
     },

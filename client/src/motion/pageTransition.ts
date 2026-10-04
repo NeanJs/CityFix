@@ -19,6 +19,7 @@ const pageRank: Record<string, number> = {
   reports: 3,
   adminHome: 0,
   adminReports: 1,
+  adminInsights: 2,
 }
 
 let intent: PageMotionIntent = {

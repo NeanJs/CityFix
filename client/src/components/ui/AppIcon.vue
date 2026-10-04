@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import {
+  PhArrowsClockwise,
   PhCamera,
   PhCheck,
+  PhCheckCircle,
+  PhChartLineUp,
   PhClipboardText,
   PhCopy,
   PhCrosshair,
@@ -46,6 +49,9 @@ export type AppIconName =
   | 'paperPlaneTilt'
   | 'keyboard'
   | 'voice'
+  | 'insights'
+  | 'arrowsClockwise'
+  | 'checkCircle'
 
 export type AppIconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone'
 
@@ -73,6 +79,9 @@ const icons: Record<AppIconName, Component> = {
   paperPlaneTilt: PhPaperPlaneTilt,
   keyboard: PhKeyboard,
   voice: PhMicrophone,
+  insights: PhChartLineUp,
+  arrowsClockwise: PhArrowsClockwise,
+  checkCircle: PhCheckCircle,
 }
 
 const props = withDefaults(
