@@ -13,7 +13,7 @@ import AdminHomeView from '../views/admin/AdminHomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
 import HomeView from '../views/HomeView.vue'
-import HomepagePreviewView from '../views/HomepagePreviewView.vue'
+import HomepagePreviewView from '../views/homepage-preview.vue'
 import ReportView from '../views/ReportView.vue'
 import ReportsView from '../views/ReportsView.vue'
 
@@ -38,6 +38,12 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/homepage-preview',
+      name: 'homepage-preview',
+      component: HomepagePreviewView,
+      meta: { public: true },
+    },
+    {
       path: '/login',
       component: AuthLayout,
       meta: { guest: true },
@@ -48,12 +54,6 @@ export const router = createRouter({
       component: AuthLayout,
       meta: { guest: true },
       children: [{ path: '', name: 'register', component: RegisterView }],
-    },
-    {
-      path: '/homepage-preview',
-      name: 'homepagePreview',
-      component: HomepagePreviewView,
-      meta: { public: true },
     },
     {
       path: '/',
@@ -91,7 +91,7 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  if (to.meta.public) {
+  if (to.matched.some((record) => record.meta.public)) {
     return true
   }
 
