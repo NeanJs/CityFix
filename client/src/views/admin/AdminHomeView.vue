@@ -8,6 +8,7 @@ import IssuesMap from '../../components/IssuesMap.vue'
 import AppHeader from '../../components/layout/AppHeader.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
+import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
 import { useFlipGroup } from '../../motion/useFlipGroup'
 import { compareQueuePriority, isOpenStatus, nextStatus } from '../../services/report/statusFlow'
@@ -18,6 +19,9 @@ const { issues, openCount, resolvedCount, highSeverityCount, updateStatus, staff
   useIssues()
 const { t } = useLocale()
 const router = useRouter()
+const staffWaiting = computed(
+  () => staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading',
+)
 
 const filter = ref<DeskFilter>('open')
 const mapOpen = ref(
@@ -139,7 +143,12 @@ watch(mapOpen, async () => {
         </div>
 
         <div ref="queueRoot" class="queue-results">
-        <p v-if="staffLoadStatus === 'loading'" class="hint">{{ t('adminHome.loading') }}</p>
+        <p v-if="staffWaiting && queue.length === 0" class="sr-only" aria-live="polite">
+          {{ t('adminHome.loading') }}
+        </p>
+        <div v-if="staffWaiting && queue.length === 0" class="list">
+          <SkeletonCard v-for="index in 4" :key="index" />
+        </div>
         <GlassPanel v-if="staffLoadStatus === 'error'" padding="lg" tone="fill" class="empty">
           <p class="empty-title">{{ t('adminHome.loadFailed') }}</p>
           <button type="button" class="btn" @click="loadStaffReports">

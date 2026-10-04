@@ -7,6 +7,11 @@ import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { defaultIssueType } from '../services/report/issueType'
+import {
+  classifyReportInput,
+  reportCitizenWordsKey,
+  reportDescriptionKey,
+} from '../services/report/reportInputKind'
 import { apiErrorMessage } from '../services/api/apiRequestError'
 import { getVoiceConversationIssue } from '../services/api/voiceConversationIssue'
 import { takeVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
@@ -23,8 +28,11 @@ import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 import MorphText from '../components/ui/MorphText.vue'
 import SeverityPill from '../components/SeverityPill.vue'
+import VoiceGlyph from '../components/voice/VoiceGlyph.vue'
 import { flipLayout } from '../motion/flip'
 import { enterBlocks } from '../motion/transitions'
+
+const emptyFrequency = new Uint8Array(0)
 
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
@@ -56,6 +64,7 @@ const latitude = ref<number | undefined>()
 const longitude = ref<number | undefined>()
 const submitError = ref('')
 const pendingConversationId = ref('')
+const conversationOrigin = ref(false)
 
 const draft = reactive<ReportIngestDraft>({
   title: '',
@@ -76,6 +85,7 @@ const canRetryConversation = computed(
 )
 const reviewActive = computed(() => phase.value === 'review')
 const captureActive = computed(() => phase.value === 'capture')
+const readingReport = computed(() => submitting.value && phase.value === 'capture')
 const { geocoding, markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync({
   latitude,
   longitude,
@@ -94,6 +104,16 @@ const reviewSummary = computed(() => {
   return summary
 })
 const citizenWords = computed(() => draft.transcript.trim() || form.transcript.trim())
+const reportInputKind = computed(() =>
+  classifyReportInput({
+    hasPhoto: Boolean(photoSrc.value),
+    hasVoiceNote: Boolean(audioBlob.value),
+    hasWritten: Boolean(citizenWords.value),
+    fromConversation: conversationOrigin.value,
+  }),
+)
+const descriptionLabel = computed(() => t(reportDescriptionKey(reportInputKind.value)))
+const citizenWordsLabel = computed(() => t(reportCitizenWordsKey(reportInputKind.value)))
 const showCitizenWords = computed(() => {
   const words = citizenWords.value
   if (!words) {
@@ -155,6 +175,10 @@ const introHeading = computed(() =>
 const introLead = computed(() =>
   phase.value === 'capture' ? t('report.lead') : t('report.reviewLead'),
 )
+
+function silentFrequency() {
+  return emptyFrequency
+}
 
 async function setPhase(next: 'capture' | 'review') {
   const root = reportRoot.value
@@ -280,6 +304,7 @@ function resetForm() {
   form.transcript = ''
   form.locationLabel = ''
   audioBlob.value = null
+  conversationOrigin.value = false
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
@@ -375,6 +400,7 @@ async function importConversation() {
     const handoff = takeVoiceReportHandoff(conversationId)
     const note = next.transcript.trim() || handoff?.userTranscript.trim() || ''
     form.transcript = note
+    conversationOrigin.value = true
     applyDraft({
       ...next,
       transcript: next.transcript || note,
@@ -460,6 +486,7 @@ async function confirm() {
       longitude: next.longitude ?? longitude.value,
       photoDataUrl,
       audioUrl: created.audioUrl,
+      inputKind: reportInputKind.value,
       recommendedAction,
       reporterId: reporterId.value,
       remoteId: created.remoteId,
@@ -590,7 +617,7 @@ function onPrimaryAction() {
               />
             </label>
             <label class="review-block" data-enter-block>
-              <span class="field-label">{{ t('report.aiDescription') }}</span>
+              <span class="field-label">{{ descriptionLabel }}</span>
               <textarea
                 v-model="draft.description"
                 class="control"
@@ -604,7 +631,7 @@ function onPrimaryAction() {
               <p class="review-text">{{ reviewSummary }}</p>
             </div>
             <div v-if="showCitizenWords" class="review-block" data-enter-block>
-              <p class="field-label">{{ t('report.yourWords') }}</p>
+              <p class="field-label">{{ citizenWordsLabel }}</p>
               <p class="review-text">{{ citizenWords }}</p>
             </div>
             <dl class="facts" data-enter-block>
@@ -684,17 +711,52 @@ function onPrimaryAction() {
       </div>
     </footer>
     </div>
+
+    <div
+      v-if="readingReport"
+      class="read-overlay"
+      aria-hidden="true"
+    >
+      <div class="read-glyph">
+        <VoiceGlyph phase="connecting" :read-frequency="silentFrequency" />
+      </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .report {
+  position: relative;
   display: grid;
   gap: 0.85rem;
   padding-bottom: calc(
     var(--dock-space) + var(--tab-bar-space) + env(safe-area-inset-bottom, 0px) +
       var(--keyboard-inset)
   );
+}
+
+.read-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 23;
+  pointer-events: auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  padding-top: calc(6.65rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(
+    var(--dock-space) + var(--tab-bar-space) + env(safe-area-inset-bottom, 0px) +
+      var(--keyboard-inset)
+  );
+  background: var(--glass-thick-bg);
+  -webkit-backdrop-filter: var(--glass-thick-filter);
+  backdrop-filter: var(--glass-thick-filter);
+}
+
+.read-glyph {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  align-self: stretch;
 }
 
 .report-top {
@@ -982,6 +1044,12 @@ function onPrimaryAction() {
     position: sticky;
     top: 7.75rem;
     z-index: 1;
+  }
+
+  .read-overlay {
+    position: absolute;
+    padding-top: calc(7.35rem + env(safe-area-inset-top, 0px));
+    padding-bottom: 5.75rem;
   }
 
   .command {

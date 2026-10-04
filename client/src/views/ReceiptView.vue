@@ -4,6 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import {
+  classifyIssueInput,
+  receiptHeadlineKey,
+} from '../services/report/reportInputKind'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import StatusTrack from '../components/StatusTrack.vue'
@@ -26,6 +30,9 @@ const issue = computed(() => {
 const copied = ref(false)
 let copiedTimer = 0
 const guestFiling = computed(() => Boolean(issue.value) && !currentUser.value)
+const headline = computed(() =>
+  issue.value ? t(receiptHeadlineKey(classifyIssueInput(issue.value))) : t('receipt.headline'),
+)
 
 watch(
   () => issue.value?.trackingId,
@@ -115,7 +122,7 @@ onMounted(() => {
         </span>
       </div>
       <p class="section-kicker">{{ t('receipt.eyebrow') }}</p>
-      <p class="headline">{{ t('receipt.headline') }}</p>
+      <p class="headline">{{ headline }}</p>
       <p class="lead">{{ t('receipt.lead') }}</p>
       <p v-if="guestFiling" class="hint">{{ t('receipt.guestNote') }}</p>
 

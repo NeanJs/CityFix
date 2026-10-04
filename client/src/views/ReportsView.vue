@@ -14,6 +14,7 @@ import SeverityPill from '../components/SeverityPill.vue'
 import StatusPill from '../components/StatusPill.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
+import SkeletonCard from '../components/ui/SkeletonCard.vue'
 import MorphText from '../components/ui/MorphText.vue'
 import SelectionIndicator from '../components/ui/SelectionIndicator.vue'
 
@@ -30,6 +31,9 @@ const highlightIssueId = computed(() => {
 })
 
 const isStaffQueue = computed(() => route.meta.issueScope === 'all')
+const staffWaiting = computed(
+  () => isStaffQueue.value && (staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading'),
+)
 
 const scopedIssues = computed(() => {
   if (isStaffQueue.value) {
@@ -258,11 +262,15 @@ function formatFiled(iso: string) {
 
     <div ref="resultsRoot" class="results">
     <p
-      v-if="isStaffQueue && staffLoadStatus === 'loading'"
-      class="results-count"
+      v-if="staffWaiting && scopedIssues.length === 0"
+      class="sr-only"
+      aria-live="polite"
     >
       {{ t('reports.loading') }}
     </p>
+    <div v-if="staffWaiting && scopedIssues.length === 0" class="list">
+      <SkeletonCard v-for="index in 5" :key="index" />
+    </div>
     <GlassPanel
       v-if="isStaffQueue && staffLoadStatus === 'error'"
       padding="lg"

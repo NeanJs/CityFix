@@ -14,6 +14,7 @@ import { createTrackingId, trackingIdFromInternal } from '../services/report/enr
 import { isOpenStatus, normalizeStatus } from '../services/report/statusFlow'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 import { defaultIssueType, normalizeIssueType } from '../services/report/issueType'
+import { classifyIssueInput } from '../services/report/reportInputKind'
 import { normalizeSeverity } from '../services/report/severity'
 import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
 
@@ -81,6 +82,12 @@ function normalizeIssue(
     status: normalizeStatus(typeof issue.status === 'string' ? issue.status : ''),
     photoDataUrl: issue.photoDataUrl,
     audioUrl: issue.audioUrl || audioDataUrl,
+    inputKind: classifyIssueInput({
+      inputKind: issue.inputKind,
+      photoDataUrl: issue.photoDataUrl,
+      audioUrl: issue.audioUrl || audioDataUrl,
+      transcript,
+    }),
   }
 }
 
@@ -180,6 +187,12 @@ export function useIssues() {
       longitude: input.longitude,
       photoDataUrl: input.photoDataUrl,
       audioUrl: input.audioUrl,
+      inputKind: classifyIssueInput({
+        inputKind: input.inputKind,
+        photoDataUrl: input.photoDataUrl,
+        audioUrl: input.audioUrl,
+        transcript: input.transcript,
+      }),
       recommendedAction: input.recommendedAction?.trim() || undefined,
       reporterId: input.reporterId,
       createdAt: now,
@@ -365,6 +378,12 @@ export function useIssues() {
         longitude: remote.longitude ?? current.longitude,
         photoDataUrl: current.photoDataUrl || remote.photoUrl,
         audioUrl: current.audioUrl || remote.audioUrl,
+        inputKind: classifyIssueInput({
+          inputKind: current.inputKind,
+          photoDataUrl: current.photoDataUrl || remote.photoUrl,
+          audioUrl: current.audioUrl || remote.audioUrl,
+          transcript: remote.transcript || current.transcript,
+        }),
         recommendedAction: remote.recommendedAction || current.recommendedAction,
         createdAt: isoOr(remote.createdAt, current.createdAt),
         updatedAt: acceptRemoteStatus
@@ -399,6 +418,11 @@ export function useIssues() {
       longitude: remote.longitude,
       photoDataUrl: remote.photoUrl,
       audioUrl: remote.audioUrl,
+      inputKind: classifyIssueInput({
+        photoDataUrl: remote.photoUrl,
+        audioUrl: remote.audioUrl,
+        transcript: remote.transcript,
+      }),
       recommendedAction: remote.recommendedAction,
       reporterId: ownerId,
       createdAt,

@@ -5,6 +5,7 @@ import { originFromElement, takePointerOrigin, type PointOrigin } from '../motio
 import { useMotionScope } from '../motion/useMotionScope'
 import { dismissSurface, enterBlocks, presentSurface } from '../motion/transitions'
 import { canRejectStatus, nextStatus } from '../services/report/statusFlow'
+import { classifyIssueInput, sheetTranscriptKey } from '../services/report/reportInputKind'
 import type { Issue, IssueStatus } from '../types/issue'
 import AppIcon from './ui/AppIcon.vue'
 import SeverityPill from './SeverityPill.vue'
@@ -45,6 +46,9 @@ const showTranscript = computed(() => {
   }
   return props.issue.transcript.trim() !== props.issue.description.trim()
 })
+const transcriptLabel = computed(() =>
+  props.issue ? t(sheetTranscriptKey(classifyIssueInput(props.issue))) : t('sheet.transcriptVoice'),
+)
 
 const timeline = computed(() => {
   if (!props.issue) {
@@ -338,7 +342,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-if="showTranscript" class="block" data-enter-block>
-            <p class="row-label">{{ t('sheet.transcript') }}</p>
+            <p class="row-label">{{ transcriptLabel }}</p>
             <p class="description">{{ issue.transcript }}</p>
           </div>
 

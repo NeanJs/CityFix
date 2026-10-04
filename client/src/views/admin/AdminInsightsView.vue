@@ -6,6 +6,7 @@ import AppHeader from '../../components/layout/AppHeader.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
+import SkeletonPanel from '../../components/ui/SkeletonPanel.vue'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
 import {
@@ -22,6 +23,9 @@ const { issues, staffLoadStatus, loadStaffReports } = useIssues()
 const { t, issueTypeLabel } = useLocale()
 const range = ref<InsightsRange>('30d')
 const refreshing = ref(false)
+const staffWaiting = computed(
+  () => staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading',
+)
 
 const insights = computed(() => calculateInsights(issues.value, range.value))
 
@@ -209,9 +213,16 @@ async function refresh() {
       </div>
     </div>
 
-    <p v-if="staffLoadStatus === 'loading' && !issues.length" class="status">
-      {{ t('adminInsights.loading') }}
-    </p>
+    <template v-if="staffWaiting && !issues.length">
+      <p class="sr-only" aria-live="polite">{{ t('adminInsights.loading') }}</p>
+      <div class="kpis">
+        <SkeletonPanel v-for="index in 4" :key="index" :lines="2" />
+      </div>
+      <div class="analytics">
+        <SkeletonPanel class="trend" tall :lines="2" />
+        <SkeletonPanel tall :lines="2" />
+      </div>
+    </template>
     <GlassPanel v-else-if="staffLoadStatus === 'error' && !issues.length" padding="lg" class="state">
       <p class="state-title">{{ t('adminInsights.loadFailed') }}</p>
       <button type="button" class="btn" @click="refresh">{{ t('adminInsights.retry') }}</button>
@@ -424,6 +435,10 @@ async function refresh() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
+}
+
+.kpis :deep(.skeleton-panel) {
+  min-height: 8.5rem;
 }
 
 .kpi {

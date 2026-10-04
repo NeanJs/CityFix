@@ -2,6 +2,15 @@ export type IssueStatus = 'queued' | 'in_progress' | 'resolved' | 'rejected'
 
 export type IssueSeverity = 'low' | 'medium' | 'high'
 
+export type ReportInputKind =
+  | 'photo'
+  | 'voice'
+  | 'written'
+  | 'conversation'
+  | 'photo_voice'
+  | 'photo_written'
+  | 'photo_conversation'
+
 export type Issue = {
   id: string
   remoteId?: string
@@ -18,6 +27,7 @@ export type Issue = {
   longitude?: number
   photoDataUrl?: string
   audioUrl?: string
+  inputKind?: ReportInputKind
   recommendedAction?: string
   reporterId: string
   createdAt: string
@@ -37,6 +47,7 @@ export type NewIssueInput = {
   longitude?: number
   photoDataUrl?: string
   audioUrl?: string
+  inputKind?: ReportInputKind
   recommendedAction?: string
   reporterId: string
   remoteId?: string
