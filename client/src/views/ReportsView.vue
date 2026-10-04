@@ -21,7 +21,8 @@ const route = useRoute()
 const router = useRouter()
 const { t, issueTypeLabel } = useLocale()
 const { reporterId } = useAuth()
-const { issues, issuesForReporter, getIssueByTrackingId, syncTrackedReport } = useIssues()
+const { issues, issuesForReporter, getIssueByTrackingId, syncTrackedReport, staffLoadStatus, loadStaffReports } =
+  useIssues()
 
 const highlightIssueId = computed(() => {
   const value = route.query.highlight
@@ -101,6 +102,18 @@ function setIssueTypeFilter(value: 'all' | string) {
 function setQuery(value: string) {
   void animateResults(() => {
     query.value = value
+  })
+}
+
+const filtersActive = computed(
+  () => statusFilter.value !== 'all' || issueTypeFilter.value !== 'all' || Boolean(query.value.trim()),
+)
+
+function resetFilters() {
+  void animateResults(() => {
+    statusFilter.value = 'all'
+    issueTypeFilter.value = 'all'
+    query.value = ''
   })
 }
 
@@ -244,11 +257,34 @@ function formatFiled(iso: string) {
     </GlassPanel>
 
     <div ref="resultsRoot" class="results">
+    <p
+      v-if="isStaffQueue && staffLoadStatus === 'loading'"
+      class="results-count"
+    >
+      {{ t('reports.loading') }}
+    </p>
+    <GlassPanel
+      v-if="isStaffQueue && staffLoadStatus === 'error'"
+      padding="lg"
+      tone="fill"
+      class="empty"
+    >
+      <p class="empty-title">{{ t('reports.loadFailed') }}</p>
+      <button type="button" class="btn" @click="loadStaffReports">
+        {{ t('reports.retry') }}
+      </button>
+    </GlassPanel>
+
     <p v-if="scopedIssues.length > 0" class="results-count">
       {{ t('reports.count', { filtered: filtered.length, total: scopedIssues.length }) }}
     </p>
 
-    <GlassPanel v-if="scopedIssues.length === 0" padding="lg" tone="fill" class="empty">
+    <GlassPanel
+      v-if="scopedIssues.length === 0 && !(isStaffQueue && staffLoadStatus !== 'ready')"
+      padding="lg"
+      tone="fill"
+      class="empty"
+    >
       <AppIcon
         class="empty-icon"
         :name="isStaffQueue ? 'clipboardText' : 'tray'"
@@ -266,10 +302,13 @@ function formatFiled(iso: string) {
       </button>
     </GlassPanel>
 
-    <GlassPanel v-else-if="filtered.length === 0" padding="lg" tone="fill" class="empty">
+    <GlassPanel v-else-if="filtered.length === 0 && scopedIssues.length > 0" padding="lg" tone="fill" class="empty">
       <AppIcon class="empty-icon" name="magnifyingGlass" size="1.75rem" />
       <p class="empty-title">{{ t('reports.noMatches') }}</p>
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
+      <button v-if="filtersActive" type="button" class="btn" @click="resetFilters">
+        {{ t('reports.resetFilters') }}
+      </button>
     </GlassPanel>
 
     <div v-if="filtered.length > 0 && !isStaffQueue" class="list">

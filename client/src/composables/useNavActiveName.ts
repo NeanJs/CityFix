@@ -7,6 +7,9 @@ export function resolveNavActiveName(
   items: readonly NavItem[],
 ) {
   const name = route.name
+  if (name === 'reportReceipt') {
+    return ''
+  }
   if (typeof name === 'string' && items.some((item) => item.name === name)) {
     return name
   }

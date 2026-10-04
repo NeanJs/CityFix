@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
@@ -15,7 +15,7 @@ import { duration } from '../motion/tokens'
 
 const route = useRoute()
 const router = useRouter()
-const { reporterId } = useAuth()
+const { reporterId, currentUser } = useAuth()
 const { getIssue, syncTrackedReport } = useIssues()
 const { t } = useLocale()
 
@@ -23,6 +23,9 @@ const issue = computed(() => {
   const id = route.params.id
   return typeof id === 'string' ? (getIssue(id) ?? null) : null
 })
+const copied = ref(false)
+let copiedTimer = 0
+const guestFiling = computed(() => Boolean(issue.value) && !currentUser.value)
 
 watch(
   () => issue.value?.trackingId,
@@ -43,6 +46,27 @@ function formatWhen(iso: string) {
 }
 
 const mark = ref<HTMLElement | null>(null)
+
+async function copyTracking() {
+  const trackingId = issue.value?.trackingId.trim()
+  if (!trackingId || typeof navigator === 'undefined' || !navigator.clipboard) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(trackingId)
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1600)
+  } catch {
+    copied.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  window.clearTimeout(copiedTimer)
+})
 
 onMounted(() => {
   const node = mark.value
@@ -73,10 +97,15 @@ onMounted(() => {
       <AppIcon class="empty-icon" name="tray" size="1.75rem" />
       <p class="empty-title">{{ t('receipt.missingTitle') }}</p>
       <p class="hint">{{ t('receipt.missingHint') }}</p>
-      <button type="button" class="btn" @click="router.push('/report')">
-        <AppIcon name="plus" size="1rem" />
-        {{ t('receipt.fileAnother') }}
-      </button>
+      <div class="actions">
+        <button type="button" class="btn" @click="router.push('/reports')">
+          {{ t('receipt.viewReports') }}
+        </button>
+        <button type="button" class="btn-secondary" @click="router.push('/report')">
+          <AppIcon name="plus" size="1rem" />
+          {{ t('receipt.fileAnother') }}
+        </button>
+      </div>
     </GlassPanel>
 
     <GlassPanel v-else padding="lg" tone="fill" class="record">
@@ -88,11 +117,22 @@ onMounted(() => {
       <p class="section-kicker">{{ t('receipt.eyebrow') }}</p>
       <p class="headline">{{ t('receipt.headline') }}</p>
       <p class="lead">{{ t('receipt.lead') }}</p>
+      <p v-if="guestFiling" class="hint">{{ t('receipt.guestNote') }}</p>
 
       <div class="hero-row">
         <div class="reference">
           <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
-          <p class="tracking">{{ issue.trackingId }}</p>
+          <div class="tracking-row">
+            <p class="tracking">{{ issue.trackingId }}</p>
+            <button
+              type="button"
+              class="copy"
+              :aria-label="copied ? t('sheet.copied') : t('sheet.copyTracking')"
+              @click="copyTracking"
+            >
+              <AppIcon :name="copied ? 'check' : 'copy'" size="0.95rem" />
+            </button>
+          </div>
           <p class="hint">{{ t('receipt.trackingHint') }}</p>
         </div>
 
@@ -187,6 +227,26 @@ onMounted(() => {
   font-size: 0.78rem;
   font-weight: 650;
   color: var(--text-muted);
+}
+
+.tracking-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.copy {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .hero-row {

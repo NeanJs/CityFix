@@ -16,21 +16,25 @@ const cameraInput = ref<HTMLInputElement | null>(null)
 const galleryInput = ref<HTMLInputElement | null>(null)
 const preview = ref<HTMLElement | null>(null)
 const errorKey = ref('')
+const compressing = ref(false)
 
 async function onFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   errorKey.value = ''
-  if (!file) {
+  if (!file || compressing.value) {
     return
   }
+  compressing.value = true
   try {
     const compressed = await compressImageFile(file)
     photoFile.value = compressed
     photoDataUrl.value = await dataUrlFromBlob(compressed)
   } catch {
     errorKey.value = 'report.photoFailed'
+  } finally {
+    compressing.value = false
   }
 }
 
@@ -60,6 +64,8 @@ watch(photoDataUrl, async (value, previous) => {
         type="button"
         class="preview"
         :aria-label="photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto')"
+        :aria-busy="compressing"
+        :disabled="compressing"
         @click="cameraInput?.click()"
       >
         <img
@@ -78,12 +84,26 @@ watch(photoDataUrl, async (value, previous) => {
         <button
           type="button"
           :class="photoDataUrl ? 'btn-secondary' : 'btn'"
+          :disabled="compressing"
           @click="cameraInput?.click()"
         >
           <AppIcon name="camera" size="1rem" />
-          <MorphText :text="photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto')" />
+          <MorphText
+            :text="
+              compressing
+                ? t('report.photoPreparing')
+                : photoDataUrl
+                  ? t('report.retakePhoto')
+                  : t('report.takePhoto')
+            "
+          />
         </button>
-        <button type="button" class="btn-secondary" @click="galleryInput?.click()">
+        <button
+          type="button"
+          class="btn-secondary"
+          :disabled="compressing"
+          @click="galleryInput?.click()"
+        >
           <AppIcon name="images" size="1rem" />
           {{ t('report.choosePhoto') }}
         </button>

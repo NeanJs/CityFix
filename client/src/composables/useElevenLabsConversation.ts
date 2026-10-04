@@ -11,6 +11,8 @@ import { elevenLabsAgentId } from '../config/elevenLabsConfig'
 export type VoiceStatus = Status
 export type VoiceMode = Mode
 
+const emptyFrequency = new Uint8Array(0)
+
 function isPermissionError(error: unknown) {
   if (error instanceof DOMException) {
     return error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError'
@@ -58,24 +60,25 @@ export function useElevenLabsConversation() {
       status.value === 'disconnecting',
   )
 
-  function readVolume(kind: 'input' | 'output') {
+  function readFrequency(kind: 'input' | 'output') {
     if (!session) {
-      return 0
+      return emptyFrequency
     }
     try {
-      const raw = kind === 'input' ? session.getInputVolume() : session.getOutputVolume()
-      return Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0
+      return kind === 'input'
+        ? session.getInputByteFrequencyData()
+        : session.getOutputByteFrequencyData()
     } catch {
-      return 0
+      return emptyFrequency
     }
   }
 
-  function getInputVolume() {
-    return readVolume('input')
+  function getInputFrequency() {
+    return readFrequency('input')
   }
 
-  function getOutputVolume() {
-    return readVolume('output')
+  function getOutputFrequency() {
+    return readFrequency('output')
   }
 
   async function startSession() {
@@ -190,7 +193,7 @@ export function useElevenLabsConversation() {
     sessionHeld,
     startSession,
     endSession,
-    getInputVolume,
-    getOutputVolume,
+    getInputFrequency,
+    getOutputFrequency,
   }
 }

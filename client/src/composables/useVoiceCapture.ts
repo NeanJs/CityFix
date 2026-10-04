@@ -164,6 +164,7 @@ export function useVoiceCapture() {
         if (generation === captureGeneration) {
           encoding.value = false
           elapsed.value = 0
+          errorKey.value = 'report.voiceTooShort'
         }
         stopResolve?.(null)
         stopResolve = null
@@ -256,6 +257,7 @@ export function useVoiceCapture() {
     clearTimer()
     discardRecorder()
     elapsed.value = 0
+    errorKey.value = 'report.voiceNoSpeech'
   }
 
   function reset() {

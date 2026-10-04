@@ -65,12 +65,11 @@ const draft = reactive<ReportIngestDraft>({
 })
 
 const hasPhoto = computed(() => Boolean(form.photoDataUrl))
-const hasVoice = computed(() => Boolean(audioBlob.value))
 const hasText = computed(() => Boolean(form.transcript.trim()))
-const canSend = computed(() => hasPhoto.value || hasVoice.value || hasText.value)
+const canSend = computed(() => hasPhoto.value || hasText.value)
 const reviewActive = computed(() => phase.value === 'review')
 const captureActive = computed(() => phase.value === 'capture')
-const { markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync({
+const { geocoding, markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync({
   latitude,
   longitude,
   locationLabel: toRef(form, 'locationLabel'),
@@ -78,7 +77,6 @@ const { markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync
 })
 const step = computed<1 | 2>(() => (phase.value === 'review' ? 2 : 1))
 const photoSrc = computed(() => draft.photoUrl || form.photoDataUrl)
-const reviewTitle = computed(() => draft.title.trim() || t('report.untitled'))
 const reviewDescription = computed(() => draft.description.trim())
 const reviewSummary = computed(() => {
   const summary = draft.summary.trim()
@@ -103,9 +101,6 @@ const showCitizenWords = computed(() => {
   }
   return true
 })
-const placeLabel = computed(
-  () => draft.locationLabel.trim() || form.locationLabel.trim() || t('report.locationUnset'),
-)
 
 const submitLabel = computed(() => {
   if (submitting.value) {
@@ -437,6 +432,7 @@ async function confirm() {
     :style="{
       '--dock-space': `${dockSpace}px`,
       '--keyboard-inset': `${keyboardInset}px`,
+      '--tab-bar-space': keyboardInset > 0 ? '0px' : '4.65rem',
     }"
     @focusin="onReportFocusIn"
   >
@@ -474,8 +470,9 @@ async function confirm() {
               :placeholder="t('report.locationPlaceholder')"
               autocomplete="street-address"
               @input="markLocationLabelManual"
-              @keydown.enter.prevent="canSend && send()"
+              @keydown.enter.prevent
             />
+            <p v-if="geocoding" class="hint">{{ t('report.updatingPlace') }}</p>
           </label>
         </GlassPanel>
 
@@ -519,11 +516,26 @@ async function confirm() {
 
         <div class="review-layout">
           <div class="review-copy">
-            <h3 class="review-title">{{ reviewTitle }}</h3>
-            <div v-if="reviewDescription" class="review-block" data-enter-block>
-              <p class="field-label">{{ t('report.aiDescription') }}</p>
-              <p class="review-text">{{ reviewDescription }}</p>
-            </div>
+            <label class="field">
+              <span class="field-label">{{ t('report.fieldTitle') }}</span>
+              <input
+                v-model="draft.title"
+                class="control review-title-input"
+                type="text"
+                maxlength="120"
+                :placeholder="t('report.titlePlaceholder')"
+              />
+            </label>
+            <label class="review-block" data-enter-block>
+              <span class="field-label">{{ t('report.aiDescription') }}</span>
+              <textarea
+                v-model="draft.description"
+                class="control"
+                rows="4"
+                maxlength="800"
+                :placeholder="t('report.transcriptPlaceholder')"
+              />
+            </label>
             <div v-if="reviewSummary" class="review-block" data-enter-block>
               <p class="field-label">{{ t('report.summary') }}</p>
               <p class="review-text">{{ reviewSummary }}</p>
@@ -543,7 +555,17 @@ async function confirm() {
               </div>
               <div class="fact-place">
                 <dt class="field-label">{{ t('report.location') }}</dt>
-                <dd class="meta-value">{{ placeLabel }}</dd>
+                <dd>
+                  <input
+                    v-model="draft.locationLabel"
+                    class="control"
+                    type="text"
+                    maxlength="160"
+                    :placeholder="t('report.locationPlaceholder')"
+                    autocomplete="street-address"
+                    @keydown.enter.prevent
+                  />
+                </dd>
               </div>
             </dl>
           </div>
@@ -584,6 +606,7 @@ async function confirm() {
               class="btn command-primary"
               :class="{ 'is-busy': submitting }"
               :disabled="submitting || (phase === 'capture' && !canSend)"
+              :aria-busy="submitting"
               aria-describedby="report-command-status"
               @click="phase === 'capture' ? send() : confirm()"
             >
@@ -606,7 +629,8 @@ async function confirm() {
   display: grid;
   gap: 0.85rem;
   padding-bottom: calc(
-    var(--dock-space) + 4.65rem + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset)
+    var(--dock-space) + var(--tab-bar-space) + env(safe-area-inset-bottom, 0px) +
+      var(--keyboard-inset)
   );
 }
 
@@ -738,13 +762,10 @@ async function confirm() {
   min-width: 0;
 }
 
-.review-title {
-  margin: 0;
-  font-size: clamp(1.2rem, 3vw, 1.55rem);
-  line-height: 1.2;
+.review-title-input {
+  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--text-h);
   font-family: var(--font-display);
   view-transition-name: report-title;
 }

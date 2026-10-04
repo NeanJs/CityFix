@@ -5,6 +5,7 @@ import { useAndroidBackHandler } from '../../composables/useAndroidBackHandler'
 import { useAuth } from '../../composables/useAuth'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
+import type { IssueStatus } from '../../types/issue'
 import IssueDetailSheet from '../IssueDetailSheet.vue'
 import BottomNav from './BottomNav.vue'
 import PageSwitch from './PageSwitch.vue'
@@ -24,6 +25,7 @@ const { getIssue, loadStaffReports, loadStaffReport, updateStatus, syncTrackedRe
 
 const selectedIssueId = ref<string | null>(null)
 const detailOpen = ref(false)
+const statusError = ref('')
 
 const selectedIssue = computed(() => {
   if (!selectedIssueId.value) {
@@ -55,7 +57,16 @@ async function refreshIssueFromRemote() {
 function openIssue(id: string) {
   selectedIssueId.value = id
   detailOpen.value = true
+  statusError.value = ''
   void refreshIssueFromRemote()
+}
+
+async function changeStatus(id: string, status: IssueStatus) {
+  statusError.value = ''
+  const ok = await updateStatus(id, status)
+  if (!ok) {
+    statusError.value = t('adminHome.statusFailed')
+  }
 }
 
 function closeDetail() {
@@ -93,8 +104,9 @@ onMounted(() => {
       :open="detailOpen"
       :issue="selectedIssue"
       :can-manage-status="props.canManageStatus"
+      :status-error="statusError"
       @close="closeDetail"
-      @status-change="(id, status) => updateStatus(id, status)"
+      @status-change="changeStatus"
     />
   </div>
 </template>

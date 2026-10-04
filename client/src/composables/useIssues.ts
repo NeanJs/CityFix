@@ -24,6 +24,8 @@ const hydrated = ref(false)
 const storeReady = ref(false)
 let bootstrapPromise: Promise<void> | null = null
 const statusUpdates = new Set<string>()
+type StaffLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
+const staffLoadStatus = ref<StaffLoadStatus>('idle')
 
 async function persist() {
   await writeStoreItem(storageKey, JSON.stringify(issues.value))
@@ -138,7 +140,10 @@ export function useIssues() {
   )
 
   const highSeverityCount = computed(
-    () => issues.value.filter((issue) => issue.severity === 'high').length,
+    () =>
+      issues.value.filter(
+        (issue) => issue.severity === 'high' && isOpenStatus(issue.status),
+      ).length,
   )
 
   function issuesForReporter(reporterId: string) {
@@ -209,10 +214,13 @@ export function useIssues() {
 
   async function loadStaffReports() {
     if (!adminReportsUrl) {
+      staffLoadStatus.value = 'ready'
       return
     }
+    staffLoadStatus.value = 'loading'
     const token = await requireStaffToken()
     if (!token) {
+      staffLoadStatus.value = 'error'
       return
     }
     try {
@@ -220,10 +228,12 @@ export function useIssues() {
       for (const remote of remotes) {
         await saveRemoteReport(remote, getCurrentUser()?.id ?? '', true)
       }
+      staffLoadStatus.value = 'ready'
     } catch (error) {
       if (isUnauthorized(error)) {
         await handleUnauthorized()
       }
+      staffLoadStatus.value = 'error'
     }
   }
 
@@ -249,11 +259,11 @@ export function useIssues() {
 
   async function updateStatus(id: string, status: IssueStatus) {
     if (statusUpdates.has(id)) {
-      return
+      return false
     }
     const index = issues.value.findIndex((issue) => issue.id === id)
     if (index === -1) {
-      return
+      return false
     }
     const current = issues.value[index]
     const staff = getCurrentUser()?.role === 'staff'
@@ -262,23 +272,23 @@ export function useIssues() {
       if (staff && adminReportsUrl) {
         const remoteId = current.remoteId?.trim()
         if (!remoteId) {
-          return
+          return false
         }
         const token = await requireStaffToken()
         if (!token) {
-          return
+          return false
         }
         try {
           const remote = await updateReportStatus(remoteId, status, token)
           if (remote) {
             await saveRemoteReport(remote, current.reporterId, true)
-            return
+            return true
           }
         } catch (error) {
           if (isUnauthorized(error)) {
             await handleUnauthorized()
           }
-          return
+          return false
         }
       }
       const next = { ...current, status, updatedAt: new Date().toISOString() }
@@ -288,6 +298,7 @@ export function useIssues() {
         ...issues.value.slice(index + 1),
       ]
       await persist()
+      return true
     } finally {
       statusUpdates.delete(id)
     }
@@ -412,6 +423,7 @@ export function useIssues() {
 
   return {
     storeReady,
+    staffLoadStatus,
     issues: sortedIssues,
     openCount,
     resolvedCount,

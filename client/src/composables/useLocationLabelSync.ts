@@ -21,12 +21,14 @@ export function useLocationLabelSync(options: {
   enabled: Ref<boolean>
 }) {
   const locationLabelManual = ref(false)
+  const geocoding = ref(false)
   let request: AbortController | null = null
   let lastPoint = ''
 
   function abortRequest() {
     request?.abort()
     request = null
+    geocoding.value = false
   }
 
   function markLocationLabelManual() {
@@ -43,6 +45,7 @@ export function useLocationLabelSync(options: {
     abortRequest()
     const controller = new AbortController()
     request = controller
+    geocoding.value = true
     try {
       const resolved = await reverseGeocode(latitude, longitude, controller.signal)
       if (controller.signal.aborted) {
@@ -58,6 +61,7 @@ export function useLocationLabelSync(options: {
     } finally {
       if (request === controller) {
         request = null
+        geocoding.value = false
       }
     }
   }
@@ -87,6 +91,7 @@ export function useLocationLabelSync(options: {
   onBeforeUnmount(abortRequest)
 
   return {
+    geocoding,
     markLocationLabelManual,
     resetLocationLabelSync,
   }

@@ -84,18 +84,20 @@ async function transcribeBlob(blob: Blob, force = false): Promise<string> {
     try {
       const text = await transcribeReport(blob, controller.signal)
       if (generation !== transcribeGeneration) {
-        return ''
+        return transcript.value.trim()
       }
       transcribedBlob = blob
-      transcript.value = text
+      if (text.trim()) {
+        transcript.value = text
+      }
       playVoiceCaptureEffect('response')
-      return text
+      return text.trim() || transcript.value.trim()
     } catch (error) {
       if (controller.signal.aborted || isAbortError(error) || generation !== transcribeGeneration) {
-        return ''
+        return transcript.value.trim()
       }
       transcribeError.value = apiErrorMessage(error, t, 'report.transcribeFailed')
-      return ''
+      return transcript.value.trim()
     } finally {
       if (generation === transcribeGeneration) {
         transcribing.value = false
@@ -133,7 +135,6 @@ watch(voice.recording, (recording) => {
   abortTranscribe()
   transcribeError.value = ''
   transcribedBlob = null
-  transcript.value = ''
 })
 
 watch(voice.audioBlob, (value) => {

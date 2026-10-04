@@ -41,7 +41,7 @@ const emit = defineEmits<{
 
     <div class="recent">
       <div class="section-head">
-        <h2 class="section-title">{{ t('home.openReports') }}</h2>
+          <h2 class="section-title">{{ t('home.recentReports') }}</h2>
         <button
           v-if="recentIssues.length > 0"
           type="button"
@@ -56,6 +56,10 @@ const emit = defineEmits<{
         <AppIcon class="empty-icon" name="tray" size="1.75rem" />
         <p class="empty-title">{{ t('home.emptyTitle') }}</p>
         <p class="hint">{{ t('home.emptyHint') }}</p>
+        <button type="button" class="btn" @click="router.push('/report')">
+          <AppIcon name="plus" size="1rem" />
+          {{ t('home.reportProblem') }}
+        </button>
       </GlassPanel>
 
       <div v-else class="list">
@@ -122,6 +126,7 @@ const emit = defineEmits<{
 .empty {
   display: grid;
   gap: 0.4rem;
+  justify-items: start;
 }
 
 .empty-icon {

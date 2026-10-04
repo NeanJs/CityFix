@@ -99,6 +99,9 @@ function onMoveEnd() {
   if (props.disabled) {
     return
   }
+  if (!userMoved.value && latitude.value === undefined) {
+    return
+  }
   syncFromMap()
 }
 
@@ -109,9 +112,6 @@ async function locate(force: boolean, refresh = false) {
     const result = await requestCurrentPosition({ force: refresh })
     if (!result.ok) {
       locationError.value = t(result.errorKey)
-      if (latitude.value === undefined || longitude.value === undefined) {
-        jumpTo(defaultMapCenter[1], defaultMapCenter[0])
-      }
       return
     }
     if (!force && userMoved.value) {

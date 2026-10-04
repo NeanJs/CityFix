@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useElevenLabsConversation } from '../composables/useElevenLabsConversation'
 import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import MorphText from '../components/ui/MorphText.vue'
+import VoiceGlyph from '../components/voice/VoiceGlyph.vue'
+import type { GlyphPhase } from '../services/voice/glyphShapes'
 
 const { t } = useLocale()
 const {
@@ -17,22 +19,34 @@ const {
   sessionHeld,
   startSession,
   endSession,
-  getInputVolume,
-  getOutputVolume,
+  getInputFrequency,
+  getOutputFrequency,
 } = useElevenLabsConversation()
 
-const energy = ref(0)
-const orbScale = ref(1)
-let raf = 0
+const busy = computed(() => status.value === 'connecting' || starting.value)
+const failed = computed(() => Boolean(errorKey.value) && status.value === 'disconnected')
+
+const phase = computed<GlyphPhase>(() => {
+  if (failed.value) {
+    return 'error'
+  }
+  if (busy.value) {
+    return 'connecting'
+  }
+  if (connected.value) {
+    return mode.value === 'speaking' ? 'speaking' : 'listening'
+  }
+  return 'idle'
+})
 
 const statusLabel = computed(() => {
-  if (errorKey.value && status.value === 'disconnected') {
+  if (failed.value) {
     return t(errorKey.value)
   }
-  if (status.value === 'connecting' || starting.value) {
+  if (busy.value) {
     return t('voice.connecting')
   }
-  if (status.value === 'connected') {
+  if (connected.value) {
     return mode.value === 'speaking' ? t('voice.speaking') : t('voice.listening')
   }
   return t('voice.idle')
@@ -42,45 +56,18 @@ const actionLabel = computed(() => {
   if (connected.value) {
     return t('voice.end')
   }
-  if (status.value === 'connecting' || starting.value) {
+  if (busy.value) {
     return t('voice.connecting')
   }
   return t('voice.start')
 })
 
-function stopOrb() {
-  if (raf) {
-    cancelAnimationFrame(raf)
-    raf = 0
-  }
-  energy.value = 0
-  orbScale.value = 1
+function readFrequency() {
+  return mode.value === 'speaking' ? getOutputFrequency() : getInputFrequency()
 }
-
-function tick() {
-  const raw = mode.value === 'speaking' ? getOutputVolume() : getInputVolume()
-  const next = Math.min(1, raw ** 0.55 * 2.2)
-  energy.value += (next - energy.value) * 0.28
-  orbScale.value = 1 + energy.value * 0.16
-  raf = requestAnimationFrame(tick)
-}
-
-watch(
-  connected,
-  (isConnected) => {
-    stopOrb()
-    if (isConnected) {
-      raf = requestAnimationFrame(tick)
-    }
-  },
-)
 
 useAndroidBackHandler(sessionHeld, () => {
   void endSession()
-})
-
-onBeforeUnmount(() => {
-  stopOrb()
 })
 
 function onAction() {
@@ -99,40 +86,26 @@ function onAction() {
     <div class="stage">
       <p v-if="!sessionHeld" class="lead">{{ t('voice.lead') }}</p>
 
-      <div class="orb-slot" aria-hidden="true">
-        <div
-          class="orb"
-          :class="{
-            connecting: status === 'connecting' || starting,
-            speaking: connected && mode === 'speaking',
-          }"
-          :style="{
-            '--orb-scale': String(orbScale),
-            '--orb-energy': String(0.42 + energy * 0.5),
-          }"
-        >
-          <span class="orb-ring" />
-          <span class="orb-core" />
-        </div>
+      <div class="glyph-slot">
+        <VoiceGlyph :phase="phase" :read-frequency="readFrequency" />
       </div>
 
-      <p class="status" :class="{ error: errorKey && status === 'disconnected' }">
-        <MorphText :text="statusLabel" />
-      </p>
+      <div class="console">
+        <p class="status" :class="{ error: failed }">
+          <MorphText :text="statusLabel" />
+        </p>
 
-      <button
-        type="button"
-        class="action"
-        :class="[
-          connected ? 'btn-secondary' : 'btn',
-          { 'is-busy': status === 'connecting' || starting },
-        ]"
-        :disabled="status === 'connecting' || starting"
-        @click="onAction"
-      >
-        <AppIcon :name="connected ? 'x' : 'microphone'" size="1.05rem" />
-        {{ actionLabel }}
-      </button>
+        <button
+          type="button"
+          class="action"
+          :class="[connected ? 'btn-secondary' : 'btn', { 'is-busy': busy }]"
+          :disabled="busy"
+          @click="onAction"
+        >
+          <AppIcon :name="connected ? 'x' : 'microphone'" size="1.05rem" />
+          {{ actionLabel }}
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -148,9 +121,9 @@ function onAction() {
 
 .stage {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'lead' 'glyph' 'console';
   justify-items: center;
-  align-items: stretch;
   gap: 0.85rem;
   min-height: 0;
   width: 100%;
@@ -158,6 +131,7 @@ function onAction() {
 }
 
 .lead {
+  grid-area: lead;
   margin: 0;
   max-width: 28rem;
   text-align: center;
@@ -166,52 +140,19 @@ function onAction() {
   color: var(--text-muted);
 }
 
-.orb-slot {
-  min-height: 0;
+.glyph-slot {
+  grid-area: glyph;
+  position: relative;
   width: 100%;
+  min-height: 0;
+}
+
+.console {
+  grid-area: console;
   display: grid;
-  place-items: center;
-}
-
-.orb {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: min(22rem, 100%);
-  width: auto;
-  max-width: min(22rem, 92%);
-  aspect-ratio: 1;
-  transform: scale(var(--orb-scale, 1));
-  transform-origin: center;
-  will-change: transform;
-}
-
-.orb-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1.5px solid var(--glass-border);
-  background: var(--surface-solid);
-}
-
-.orb-core {
-  position: relative;
-  z-index: 1;
-  width: 64%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--civic-bar);
-  opacity: var(--orb-energy, 0.55);
-  transform: scale(calc(0.92 + var(--orb-energy, 0.55) * 0.14));
-  will-change: transform, opacity;
-}
-
-.orb.speaking .orb-core {
-  background: var(--ink);
-}
-
-.orb.connecting .orb-core {
-  animation: pulse 1.15s var(--motion-ease) infinite alternate;
+  justify-items: center;
+  gap: 0.85rem;
+  width: 100%;
 }
 
 .status {
@@ -234,17 +175,6 @@ function onAction() {
   min-width: 8.5rem;
 }
 
-@keyframes pulse {
-  from {
-    opacity: 0.38;
-    transform: scale(0.94);
-  }
-  to {
-    opacity: 0.78;
-    transform: scale(1);
-  }
-}
-
 @media (min-width: 1024px) {
   .voice {
     height: calc(100dvh - 2.6rem - env(safe-area-inset-top, 0px));
@@ -253,6 +183,20 @@ function onAction() {
 
   .lead {
     font-size: 1.12rem;
+  }
+
+  .console {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    max-width: 44rem;
+    padding: 0.9rem 0 0.2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .status {
+    justify-self: start;
+    text-align: left;
+    font-size: 1.05rem;
   }
 }
 </style>

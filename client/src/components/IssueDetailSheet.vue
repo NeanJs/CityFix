@@ -15,6 +15,7 @@ const props = defineProps<{
   issue: Issue | null
   open: boolean
   canManageStatus?: boolean
+  statusError?: string
 }>()
 
 const emit = defineEmits<{
@@ -295,6 +296,7 @@ onBeforeUnmount(() => {
             <button v-if="canReject" type="button" class="btn-secondary reject-btn" @click="reject">
               {{ t('sheet.reject') }}
             </button>
+            <p v-if="props.statusError" class="hint" role="alert">{{ props.statusError }}</p>
           </div>
 
           <img

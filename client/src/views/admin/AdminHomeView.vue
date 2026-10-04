@@ -14,7 +14,7 @@ import { compareQueuePriority, isOpenStatus, nextStatus } from '../../services/r
 
 type DeskFilter = 'open' | 'high' | 'resolved' | 'all'
 
-const { issues, openCount, resolvedCount, highSeverityCount, updateStatus } =
+const { issues, openCount, resolvedCount, highSeverityCount, updateStatus, staffLoadStatus, loadStaffReports } =
   useIssues()
 const { t } = useLocale()
 const router = useRouter()
@@ -39,7 +39,7 @@ const queue = computed(() => {
       return isOpenStatus(issue.status)
     }
     if (filter.value === 'high') {
-      return issue.severity === 'high'
+      return issue.severity === 'high' && isOpenStatus(issue.status)
     }
     if (filter.value === 'resolved') {
       return issue.status === 'resolved'
@@ -48,6 +48,15 @@ const queue = computed(() => {
   })
   return [...items].sort(compareQueuePriority)
 })
+
+const unlocatedCount = computed(
+  () =>
+    queue.value.filter(
+      (issue) => issue.latitude === undefined || issue.longitude === undefined,
+    ).length,
+)
+
+const statusError = ref('')
 
 const emit = defineEmits<{
   openIssue: [id: string]
@@ -72,8 +81,16 @@ async function advanceIssue(id: string) {
     return
   }
   const upcoming = nextStatus(issue.status)
-  if (upcoming) {
-    await animateQueue(() => updateStatus(id, upcoming))
+  if (!upcoming) {
+    return
+  }
+  statusError.value = ''
+  let ok = false
+  await animateQueue(async () => {
+    ok = await updateStatus(id, upcoming)
+  })
+  if (!ok) {
+    statusError.value = t('adminHome.statusFailed')
   }
 }
 
@@ -122,13 +139,26 @@ watch(mapOpen, async () => {
         </div>
 
         <div ref="queueRoot" class="queue-results">
-        <GlassPanel v-if="queue.length === 0" padding="lg" tone="fill" class="empty">
+        <p v-if="staffLoadStatus === 'loading'" class="hint">{{ t('adminHome.loading') }}</p>
+        <GlassPanel v-if="staffLoadStatus === 'error'" padding="lg" tone="fill" class="empty">
+          <p class="empty-title">{{ t('adminHome.loadFailed') }}</p>
+          <button type="button" class="btn" @click="loadStaffReports">
+            {{ t('adminHome.retry') }}
+          </button>
+        </GlassPanel>
+        <p v-if="statusError" class="hint" role="alert">{{ statusError }}</p>
+        <GlassPanel
+          v-if="queue.length === 0 && staffLoadStatus === 'ready'"
+          padding="lg"
+          tone="fill"
+          class="empty"
+        >
           <AppIcon class="empty-icon" name="clipboardText" size="1.75rem" />
           <p class="empty-title">{{ t('adminHome.emptyTitle') }}</p>
           <p class="hint">{{ t('adminHome.emptyHint') }}</p>
         </GlassPanel>
 
-        <div v-else class="list">
+        <div v-if="queue.length > 0" class="list">
           <IssueCard
             v-for="issue in queue"
             :key="issue.id"
@@ -152,6 +182,9 @@ watch(mapOpen, async () => {
         <div v-show="mapOpen" class="map-body">
           <IssuesMap ref="mapRef" :issues="mappedIssues" @select="emit('openIssue', $event)" />
         </div>
+        <p v-if="mapOpen && unlocatedCount > 0" class="hint map-hint">
+          {{ t('adminHome.mapUnlocated', { count: unlocatedCount }) }}
+        </p>
       </GlassPanel>
     </div>
   </section>
@@ -251,6 +284,10 @@ watch(mapOpen, async () => {
   border-radius: var(--radius-lg);
 }
 
+.map-hint {
+  margin: 0.45rem 0.15rem 0;
+}
+
 .queue {
   display: grid;
   gap: 0.65rem;
@@ -296,15 +333,6 @@ watch(mapOpen, async () => {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow: visible;
   }
-
-  .map-toggle {
-    display: none;
-  }
-
-  .map-body {
-    display: block !important;
-  }
-
 }
 
 @media (min-width: 1024px) {
