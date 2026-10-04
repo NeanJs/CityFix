@@ -11,7 +11,7 @@
 
 ---
 
-##🚀 What Is OpenBlock?
+### 🚀 What Is OpenBlock?
 
 City issues are part of everyday life:
 - Potholes
