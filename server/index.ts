@@ -5,6 +5,8 @@ import reportsRoutes from "./modules/reports/reports.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import { supabaseMiddleware } from "./middleware/supabase.js";
 // import { reportRateLimit } from "./middleware/rateLimit.js";
+import voiceRoutes from "./modules/voice/voice.route.js";
+
 const app = express();
 
 app.use(cors());
@@ -17,6 +19,8 @@ app.get("/api/health", (_req, res) => {
   });
 });
 app.use("/api/reports", supabaseMiddleware, reportsRoutes);
+app.use("/api/admin/login", adminRoutes);
+
 app.use(
   "/api/admin",
   (req, res, next) => {
@@ -24,7 +28,7 @@ app.use(
   },
   adminRoutes,
 );
-
+app.use("/api/voice", supabaseMiddleware, voiceRoutes);
 const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {

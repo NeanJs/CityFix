@@ -6,8 +6,8 @@ import {
   testGeminiController,
   transcribeAudioController,
 } from "./reports.controllers.js";
+import voiceRoutes from "../voice/voice.route.js";
 import { analyzeUpload } from "../../middleware/upload.js";
-
 const router = Router();
 
 router.post("/", createReportController);
@@ -21,5 +21,5 @@ router.post(
   transcribeAudioController,
 );
 router.get("/test-gemini", testGeminiController);
-
+router.use("/voice", voiceRoutes);
 export default router;

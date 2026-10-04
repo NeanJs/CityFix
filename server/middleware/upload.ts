@@ -18,6 +18,7 @@ export const analyzeUpload = multer({
       "audio/mp4",
       "audio/webm",
       "audio/ogg",
+      
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
