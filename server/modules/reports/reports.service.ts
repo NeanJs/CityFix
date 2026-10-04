@@ -1,5 +1,6 @@
 import { SupabaseContext } from "@supabase/server";
-import { CreateReportInput } from "../../types/reports.types.js";
+import { CreateReportInput, ReportDraft } from "../../types/reports.types.js";
+import { gemini } from "../../config/gemini.js";
 
 export async function createReport(
   supabase: SupabaseContext["supabaseAdmin"],
@@ -53,4 +54,13 @@ export async function getReportByTrackingId(
   }
 
   return data as Report | null;
+}
+
+export async function testGemini(): Promise<string> {
+  const response = await gemini.models.generateContent({
+    model: "gemini-3.8-flash",
+    contents: "Reply with exactly: CityFix AI is working",
+  });
+
+  return response.text ?? "";
 }
