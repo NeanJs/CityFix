@@ -2,12 +2,13 @@
 import gsap from 'gsap'
 import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
-import { compressImageFile } from '../../services/media/compressImage'
+import { compressImageFile, dataUrlFromBlob } from '../../services/media/compressImage'
 import { easings } from '../../motion/easings'
 import { duration } from '../../motion/tokens'
 import MorphText from '../ui/MorphText.vue'
 
 const photoDataUrl = defineModel<string>('photoDataUrl', { default: '' })
+const photoFile = defineModel<File | null>('photoFile', { default: null })
 
 const { t } = useLocale()
 const cameraInput = ref<HTMLInputElement | null>(null)
@@ -24,7 +25,9 @@ async function onFile(event: Event) {
     return
   }
   try {
-    photoDataUrl.value = await compressImageFile(file)
+    const compressed = await compressImageFile(file)
+    photoFile.value = compressed
+    photoDataUrl.value = await dataUrlFromBlob(compressed)
   } catch {
     errorKey.value = 'report.photoFailed'
   }

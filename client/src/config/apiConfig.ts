@@ -1,15 +1,51 @@
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL?.trim() || '').replace(/\/$/, '')
+function withScheme(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  return `https://${trimmed.replace(/^\/+/, '')}`
+}
+
+function stripTrailingSlash(value: string) {
+  return value.replace(/\/$/, '')
+}
+
+function joinApiUrl(base: string, path: string) {
+  if (!base) {
+    return ''
+  }
+  const prefix = path.startsWith('/') ? path : `/${path}`
+  if (base.endsWith('/api') && prefix.startsWith('/api/')) {
+    return `${base}${prefix.slice(4)}`
+  }
+  return `${base}${prefix}`
+}
+
+function ingestOverrideUrl(value: string) {
+  const normalized = stripTrailingSlash(withScheme(value))
+  if (!normalized) {
+    return ''
+  }
+  if (/\/reports\/pothole$/i.test(normalized)) {
+    return ''
+  }
+  return normalized
+}
+
+export const apiBaseUrl = stripTrailingSlash(withScheme(import.meta.env.VITE_API_BASE_URL ?? ''))
 
 export const reportIngestPath = '/reports/analyze'
 
-export const reportIngestUrl = (
-  import.meta.env.VITE_REPORT_INGEST_URL?.trim() ||
-  (apiBaseUrl ? `${apiBaseUrl}${reportIngestPath}` : '')
-).trim()
+export const reportIngestUrl =
+  ingestOverrideUrl(import.meta.env.VITE_REPORT_INGEST_URL ?? '') ||
+  joinApiUrl(apiBaseUrl, reportIngestPath)
 
 export const reportsCollectionPath = '/api/reports'
 
-export const reportsCollectionUrl = (apiBaseUrl ? `${apiBaseUrl}${reportsCollectionPath}` : '').trim()
+export const reportsCollectionUrl = joinApiUrl(apiBaseUrl, reportsCollectionPath)
 
 export function reportTrackUrl(trackingId: string) {
   const id = trackingId.trim()

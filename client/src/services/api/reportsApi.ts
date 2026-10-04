@@ -1,9 +1,9 @@
 import { reportsCollectionUrl, reportTrackUrl } from '../../config/apiConfig'
 import { demoReport } from '../../data/demoReport'
-import { issueCategories } from '../../data/categories'
+import { normalizeIssueCategory } from '../../data/categories'
+import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
 import type { IssueCategory, IssueSeverity, IssueStatus } from '../../types/issue'
 
-const categories = issueCategories.map((item) => item.id)
 const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
 
@@ -62,10 +62,6 @@ export type RemoteReport = {
   updatedAt?: string
 }
 
-function isCategory(value: string): value is IssueCategory {
-  return categories.includes(value as IssueCategory)
-}
-
 function isSeverity(value: string): value is IssueSeverity {
   return severities.includes(value as IssueSeverity)
 }
@@ -106,40 +102,6 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
 function filled(value: string | undefined, fallback: string) {
   const trimmed = value?.trim() ?? ''
   return trimmed || fallback
-}
-
-function photoFileName(blob: Blob) {
-  if (blob.type.includes('png')) {
-    return 'photo.png'
-  }
-  if (blob.type.includes('webp')) {
-    return 'photo.webp'
-  }
-  return 'photo.jpg'
-}
-
-function audioFileName(blob: Blob) {
-  if (blob.type.includes('mp4')) {
-    return 'voice.mp4'
-  }
-  if (blob.type.includes('mpeg')) {
-    return 'voice.mp3'
-  }
-  return 'voice.webm'
-}
-
-function normalizeCategory(value: string): IssueCategory {
-  const token = value.toLowerCase().replace(/[\s-]+/g, '_')
-  if (token === 'street_light' || token === 'streetlight' || token === 'light') {
-    return 'lighting'
-  }
-  if (isCategory(token)) {
-    return token
-  }
-  if (token.includes('pothole') || token.includes('road')) {
-    return 'pothole'
-  }
-  return value.trim() ? 'other' : 'pothole'
 }
 
 function normalizeSeverity(value: string): IssueSeverity {
@@ -206,7 +168,7 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   const latitude = input.latitude
   const longitude = input.longitude
   const body: CreateReportBody = {
-    issue_type: filled(input.issueType, demoReport.issueType),
+    issue_type: filled(input.issueType, 'other'),
     title: filled(input.title, demoReport.title),
     description: filled(input.description, demoReport.description),
     severity: filled(input.severity, demoReport.severity),
@@ -232,15 +194,17 @@ export function buildCreateReportFormData(input: CreateReportInput) {
   body.append('description', payload.description)
   body.append('severity', payload.severity)
   body.append('location', JSON.stringify(payload.location))
+  body.append('latitude', String(payload.location.latitude))
+  body.append('longitude', String(payload.location.longitude))
   body.append('recommended_action', payload.recommended_action)
   if (payload.transcript) {
     body.append('transcript', payload.transcript)
   }
   if (input.photo) {
-    body.append('photo', input.photo, photoFileName(input.photo))
+    appendFormFile(body, 'photo', input.photo, photoFileName(input.photo))
   }
   if (input.audio) {
-    body.append('audio', input.audio, audioFileName(input.audio))
+    appendFormFile(body, 'audio', input.audio, audioFileName(input.audio))
   }
   return body
 }
@@ -261,7 +225,7 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
   const description = pickString(source, ['description', 'note']) || transcript
   const title = pickString(source, ['title']) || description || demoReport.title
   const summary = pickString(source, ['summary']) || description || title
-  const category = normalizeCategory(pickString(source, ['issue_type', 'issueType', 'category', 'type']))
+  const category = normalizeIssueCategory(pickString(source, ['issue_type', 'issueType', 'category', 'type']))
   const severity = normalizeSeverity(pickString(source, ['severity']))
   const status = normalizeStatus(pickString(source, ['status', 'current_status', 'currentStatus']))
   const recommendedAction =

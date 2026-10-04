@@ -7,6 +7,7 @@ import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { reportsCollectionUrl } from '../config/apiConfig'
+import { normalizeIssueCategory } from '../data/categories'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
 import { buildReportTitle, inferSeverity } from '../services/report/enrichReport'
@@ -40,6 +41,7 @@ const form = reactive({
   transcript: '',
   locationLabel: '',
 })
+const photoFile = ref<File | null>(null)
 const audioBlob = ref<Blob | null>(null)
 const latitude = ref<number | undefined>()
 const longitude = ref<number | undefined>()
@@ -50,7 +52,7 @@ const draft = reactive<ReportIngestDraft>({
   description: '',
   transcript: '',
   summary: '',
-  category: 'pothole',
+  category: 'other',
   severity: 'medium',
   locationLabel: '',
   status: 'submitted',
@@ -245,6 +247,7 @@ watch([phase, submitting, submitError, canSend], async () => {
 function resetForm() {
   resetLocationLabelSync()
   form.photoDataUrl = ''
+  photoFile.value = null
   form.transcript = ''
   form.locationLabel = ''
   audioBlob.value = null
@@ -257,7 +260,7 @@ function resetForm() {
     description: '',
     transcript: '',
     summary: '',
-    category: 'pothole',
+    category: 'other',
     severity: 'medium',
     locationLabel: '',
     status: 'submitted',
@@ -277,7 +280,7 @@ function goBack() {
 
 function captureDraft(note: string): ReportIngestDraft {
   const place = form.locationLabel.trim()
-  const category = 'pothole' as const
+  const category = normalizeIssueCategory(`${note} ${place}`)
   const severity = inferSeverity(`${note} ${place}`)
   return {
     title: place ? buildReportTitle(t(`category.${category}`), place) : '',
@@ -316,7 +319,7 @@ async function send() {
   submitting.value = true
   submitStage.value = 'read'
   try {
-    const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
+    const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
     let next: ReportIngestDraft
     try {
       next = await ingestReport({
@@ -361,7 +364,7 @@ async function confirm() {
     const note = draft.transcript.trim() || form.transcript.trim()
     const description =
       draft.description.trim() || note || draft.summary.trim() || draft.title.trim()
-    const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
+    const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
     const request = {
       issueType: draft.category,
       title: draft.title.trim() || draft.summary.trim() || undefined,
@@ -492,7 +495,10 @@ async function confirm() {
         <div class="report-main">
           <GlassPanel padding="lg" tone="fill" class="form-panel">
             <form class="form" @submit.prevent="send">
-              <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+              <PhotoCaptureField
+                v-model:photo-data-url="form.photoDataUrl"
+                v-model:photo-file="photoFile"
+              />
 
               <VoiceCaptureField
                 ref="voiceField"

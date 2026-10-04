@@ -1,15 +1,11 @@
 import { reportIngestUrl } from '../../config/apiConfig'
-import { issueCategories } from '../../data/categories'
-import type { IssueCategory, IssueSeverity, IssueStatus } from '../../types/issue'
+import { normalizeIssueCategory } from '../../data/categories'
+import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
+import type { IssueSeverity, IssueStatus } from '../../types/issue'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
 
-const categories = issueCategories.map((item) => item.id)
 const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
-
-function isCategory(value: string): value is IssueCategory {
-  return categories.includes(value as IssueCategory)
-}
 
 function isSeverity(value: string): value is IssueSeverity {
   return severities.includes(value as IssueSeverity)
@@ -52,33 +48,13 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
-function photoFileName(blob: Blob) {
-  if (blob.type.includes('png')) {
-    return 'photo.png'
-  }
-  if (blob.type.includes('webp')) {
-    return 'photo.webp'
-  }
-  return 'photo.jpg'
-}
-
-function audioFileName(blob: Blob) {
-  if (blob.type.includes('mp4')) {
-    return 'voice.mp4'
-  }
-  if (blob.type.includes('mpeg')) {
-    return 'voice.mp3'
-  }
-  return 'voice.webm'
-}
-
 function toFormData(input: ReportIngestInput) {
   const body = new FormData()
   if (input.photo) {
-    body.append('photo', input.photo, photoFileName(input.photo))
+    appendFormFile(body, 'photo', input.photo, photoFileName(input.photo))
   }
   if (input.audio) {
-    body.append('audio', input.audio, audioFileName(input.audio))
+    appendFormFile(body, 'audio', input.audio, audioFileName(input.audio))
   }
   const text = input.text?.trim()
   if (text) {
@@ -109,7 +85,7 @@ function emptyDraft(overrides: Partial<ReportIngestDraft> = {}): ReportIngestDra
     description: '',
     transcript: '',
     summary: '',
-    category: 'pothole',
+    category: 'other',
     severity: 'medium',
     locationLabel: '',
     status: 'submitted',
@@ -124,13 +100,13 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   if (!source) {
     return emptyDraft()
   }
-  const categoryRaw = pickString(source, ['category', 'type', 'issueType', 'issue_type']).toLowerCase()
+  const categoryRaw = pickString(source, ['category', 'type', 'issueType', 'issue_type'])
   const severityRaw = pickString(source, ['severity']).toLowerCase()
   const statusRaw = pickString(source, ['status']).toLowerCase()
   const transcript = pickString(source, ['transcript', 'text', 'voiceText', 'voice_text'])
   const description = pickString(source, ['description', 'note']) || transcript
   const locationLabel = pickString(source, ['locationLabel', 'location', 'place'])
-  const category = isCategory(categoryRaw) ? categoryRaw : 'pothole'
+  const category = normalizeIssueCategory(categoryRaw || `${description} ${transcript}`)
   const severity = isSeverity(severityRaw) ? severityRaw : 'medium'
   const title = pickString(source, ['title'])
   const summary = pickString(source, ['summary'])
@@ -167,6 +143,7 @@ function localIngest(input: ReportIngestInput): ReportIngestDraft {
   return emptyDraft({
     description: text,
     transcript: text,
+    category: normalizeIssueCategory(text),
     locationLabel,
     latitude: input.latitude,
     longitude: input.longitude,
@@ -193,6 +170,5 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
 }
 
 export async function blobFromDataUrl(dataUrl: string) {
-  const response = await fetch(dataUrl)
-  return response.blob()
+  return fileFromDataUrl(dataUrl, 'photo.jpg')
 }

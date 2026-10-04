@@ -18,3 +18,29 @@ export const issueCategories: CategoryMeta[] = [
 export function categoryLabel(id: IssueCategory) {
   return issueCategories.find((item) => item.id === id)?.label ?? 'Other'
 }
+
+export function normalizeIssueCategory(value: string): IssueCategory {
+  const token = value.toLowerCase().replace(/[\s-]+/g, '_')
+  if (token === 'street_light' || token === 'streetlight' || token === 'lamp') {
+    return 'lighting'
+  }
+  if (issueCategories.some((item) => item.id === token)) {
+    return token as IssueCategory
+  }
+  if (token.includes('pothole') || token.includes('asphalt') || token.includes('pavement')) {
+    return 'pothole'
+  }
+  if (token.includes('light') || token.includes('lamp')) {
+    return 'lighting'
+  }
+  if (token.includes('graffiti') || token.includes('vandal')) {
+    return 'graffiti'
+  }
+  if (token.includes('trash') || token.includes('garbage') || token.includes('litter') || token.includes('dump')) {
+    return 'trash'
+  }
+  if (token.includes('tree') || token.includes('bush') || token.includes('vegetation') || token.includes('overgrown')) {
+    return 'vegetation'
+  }
+  return 'other'
+}
