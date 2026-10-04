@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { appName } from '../../config/appConfig'
 import type { NavItem } from '../../config/nav'
+import AppLogo from './AppLogo.vue'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 import { useNavActiveName } from '../../composables/useNavActiveName'
@@ -32,7 +32,7 @@ async function onAccount() {
 <template>
   <aside class="side surface-frost" :aria-label="ariaLabel">
     <div class="side-head">
-      <p class="side-brand">{{ appName }}</p>
+      <AppLogo class="side-brand" variant="nav" />
       <span class="civic-rule" aria-hidden="true" />
       <p class="side-tagline">{{ t(props.taglineKey) }}</p>
     </div>
@@ -93,17 +93,12 @@ async function onAccount() {
   }
 
   .side-head {
-    padding: 0 0.55rem;
+    padding: 0 0.35rem;
   }
 
   .side-brand {
     margin: 0;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text-h);
-    font-family: var(--font-display);
-    line-height: 1.15;
+    min-width: 0;
   }
 
   .side-tagline {
