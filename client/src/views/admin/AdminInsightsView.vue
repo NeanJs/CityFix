@@ -123,7 +123,7 @@ const categoryData = computed<ChartData>(() => ({
       label: t('adminInsights.resolved'),
       data: insights.value.categories
         .slice(0, 6)
-        .map((item) => item.total - item.open),
+        .map((item) => item.resolved),
       backgroundColor: cssColor('--severity-low-mark', '#3d6a48'),
       borderRadius: 7,
     },
@@ -155,6 +155,7 @@ function alertBody(alert: InsightAlert) {
   return t(`adminInsights.alerts.${alert.kind}Body`, {
     count: alert.count,
     location: alert.location ?? '',
+    issueType: alert.issueType ? issueTypeLabel(alert.issueType) : '',
   })
 }
 
@@ -184,7 +185,9 @@ async function refresh() {
       <AppHeader :subtitle="t('adminInsights.title')" show-account compact />
       <button type="button" class="btn-ghost refresh" :disabled="refreshing" @click="refresh">
         <AppIcon name="arrowsClockwise" size="1rem" />
-        {{ refreshing ? t('adminInsights.refreshing') : t('adminInsights.refresh') }}
+        <span class="refresh-label">
+          {{ refreshing ? t('adminInsights.refreshing') : t('adminInsights.refresh') }}
+        </span>
       </button>
     </div>
 
@@ -293,7 +296,7 @@ async function refresh() {
           <InsightsChart
             type="line"
             :data="trendData"
-            :aria-label="t('adminInsights.flowChartLabel')"
+            :accessible-label="t('adminInsights.flowChartLabel')"
           />
         </GlassPanel>
 
@@ -307,7 +310,7 @@ async function refresh() {
           <InsightsChart
             type="bar"
             :data="categoryData"
-            :aria-label="t('adminInsights.categoryChartLabel')"
+            :accessible-label="t('adminInsights.categoryChartLabel')"
           />
         </GlassPanel>
 
@@ -321,7 +324,7 @@ async function refresh() {
           <InsightsChart
             type="doughnut"
             :data="severityData"
-            :aria-label="t('adminInsights.severityChartLabel')"
+            :accessible-label="t('adminInsights.severityChartLabel')"
           />
         </GlassPanel>
 
@@ -529,6 +532,10 @@ h2 {
   border-left: 4px solid var(--accent);
 }
 
+.alert:only-child {
+  grid-column: 1 / -1;
+}
+
 .alert.critical,
 .alert.stalled {
   border-left-color: var(--severity-high-mark);
@@ -554,6 +561,10 @@ h2 {
 
 .chart-panel {
   min-width: 0;
+}
+
+.severity-panel :deep(.chart) {
+  min-height: 14rem;
 }
 
 .panel-head,
@@ -651,6 +662,10 @@ h2 {
   .trend {
     grid-column: 1 / -1;
   }
+
+  .severity-panel :deep(.chart) {
+    min-height: 16rem;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -664,6 +679,27 @@ h2 {
 
   .severity-panel {
     min-height: 24rem;
+  }
+
+  .severity-panel :deep(.chart) {
+    min-height: 18rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .refresh {
+    width: 2.65rem;
+    min-width: 2.65rem;
+    padding-inline: 0;
+  }
+
+  .refresh-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 </style>

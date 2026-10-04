@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useElevenLabsConversation } from '../composables/useElevenLabsConversation'
 import { useLocale } from '../composables/useLocale'
@@ -23,8 +24,12 @@ const {
   getOutputFrequency,
 } = useElevenLabsConversation()
 
-const busy = computed(() => status.value === 'connecting' || starting.value)
-const failed = computed(() => Boolean(errorKey.value) && status.value === 'disconnected')
+const router = useRouter()
+const ending = ref(false)
+const handoffErrorKey = ref('')
+const busy = computed(() => status.value === 'connecting' || starting.value || ending.value)
+const activeErrorKey = computed(() => handoffErrorKey.value || errorKey.value)
+const failed = computed(() => Boolean(activeErrorKey.value) && status.value === 'disconnected')
 
 const phase = computed<GlyphPhase>(() => {
   if (failed.value) {
@@ -41,7 +46,10 @@ const phase = computed<GlyphPhase>(() => {
 
 const statusLabel = computed(() => {
   if (failed.value) {
-    return t(errorKey.value)
+    return t(activeErrorKey.value)
+  }
+  if (ending.value) {
+    return t('voice.preparingReport')
   }
   if (busy.value) {
     return t('voice.connecting')
@@ -53,6 +61,9 @@ const statusLabel = computed(() => {
 })
 
 const actionLabel = computed(() => {
+  if (ending.value) {
+    return t('voice.preparingReport')
+  }
   if (connected.value) {
     return t('voice.end')
   }
@@ -70,11 +81,31 @@ useAndroidBackHandler(sessionHeld, () => {
   void endSession()
 })
 
-function onAction() {
+async function onAction() {
   if (connected.value || sessionHeld.value) {
-    void endSession()
+    if (ending.value) {
+      return
+    }
+    ending.value = true
+    handoffErrorKey.value = ''
+    const conversationId = await endSession()
+    if (!conversationId) {
+      handoffErrorKey.value = 'voice.reportFailed'
+      ending.value = false
+      return
+    }
+    try {
+      await router.push({
+        name: 'report',
+        query: { conversation: conversationId },
+      })
+    } catch {
+      handoffErrorKey.value = 'voice.reportFailed'
+      ending.value = false
+    }
     return
   }
+  handoffErrorKey.value = ''
   void startSession()
 }
 </script>

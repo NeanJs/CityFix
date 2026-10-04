@@ -23,6 +23,7 @@ export type CategoryInsight = {
   issueType: string
   total: number
   open: number
+  resolved: number
   resolutionRate: number
 }
 
@@ -144,6 +145,7 @@ function buildCategories(issues: Issue[]) {
       issueType,
       total: values.total,
       open: values.open,
+      resolved: values.resolved,
       resolutionRate: values.total ? Math.round((values.resolved / values.total) * 100) : 0,
     }))
     .sort((left, right) => right.total - left.total)
@@ -183,7 +185,7 @@ function buildHotspots(issues: Issue[]) {
     .slice(0, 6)
 }
 
-function buildAlerts(issues: Issue[], hotspots: HotspotInsight[], now: Date) {
+function buildAlerts(issues: Issue[], now: Date) {
   const nowMs = now.getTime()
   const critical = issues.filter(
     (issue) =>
@@ -201,7 +203,24 @@ function buildAlerts(issues: Issue[], hotspots: HotspotInsight[], now: Date) {
       isOpenStatus(issue.status) &&
       (issue.latitude === undefined || issue.longitude === undefined),
   )
-  const recurring = hotspots.find((hotspot) => hotspot.total >= 3)
+  const clusters = new Map<string, { location: string; issueType: string; issueIds: string[] }>()
+  for (const issue of issues) {
+    const location = normalizedLocation(issue)
+    if (!location) {
+      continue
+    }
+    const key = `${location}:${issue.issueType}`
+    const current = clusters.get(key) ?? {
+      location: issue.locationLabel.trim(),
+      issueType: issue.issueType,
+      issueIds: [],
+    }
+    current.issueIds.push(issue.id)
+    clusters.set(key, current)
+  }
+  const recurring = [...clusters.values()]
+    .filter((cluster) => cluster.issueIds.length >= 3)
+    .sort((left, right) => right.issueIds.length - left.issueIds.length)[0]
   const alerts: InsightAlert[] = []
 
   if (critical.length) {
@@ -213,9 +232,10 @@ function buildAlerts(issues: Issue[], hotspots: HotspotInsight[], now: Date) {
   if (recurring) {
     alerts.push({
       kind: 'cluster',
-      count: recurring.total,
+      count: recurring.issueIds.length,
       issueIds: recurring.issueIds,
       location: recurring.location,
+      issueType: recurring.issueType,
     })
   }
   if (unmapped.length) {
@@ -264,6 +284,6 @@ export function calculateInsights(
     categories: buildCategories(issues),
     severities: buildSeverities(issues),
     hotspots,
-    alerts: buildAlerts(issues, hotspots, now),
+    alerts: buildAlerts(issues, now),
   }
 }

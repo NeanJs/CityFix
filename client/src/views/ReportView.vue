@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useIssues } from '../composables/useIssues'
@@ -8,6 +8,7 @@ import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { defaultIssueType } from '../services/report/issueType'
 import { apiErrorMessage } from '../services/api/apiRequestError'
+import { getConversationUserTranscript } from '../services/api/elevenLabsConversation'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { isAnalyzeImage } from '../services/media/formFile'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
@@ -27,6 +28,7 @@ import { enterBlocks } from '../motion/transitions'
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
 const { t, issueTypeLabel } = useLocale()
+const route = useRoute()
 const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'read' | 'file'>('read')
@@ -52,6 +54,7 @@ const audioBlob = ref<Blob | null>(null)
 const latitude = ref<number | undefined>()
 const longitude = ref<number | undefined>()
 const submitError = ref('')
+const pendingConversationId = ref('')
 
 const draft = reactive<ReportIngestDraft>({
   title: '',
@@ -67,6 +70,9 @@ const draft = reactive<ReportIngestDraft>({
 const hasPhoto = computed(() => Boolean(form.photoDataUrl))
 const hasText = computed(() => Boolean(form.transcript.trim()))
 const canSend = computed(() => hasPhoto.value || hasText.value)
+const canRetryConversation = computed(
+  () => Boolean(pendingConversationId.value && submitError.value) && !canSend.value,
+)
 const reviewActive = computed(() => phase.value === 'review')
 const captureActive = computed(() => phase.value === 'capture')
 const { geocoding, markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync({
@@ -248,6 +254,11 @@ onMounted(() => {
   window.visualViewport?.addEventListener('resize', updateKeyboardInset)
   window.visualViewport?.addEventListener('scroll', updateKeyboardInset)
   window.addEventListener('resize', measureDock)
+  const conversation = route.query.conversation
+  if (typeof conversation === 'string' && conversation.trim()) {
+    pendingConversationId.value = conversation.trim()
+    void importConversation()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -303,6 +314,31 @@ function placeForApi(label: string) {
   return trimmed
 }
 
+async function analyzeReportInput(note: string) {
+  const storedPhoto = photoFile.value
+  const photo =
+    (isAnalyzeImage(storedPhoto) ? storedPhoto : undefined) ??
+    (form.photoDataUrl.startsWith('data:image')
+      ? await blobFromDataUrl(form.photoDataUrl)
+      : undefined)
+  const next = await ingestReport({
+    photo,
+    text: note || undefined,
+    locationLabel: form.locationLabel.trim() || undefined,
+    latitude: latitude.value,
+    longitude: longitude.value,
+    confirmed: false,
+  })
+  applyDraft({
+    ...next,
+    transcript: next.transcript || note,
+    description: next.description || next.transcript || note,
+    locationLabel: next.locationLabel || form.locationLabel.trim(),
+    photoUrl: next.photoUrl || form.photoDataUrl,
+  })
+  await setPhase('review')
+}
+
 async function send() {
   if (submitting.value) {
     return
@@ -317,30 +353,29 @@ async function send() {
       submitError.value = audioBlob.value ? t('report.transcribeFailed') : t('report.incomplete')
       return
     }
-    const storedPhoto = photoFile.value
-    const photo =
-      (isAnalyzeImage(storedPhoto) ? storedPhoto : undefined) ??
-      (form.photoDataUrl.startsWith('data:image')
-        ? await blobFromDataUrl(form.photoDataUrl)
-        : undefined)
-    const next = await ingestReport({
-      photo,
-      text: note || undefined,
-      locationLabel: form.locationLabel.trim() || undefined,
-      latitude: latitude.value,
-      longitude: longitude.value,
-      confirmed: false,
-    })
-    applyDraft({
-      ...next,
-      transcript: next.transcript || note,
-      description: next.description || next.transcript || note,
-      locationLabel: next.locationLabel || form.locationLabel.trim(),
-      photoUrl: next.photoUrl || form.photoDataUrl,
-    })
-    await setPhase('review')
+    await analyzeReportInput(note)
   } catch (error) {
     submitError.value = apiErrorMessage(error, t, 'report.ingestFailed')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function importConversation() {
+  if (submitting.value || !pendingConversationId.value) {
+    return
+  }
+  submitError.value = ''
+  submitting.value = true
+  submitStage.value = 'read'
+  try {
+    const note = await getConversationUserTranscript(pendingConversationId.value)
+    form.transcript = note
+    pendingConversationId.value = ''
+    await router.replace({ name: 'report' })
+    await analyzeReportInput(note)
+  } catch (error) {
+    submitError.value = apiErrorMessage(error, t, 'report.voiceConversationFailed')
   } finally {
     submitting.value = false
   }
@@ -422,6 +457,18 @@ async function confirm() {
   } finally {
     submitting.value = false
   }
+}
+
+function onPrimaryAction() {
+  if (phase.value === 'review') {
+    void confirm()
+    return
+  }
+  if (canRetryConversation.value) {
+    void importConversation()
+    return
+  }
+  void send()
 }
 </script>
 
@@ -605,10 +652,10 @@ async function confirm() {
               type="button"
               class="btn command-primary"
               :class="{ 'is-busy': submitting }"
-              :disabled="submitting || (phase === 'capture' && !canSend)"
+              :disabled="submitting || (phase === 'capture' && !canSend && !canRetryConversation)"
               :aria-busy="submitting"
               aria-describedby="report-command-status"
-              @click="phase === 'capture' ? send() : confirm()"
+              @click="onPrimaryAction"
             >
               <span class="btn-inner">
                 <span v-show="submitting" class="spinner" aria-hidden="true" />

@@ -13,7 +13,7 @@ Chart.register(...registerables)
 const props = defineProps<{
   type: ChartType
   data: ChartData
-  ariaLabel: string
+  accessibleLabel: string
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="chart" role="img" :aria-label="ariaLabel">
+  <div class="chart" role="img" :aria-label="accessibleLabel">
     <canvas ref="canvas" />
   </div>
 </template>

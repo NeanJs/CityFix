@@ -13,6 +13,7 @@ export type VoiceStatus = Status
 export type VoiceMode = Mode
 
 const emptyFrequency = new Uint8Array(0)
+const unmuteDelayMs = 250
 
 function isPermissionError(error: unknown) {
   if (error instanceof DOMException) {
@@ -52,6 +53,9 @@ export function useElevenLabsConversation() {
 
   let session: VoiceConversation | null = null
   let generation = 0
+  let unmuteTimer: ReturnType<typeof setTimeout> | null = null
+  let muteSequence = 0
+  let desiredMicMuted = false
 
   const connected = computed(() => status.value === 'connected')
   const sessionHeld = computed(
@@ -82,6 +86,55 @@ export function useElevenLabsConversation() {
     return readFrequency('output')
   }
 
+  function getConversationId(target: VoiceConversation | null) {
+    if (!target) {
+      return ''
+    }
+    try {
+      return target.getId()?.trim() ?? ''
+    } catch {
+      return ''
+    }
+  }
+
+  function clearUnmuteTimer() {
+    if (unmuteTimer !== null) {
+      clearTimeout(unmuteTimer)
+      unmuteTimer = null
+    }
+  }
+
+  function resetMicTurnState() {
+    clearUnmuteTimer()
+    muteSequence += 1
+    desiredMicMuted = true
+  }
+
+  function syncMicToMode(target: VoiceConversation, token: number) {
+    clearUnmuteTimer()
+    const sequence = muteSequence + 1
+    muteSequence = sequence
+    desiredMicMuted = mode.value === 'speaking'
+
+    if (desiredMicMuted) {
+      target.setMicMuted(true)
+      return
+    }
+
+    unmuteTimer = setTimeout(() => {
+      unmuteTimer = null
+      if (
+        sequence !== muteSequence ||
+        desiredMicMuted ||
+        token !== generation ||
+        session !== target
+      ) {
+        return
+      }
+      target.setMicMuted(false)
+    }, unmuteDelayMs)
+  }
+
   async function startSession() {
     if (starting.value || sessionHeld.value) {
       return
@@ -102,6 +155,13 @@ export function useElevenLabsConversation() {
       const next = await Conversation.startSession({
         agentId: elevenLabsAgentId,
         connectionType: 'webrtc',
+        onConversationCreated: (created) => {
+          if (token !== generation || created.type !== 'voice') {
+            return
+          }
+          session = created
+          syncMicToMode(created, token)
+        },
         onStatusChange: ({ status: nextStatus }) => {
           if (token !== generation) {
             return
@@ -117,6 +177,9 @@ export function useElevenLabsConversation() {
             return
           }
           mode.value = nextMode
+          if (session) {
+            syncMicToMode(session, token)
+          }
         },
         onError: () => {
           if (token !== generation) {
@@ -128,6 +191,7 @@ export function useElevenLabsConversation() {
           if (token !== generation) {
             return
           }
+          resetMicTurnState()
           session = null
           status.value = 'disconnected'
           mode.value = 'listening'
@@ -136,12 +200,14 @@ export function useElevenLabsConversation() {
       })
 
       if (token !== generation) {
+        resetMicTurnState()
         await next.endSession()
         return
       }
 
       if (next.type !== 'voice') {
         await next.endSession()
+        resetMicTurnState()
         session = null
         status.value = 'disconnected'
         errorKey.value = 'voice.failed'
@@ -153,6 +219,7 @@ export function useElevenLabsConversation() {
       if (token !== generation) {
         return
       }
+      resetMicTurnState()
       session = null
       status.value = 'disconnected'
       mode.value = 'listening'
@@ -168,11 +235,14 @@ export function useElevenLabsConversation() {
     generation += 1
     starting.value = false
     const current = session
+    const conversationId = getConversationId(current)
+    resetMicTurnState()
+    current?.setMicMuted(true)
     session = null
     status.value = 'disconnected'
     mode.value = 'listening'
     if (!current) {
-      return
+      return conversationId
     }
     playVoiceCaptureEffect('send')
     try {
@@ -180,6 +250,7 @@ export function useElevenLabsConversation() {
     } catch {
       /* already closed */
     }
+    return conversationId
   }
 
   onBeforeRouteLeave(() => {
