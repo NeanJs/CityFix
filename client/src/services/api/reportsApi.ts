@@ -4,7 +4,6 @@ import {
   ApiRequestError,
   type ApiRequestErrorCode,
 } from './apiRequestError'
-import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
 import { defaultIssueType } from '../report/issueType'
 import { normalizeSeverity } from '../report/severity'
 import { pickIssueType } from './pickIssueType'
@@ -25,6 +24,7 @@ function errorFromResponse(response: Response) {
 }
 
 export type CreateReportBody = {
+  type: 'report'
   issue_type: string
   title: string
   description: string
@@ -36,6 +36,8 @@ export type CreateReportBody = {
   }
   recommended_action: string
   transcript?: string
+  photo_url?: string
+  audio_url?: string
 }
 
 export type CreateReportInput = {
@@ -48,8 +50,8 @@ export type CreateReportInput = {
   longitude?: number
   transcript?: string
   recommendedAction?: string
-  photo?: Blob
-  audio?: Blob
+  photoUrl?: string
+  audioUrl?: string
 }
 
 export type RemoteReport = {
@@ -108,6 +110,11 @@ function filled(value: string | undefined, fallback: string) {
   return trimmed || fallback
 }
 
+function remoteMediaUrl(value: string | undefined) {
+  const trimmed = value?.trim() ?? ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : ''
+}
+
 function normalizeStatus(value: string): IssueStatus {
   const token = value.toLowerCase().replace(/[\s-]+/g, '_')
   if (token === 'in_review' || token === 'review' || token === 'reviewing') {
@@ -119,7 +126,13 @@ function normalizeStatus(value: string): IssueStatus {
   if (token === 'resolved' || token === 'closed' || token === 'complete' || token === 'completed' || token === 'fixed') {
     return 'resolved'
   }
-  if (token === 'submitted' || token === 'new' || token === 'open' || token === 'pending') {
+  if (
+    token === 'submitted' ||
+    token === 'queued' ||
+    token === 'new' ||
+    token === 'open' ||
+    token === 'pending'
+  ) {
     return 'submitted'
   }
   if (statuses.includes(token as IssueStatus)) {
@@ -138,7 +151,13 @@ function readLocation(source: Record<string, unknown>) {
     }
   }
   return {
-    description: pickString(source, ['locationLabel', 'location_label', 'place', 'address']),
+    description: pickString(source, [
+      'location_description',
+      'locationLabel',
+      'location_label',
+      'place',
+      'address',
+    ]),
     latitude: pickNumber(source, ['latitude', 'lat']),
     longitude: pickNumber(source, ['longitude', 'lng', 'lon']),
   }
@@ -164,6 +183,7 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   const latitude = input.latitude
   const longitude = input.longitude
   const body: CreateReportBody = {
+    type: 'report',
     issue_type: filled(input.issueType, defaultIssueType),
     title: filled(input.title, ''),
     description: filled(input.description, ''),
@@ -179,28 +199,13 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   if (transcript) {
     body.transcript = transcript
   }
-  return body
-}
-
-export function buildCreateReportFormData(input: CreateReportInput) {
-  const payload = buildCreateReportBody(input)
-  const body = new FormData()
-  body.append('issue_type', payload.issue_type)
-  body.append('title', payload.title)
-  body.append('description', payload.description)
-  body.append('severity', payload.severity)
-  body.append('location', JSON.stringify(payload.location))
-  body.append('latitude', String(payload.location.latitude))
-  body.append('longitude', String(payload.location.longitude))
-  body.append('recommended_action', payload.recommended_action)
-  if (payload.transcript) {
-    body.append('transcript', payload.transcript)
+  const photoUrl = remoteMediaUrl(input.photoUrl)
+  if (photoUrl) {
+    body.photo_url = photoUrl
   }
-  if (input.photo) {
-    appendFormFile(body, 'photo', input.photo, photoFileName(input.photo))
-  }
-  if (input.audio) {
-    appendFormFile(body, 'audio', input.audio, audioFileName(input.audio))
+  const audioUrl = remoteMediaUrl(input.audioUrl)
+  if (audioUrl) {
+    body.audio_url = audioUrl
   }
   return body
 }
@@ -263,8 +268,9 @@ export async function createReport(input: CreateReportInput): Promise<RemoteRepo
     method: 'POST',
     headers: {
       Accept: 'application/json',
+      'Content-Type': 'application/json',
     },
-    body: buildCreateReportFormData(input),
+    body: JSON.stringify(buildCreateReportBody(input)),
   })
   if (!response.ok) {
     throw errorFromResponse(response)

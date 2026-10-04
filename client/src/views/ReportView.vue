@@ -352,7 +352,6 @@ async function confirm() {
     const note = draft.transcript.trim() || form.transcript.trim()
     const description =
       draft.description.trim() || note || draft.summary.trim() || draft.title.trim()
-    const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
     const request = {
       issueType: draft.issueType,
       title: draft.title.trim() || draft.summary.trim() || undefined,
@@ -363,8 +362,7 @@ async function confirm() {
       longitude: draft.longitude ?? longitude.value,
       transcript: note || undefined,
       recommendedAction: draft.recommendedAction,
-      photo,
-      audio: audioBlob.value ?? undefined,
+      photoUrl: draft.photoUrl,
     }
     let recommendedAction = draft.recommendedAction?.trim() || buildCreateReportBody(request).recommended_action
     const created = await createReport(request)
