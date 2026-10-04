@@ -11,22 +11,36 @@
 
 ---
 
-## 🚀 What is OpenBlock?
+🚀 What Is OpenBlock?
+City issues are part of everyday life:
+- Potholes
+- Overflowing garbage bins
+- Broken streetlights
+- Damaged sidewalks
+- Graffiti and illegal dumping
+- Water leaks and drainage problems
 
-City issues are everywhere.
+However, reporting these issues is often slow, fragmented, and difficult to track.
 
-Potholes. Overflowing garbage bins. Broken streetlights. Damaged sidewalks.
+OpenBlock is an AI-powered civic reporting platform that helps residents report local infrastructure and service issues in seconds. Residents can upload a photo and record a short voice note, while OpenBlock uses AI to analyze the report and turn it into a structured, trackable service request.
 
-Reporting them, however, is often slow, fragmented, and opaque.
+The platform can identify the issue type, generate a clear description, estimate its priority, suggest the responsible city department, and create a tracking code for follow-up.
 
-**OpenBlock** is a civic reporting platform designed to make that process dramatically simpler.
+This creates a simple connection between residents and municipal teams: Residents → AI Analysis → Structured Service Requests → City Departments → Resolution
 
-Residents can capture a problem with a **photo and short voice note**, while OpenBlock uses AI to turn that raw input into a structured service request that city teams can actually work with.
+Why OpenBlock?
+OpenBlock helps cities:
+- Improve the quality of citizen reports.
+- Route requests to the appropriate department.
+- Prioritize urgent infrastructure issues.
+- Reduce manual data entry.
+- Track service requests more transparently.
+- Turn unstructured reports into useful civic data.
 
-The result is a simple civic inbox connecting:
+By combining AI, voice input, image analysis, and civic service workflows, OpenBlock supports more responsive, transparent, and sustainable cities.
 
-**Residents → AI Processing → Structured Tickets → City Teams**
-
+Keywords
+civic technology · AI civic reporting · smart cities · 311 service requests · municipal technology · urban infrastructure · city service requests · citizen engagement · AI-powered reporting · sustainable cities
 ---
 
 ## 🎥 Project Demo
