@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, toRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
@@ -17,7 +17,10 @@ import PhotoCaptureField from '../components/report/PhotoCaptureField.vue'
 import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import VoiceCaptureField from '../components/report/VoiceCaptureField.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
+import MorphText from '../components/ui/MorphText.vue'
 import SeverityPill from '../components/SeverityPill.vue'
+import { flipLayout } from '../motion/flip'
+import { enterBlocks, withViewTransition } from '../motion/transitions'
 
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
@@ -27,6 +30,10 @@ const submitting = ref(false)
 const submitStage = ref<'read' | 'file'>('read')
 const phase = ref<'capture' | 'review'>('capture')
 const voiceField = ref<{ reset: () => void; stop: () => Promise<Blob | null> } | null>(null)
+const reportRoot = ref<HTMLElement | null>(null)
+const commandEl = ref<HTMLElement | null>(null)
+const keyboardInset = ref(0)
+const dockSpace = ref(9.5 * 16)
 
 const form = reactive({
   photoDataUrl: '',
@@ -97,6 +104,52 @@ const confirmLabel = computed(() => {
   return t('report.confirm')
 })
 
+const primaryLabel = computed(() =>
+  phase.value === 'review' ? confirmLabel.value : submitLabel.value,
+)
+
+const commandStatusText = computed(() => {
+  if (submitting.value && phase.value === 'capture') {
+    return t('report.stageRead')
+  }
+  if (submitting.value && phase.value === 'review') {
+    return t('report.stageFile')
+  }
+  if (phase.value === 'capture') {
+    return canSend.value ? t('report.ready') : t('report.missingInput')
+  }
+  return t('report.reviewReady')
+})
+
+const introKicker = computed(() =>
+  phase.value === 'capture' ? t('report.eyebrow') : t('report.reviewEyebrow'),
+)
+const introHeading = computed(() =>
+  phase.value === 'capture' ? t('report.heading') : t('report.reviewHeading'),
+)
+const introLead = computed(() =>
+  phase.value === 'capture' ? t('report.lead') : t('report.reviewLead'),
+)
+
+async function setPhase(next: 'capture' | 'review') {
+  const root = reportRoot.value
+  await flipLayout({
+    targets: root ? root.querySelectorAll('[data-flip-id]') : '[data-flip-id]',
+    mutate: () => {
+      phase.value = next
+    },
+    absolute: true,
+    nested: true,
+  })
+  if (next === 'review') {
+    await nextTick()
+    const blocks = root?.querySelectorAll('.review-card [data-enter-block]')
+    if (blocks?.length) {
+      enterBlocks(blocks)
+    }
+  }
+}
+
 useAndroidBackHandler(reviewActive, goBack)
 
 function applyDraft(next: ReportIngestDraft) {
@@ -124,6 +177,69 @@ function applyDraft(next: ReportIngestDraft) {
 watch([latitude, longitude], ([lat, lng]) => {
   draft.latitude = lat
   draft.longitude = lng
+})
+
+watch(
+  () => form.photoDataUrl,
+  async (value, previous) => {
+    if (!value || value === previous) {
+      return
+    }
+    await nextTick()
+    const voice = reportRoot.value?.querySelector('[data-voice-capture]')
+    if (!(voice instanceof HTMLElement)) {
+      return
+    }
+    const fold = window.visualViewport?.height ?? window.innerHeight
+    if (voice.getBoundingClientRect().bottom > fold - 8) {
+      voice.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  },
+)
+
+function measureDock() {
+  const dock = commandEl.value
+  if (dock) {
+    dockSpace.value = dock.offsetHeight + 16
+  }
+}
+
+function updateKeyboardInset() {
+  const viewport = window.visualViewport
+  if (!viewport) {
+    keyboardInset.value = 0
+    return
+  }
+  keyboardInset.value = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+}
+
+function onReportFocusIn(event: FocusEvent) {
+  const target = event.target
+  if (!(target instanceof HTMLElement) || !target.matches('input, textarea')) {
+    return
+  }
+  window.setTimeout(() => {
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, 80)
+}
+
+onMounted(() => {
+  measureDock()
+  updateKeyboardInset()
+  window.visualViewport?.addEventListener('resize', updateKeyboardInset)
+  window.visualViewport?.addEventListener('scroll', updateKeyboardInset)
+  window.addEventListener('resize', measureDock)
+})
+
+onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener('resize', updateKeyboardInset)
+  window.visualViewport?.removeEventListener('scroll', updateKeyboardInset)
+  window.removeEventListener('resize', measureDock)
+})
+
+watch([phase, submitting, submitError, canSend], async () => {
+  await nextTick()
+  measureDock()
 })
 
 function resetForm() {
@@ -154,7 +270,7 @@ function goBack() {
     return
   }
   if (phase.value === 'review') {
-    phase.value = 'capture'
+    void setPhase('capture')
     submitError.value = ''
   }
 }
@@ -225,7 +341,7 @@ async function send() {
       locationLabel: next.locationLabel || form.locationLabel.trim(),
       photoUrl: next.photoUrl || form.photoDataUrl,
     })
-    phase.value = 'review'
+    await setPhase('review')
   } catch {
     submitError.value = t('report.ingestFailed')
   } finally {
@@ -312,7 +428,9 @@ async function confirm() {
       trackingId: next.trackingId,
     })
     resetForm()
-    await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
+    await withViewTransition(() =>
+      router.replace({ name: 'reportReceipt', params: { id: issue.id } }),
+    )
   } catch {
     submitError.value = t('report.fileFailed')
   } finally {
@@ -322,7 +440,15 @@ async function confirm() {
 </script>
 
 <template>
-  <section class="report">
+  <section
+    ref="reportRoot"
+    class="report"
+    :style="{
+      '--dock-space': `${dockSpace}px`,
+      '--keyboard-inset': `${keyboardInset}px`,
+    }"
+    @focusin="onReportFocusIn"
+  >
     <div class="report-scroll">
     <div class="report-top">
       <AppHeader :subtitle="t('report.title')" show-account />
@@ -331,12 +457,12 @@ async function confirm() {
 
     <header class="intro">
       <p class="section-kicker">
-        {{ phase === 'capture' ? t('report.eyebrow') : t('report.reviewEyebrow') }}
+        <MorphText :text="introKicker" />
       </p>
       <h2 class="heading">
-        {{ phase === 'capture' ? t('report.heading') : t('report.reviewHeading') }}
+        <MorphText :text="introHeading" />
       </h2>
-      <p class="lead">{{ phase === 'capture' ? t('report.lead') : t('report.reviewLead') }}</p>
+      <p class="lead"><MorphText :text="introLead" /></p>
     </header>
 
     <div class="report-body" :class="{ 'is-review': reviewActive }">
@@ -357,6 +483,7 @@ async function confirm() {
               :placeholder="t('report.locationPlaceholder')"
               autocomplete="street-address"
               @input="markLocationLabelManual"
+              @keydown.enter.prevent="canSend && send()"
             />
           </label>
         </GlassPanel>
@@ -391,22 +518,22 @@ async function confirm() {
 
       <GlassPanel v-else padding="none" tone="fill" class="review-card">
         <div v-if="photoSrc" class="hero">
-          <img class="hero-photo" :src="photoSrc" alt="" />
+          <img class="hero-photo" :src="photoSrc" alt="" data-flip-id="report-photo" />
           <span class="hero-badge">{{ t('report.photoBadge') }}</span>
         </div>
 
         <div class="review-layout">
           <div class="review-copy">
             <h3 class="review-title">{{ reviewTitle }}</h3>
-            <div v-if="reviewSummary" class="review-block">
+            <div v-if="reviewSummary" class="review-block" data-enter-block>
               <p class="field-label">{{ t('report.summary') }}</p>
               <p class="review-text">{{ reviewSummary }}</p>
             </div>
-            <div v-if="showCitizenWords" class="review-block">
+            <div v-if="showCitizenWords" class="review-block" data-enter-block>
               <p class="field-label">{{ t('report.yourWords') }}</p>
               <p class="review-text">{{ citizenWords }}</p>
             </div>
-            <dl class="facts">
+            <dl class="facts" data-enter-block>
               <div>
                 <dt class="field-label">{{ t('report.category') }}</dt>
                 <dd class="meta-value">{{ t(`category.${draft.category}`) }}</dd>
@@ -432,47 +559,40 @@ async function confirm() {
       </GlassPanel>
     </div>
 
-    <footer class="command">
+    <footer ref="commandEl" class="command" data-flip-id="report-command">
       <div class="command-dock glass-dock">
         <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
         <div class="command-row">
-          <p id="report-command-status" class="command-status" :class="{ ready: phase === 'review' || canSend }">
-            {{
-              phase === 'capture'
-                ? canSend
-                  ? t('report.ready')
-                  : t('report.missingInput')
-                : t('report.reviewReady')
-            }}
+          <p
+            id="report-command-status"
+            class="command-status"
+            :class="{ ready: phase === 'review' || canSend || submitting }"
+          >
+            <MorphText :text="commandStatusText" />
           </p>
           <div class="command-actions">
-            <template v-if="phase === 'capture'">
-              <button
-                type="button"
-                class="btn command-primary"
-                :class="{ 'is-busy': submitting }"
-                :disabled="submitting || !canSend"
-                aria-describedby="report-command-status"
-                @click="send"
-              >
-                {{ submitLabel }}
-              </button>
-            </template>
-            <template v-else>
-              <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
-                {{ t('report.editDetails') }}
-              </button>
-              <button
-                type="button"
-                class="btn command-primary"
-                :class="{ 'is-busy': submitting }"
-                :disabled="submitting"
-                aria-describedby="report-command-status"
-                @click="confirm"
-              >
-                {{ confirmLabel }}
-              </button>
-            </template>
+            <button
+              v-if="phase === 'review'"
+              type="button"
+              class="btn-secondary"
+              :disabled="submitting"
+              @click="goBack"
+            >
+              {{ t('report.editDetails') }}
+            </button>
+            <button
+              type="button"
+              class="btn command-primary"
+              :class="{ 'is-busy': submitting }"
+              :disabled="submitting || (phase === 'capture' && !canSend)"
+              aria-describedby="report-command-status"
+              @click="phase === 'capture' ? send() : confirm()"
+            >
+              <span class="btn-inner">
+                <span v-show="submitting" class="spinner" aria-hidden="true" />
+                <MorphText :text="primaryLabel" />
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -485,7 +605,9 @@ async function confirm() {
 .report {
   display: grid;
   gap: 0.85rem;
-  padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(
+    var(--dock-space) + 4.65rem + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset)
+  );
 }
 
 .report-top {
@@ -521,6 +643,7 @@ async function confirm() {
 
 .report-main {
   min-width: 0;
+  order: -1;
 }
 
 .intro {
@@ -588,6 +711,7 @@ async function confirm() {
   width: 100%;
   max-height: 16rem;
   object-fit: cover;
+  view-transition-name: report-photo;
 }
 
 .hero-badge {
@@ -622,6 +746,7 @@ async function confirm() {
   letter-spacing: -0.02em;
   color: var(--text-h);
   font-family: var(--font-display);
+  view-transition-name: report-title;
 }
 
 .review-block {
@@ -658,7 +783,7 @@ async function confirm() {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(4.65rem + env(safe-area-inset-bottom, 0px));
+  bottom: max(calc(4.65rem + env(safe-area-inset-bottom, 0px)), var(--keyboard-inset));
   z-index: 28;
   padding: 0 0.85rem;
   pointer-events: none;
@@ -717,9 +842,8 @@ async function confirm() {
   min-height: 3rem;
 }
 
-.command-primary {
-  order: -1;
-  font-weight: 650;
+.command-primary .btn-inner {
+  width: 100%;
 }
 
 .command-primary:disabled {
@@ -832,6 +956,10 @@ async function confirm() {
 }
 
 @media (min-width: 720px) {
+  .report-main {
+    order: 0;
+  }
+
   .report-body:not(.is-review) {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
     align-items: start;

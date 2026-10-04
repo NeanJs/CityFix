@@ -57,6 +57,11 @@
   --space-5: 1.25rem;
   --space-6: 1.5rem;
 
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-duration-press: 120ms;
+  --motion-duration-xs: 160ms;
+  --motion-duration-md: 240ms;
+
   --status-submitted-fg: #1e2a3a;
   --status-submitted-bg: rgba(47, 61, 82, 0.16);
   --status-submitted-bd: rgba(47, 61, 82, 0.4);
@@ -251,8 +256,8 @@ select:focus-visible {
   font-weight: 500;
   cursor: pointer;
   transition:
-    background 0.15s ease,
-    transform 0.15s ease;
+    background var(--motion-duration-xs) var(--motion-ease),
+    transform var(--motion-duration-press) var(--motion-ease);
 }
 
 .btn:hover {
@@ -265,6 +270,10 @@ select:focus-visible {
 
 .btn:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.is-busy:disabled {
   cursor: wait;
 }
 
@@ -283,8 +292,8 @@ select:focus-visible {
   font-weight: 500;
   cursor: pointer;
   transition:
-    background 0.15s ease,
-    transform 0.15s ease;
+    background var(--motion-duration-xs) var(--motion-ease),
+    transform var(--motion-duration-press) var(--motion-ease);
 }
 
 .btn-secondary:hover {
@@ -309,11 +318,19 @@ select:focus-visible {
   font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background var(--motion-duration-xs) var(--motion-ease),
+    color var(--motion-duration-xs) var(--motion-ease),
+    transform var(--motion-duration-press) var(--motion-ease);
 }
 
 .btn-ghost:hover {
   color: var(--text-h);
   background: #f1f0f0;
+}
+
+.btn-ghost:active {
+  transform: scale(0.98);
 }
 
 .btn-ghost:disabled {
@@ -354,4 +371,37 @@ textarea.control {
   letter-spacing: 0.03em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transition:
+    color var(--motion-duration-md) var(--motion-ease),
+    background-color var(--motion-duration-md) var(--motion-ease),
+    border-color var(--motion-duration-md) var(--motion-ease);
+}
+
+.btn-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-duration-md);
+  animation-timing-function: var(--motion-ease);
 }

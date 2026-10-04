@@ -46,7 +46,7 @@ withDefaults(
 }
 
 .interactive {
-  transition: background 0.15s ease;
+  transition: background var(--motion-duration-xs) var(--motion-ease);
 }
 
 @media (hover: hover) {

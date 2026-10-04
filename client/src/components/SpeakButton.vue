@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useLocale } from '../composables/useLocale'
+import MorphText from './ui/MorphText.vue'
 import { canSpeak, speak, stopSpeaking } from '../services/speech/speechPlayback'
 
 const props = defineProps<{
@@ -41,7 +42,10 @@ onBeforeUnmount(() => {
       :disabled="!available || playing"
       @click="play"
     >
-      {{ label }}
+      <span class="btn-inner">
+        <span v-show="playing" class="spinner" aria-hidden="true" />
+        <MorphText :text="label" />
+      </span>
     </button>
     <p v-if="!available" class="hint">{{ t(unavailableKey) }}</p>
   </div>

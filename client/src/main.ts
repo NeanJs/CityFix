@@ -4,9 +4,12 @@ import { hydrateAuth } from './composables/useAuth'
 import { bootstrapLocation } from './composables/useCurrentLocation'
 import { bootstrapIssues } from './composables/useIssues'
 import { hydrateLocale } from './composables/useLocale'
+import { registerMotion } from './motion/register'
 import { router } from './router'
 import '@fontsource-variable/source-sans-3'
 import './style.css'
+
+registerMotion()
 import App from './App.vue'
 
 applyDocumentMeta()

@@ -2,6 +2,7 @@
 import { useLocale } from '../composables/useLocale'
 import { statusOrder } from '../services/report/statusFlow'
 import type { IssueStatus } from '../types/issue'
+import SelectionIndicator from './ui/SelectionIndicator.vue'
 
 const props = defineProps<{
   status: IssueStatus
@@ -24,10 +25,12 @@ function stateFor(id: IssueStatus) {
 
 <template>
   <ol class="track" :aria-label="t('sheet.status')">
+    <SelectionIndicator :active-key="props.status" variant="bar" tone="accent" />
     <li
       v-for="id in statusOrder"
       :key="id"
       :class="stateFor(id)"
+      :data-selection-active="stateFor(id) === 'current' ? 'true' : undefined"
     >
       <span class="dot" aria-hidden="true" />
       <span class="label">{{ t(`status.${id}`) }}</span>
@@ -37,6 +40,7 @@ function stateFor(id: IssueStatus) {
 
 <style scoped>
 .track {
+  position: relative;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -46,6 +50,8 @@ function stateFor(id: IssueStatus) {
 }
 
 .track li {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 0.3rem;
   justify-items: center;
@@ -72,5 +78,10 @@ function stateFor(id: IssueStatus) {
   font-size: 0.68rem;
   font-weight: 650;
   line-height: 1.2;
+}
+
+.track :deep(.indicator.bar) {
+  height: 0.28rem !important;
+  top: 0;
 }
 </style>

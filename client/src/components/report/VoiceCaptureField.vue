@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
+import MorphText from '../ui/MorphText.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -42,43 +43,34 @@ defineExpose({ reset, stop: voice.stop })
 </script>
 
 <template>
-  <div class="field">
+  <div class="field" data-voice-capture>
     <span class="field-label">{{ t('report.voice') }}</span>
     <p class="hint">{{ t('report.voiceHint') }}</p>
-    <div class="meter" :class="{ live: voice.recording.value }">
+    <button
+      type="button"
+      class="meter"
+      :class="{ live: voice.recording.value }"
+      @click="voice.recording.value ? voice.stop() : voice.start()"
+    >
       <span class="time">{{ voice.formatElapsed() }}</span>
       <span class="state">
-        {{
-          voice.recording.value
-            ? t('report.stopVoice')
-            : voice.audioUrl.value
-              ? t('report.voiceReady')
-              : t('report.startVoice')
-        }}
+        <MorphText
+          :text="
+            voice.recording.value
+              ? t('report.stopVoice')
+              : voice.audioUrl.value
+                ? t('report.voiceReady')
+                : t('report.startVoice')
+          "
+        />
       </span>
-    </div>
-    <div class="actions">
-      <button
-        v-if="!voice.recording.value"
-        type="button"
-        class="btn-secondary"
-        @click="voice.start"
-      >
-        {{ voice.audioUrl.value ? t('report.rerecordVoice') : t('report.startVoice') }}
-      </button>
-      <button v-else type="button" class="btn-secondary" @click="voice.stop">
-        {{ t('report.stopVoice') }}
-      </button>
-      <button
-        v-if="props.includeNote && !voice.recording.value"
-        type="button"
-        class="btn-ghost"
-        @click="typeInstead"
-      >
+    </button>
+    <div v-if="props.includeNote && !voice.recording.value" class="actions">
+      <button type="button" class="btn-ghost" @click="typeInstead">
         {{ t('report.typeInstead') }}
       </button>
     </div>
-    <audio v-if="voice.audioUrl.value && !voice.recording.value" :src="voice.audioUrl.value" controls />
+    <audio v-show="voice.audioUrl.value && !voice.recording.value" :src="voice.audioUrl.value" controls />
     <label v-if="props.includeNote" class="note">
       <span class="field-label">{{ t('report.transcript') }}</span>
       <textarea
@@ -105,11 +97,16 @@ defineExpose({ reset, stop: voice.stop })
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  width: 100%;
   min-height: 3.25rem;
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
 }
 
 .meter.live {
@@ -134,7 +131,7 @@ defineExpose({ reset, stop: voice.stop })
   gap: 0.4rem;
 }
 
-.actions .btn-secondary {
+.actions .btn-ghost {
   width: 100%;
 }
 
@@ -154,7 +151,7 @@ audio {
 }
 
 @media (min-width: 720px) {
-  .actions .btn-secondary {
+  .actions .btn-ghost {
     width: auto;
   }
 }

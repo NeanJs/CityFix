@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterView } from 'vue-router'
 import type { NavItem } from '../../config/nav'
 import { useAndroidBackHandler } from '../../composables/useAndroidBackHandler'
 import { useAuth } from '../../composables/useAuth'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
+import { captureIssueFlip } from '../../motion/issueFlip'
 import IssueDetailSheet from '../IssueDetailSheet.vue'
 import BottomNav from './BottomNav.vue'
+import PageSwitch from './PageSwitch.vue'
 import SideNav from './SideNav.vue'
 
 const props = defineProps<{
@@ -35,6 +36,7 @@ const selectedIssue = computed(() => {
 const navAriaLabel = computed(() => t(props.navAriaKey))
 
 function openIssue(id: string) {
+  captureIssueFlip(id)
   selectedIssueId.value = id
   detailOpen.value = true
   const issue = getIssue(id)
@@ -45,6 +47,7 @@ function openIssue(id: string) {
 }
 
 function closeDetail() {
+  captureIssueFlip(selectedIssueId.value)
   detailOpen.value = false
 }
 
@@ -62,9 +65,7 @@ useAndroidBackHandler(detailOpen, closeDetail)
       />
       <div class="content">
         <main class="main">
-          <RouterView v-slot="{ Component }">
-            <component :is="Component" @open-issue="openIssue" />
-          </RouterView>
+          <PageSwitch layer="workspace" @open-issue="openIssue" />
         </main>
       </div>
     </div>

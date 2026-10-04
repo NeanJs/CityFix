@@ -5,6 +5,7 @@ import { issueCategories } from '../data/categories'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import { useFlipGroup } from '../motion/useFlipGroup'
 import { ReportApiError } from '../services/api/reportsApi'
 import type { IssueCategory, IssueStatus } from '../types/issue'
 import IssueCard from '../components/IssueCard.vue'
@@ -12,6 +13,8 @@ import AppHeader from '../components/layout/AppHeader.vue'
 import SeverityPill from '../components/SeverityPill.vue'
 import StatusPill from '../components/StatusPill.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
+import MorphText from '../components/ui/MorphText.vue'
+import SelectionIndicator from '../components/ui/SelectionIndicator.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -43,6 +46,8 @@ const query = ref('')
 const trackingQuery = ref('')
 const tracking = ref(false)
 const trackError = ref('')
+const resultsRoot = ref<HTMLElement | null>(null)
+const { animate: animateResults } = useFlipGroup(resultsRoot)
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -69,6 +74,24 @@ const statusFilters: { id: 'all' | IssueStatus; labelKey: string }[] = [
   { id: 'scheduled', labelKey: 'status.scheduled' },
   { id: 'resolved', labelKey: 'status.resolved' },
 ]
+
+function setStatusFilter(id: (typeof statusFilters)[number]['id']) {
+  void animateResults(() => {
+    statusFilter.value = id
+  })
+}
+
+function setCategoryFilter(value: 'all' | IssueCategory) {
+  void animateResults(() => {
+    categoryFilter.value = value
+  })
+}
+
+function setQuery(value: string) {
+  void animateResults(() => {
+    query.value = value
+  })
+}
 
 async function lookupTracking() {
   if (tracking.value) {
@@ -153,7 +176,10 @@ function formatFiled(iso: string) {
             />
           </label>
           <button type="submit" class="btn" :disabled="tracking || !trackingQuery.trim()">
-            {{ tracking ? t('reports.trackSearching') : t('reports.trackSubmit') }}
+            <span class="btn-inner">
+              <span v-show="tracking" class="spinner" aria-hidden="true" />
+              <MorphText :text="tracking ? t('reports.trackSearching') : t('reports.trackSubmit')" />
+            </span>
           </button>
         </div>
         <p v-if="trackError" class="track-error" role="alert">{{ trackError }}</p>
@@ -163,22 +189,25 @@ function formatFiled(iso: string) {
     <GlassPanel padding="md" tone="fill" class="toolbar">
       <label class="search">
         <span class="sr-label">{{ t('reports.search') }}</span>
-        <input
-          v-model="query"
-          class="control"
-          type="search"
-          :placeholder="t('reports.searchPlaceholder')"
-        />
+            <input
+              class="control"
+              type="search"
+              :value="query"
+              :placeholder="t('reports.searchPlaceholder')"
+              @input="setQuery(($event.target as HTMLInputElement).value)"
+            />
       </label>
 
       <div class="chips" role="tablist" :aria-label="t('reports.filterStatus')">
+        <SelectionIndicator :active-key="statusFilter" tone="ink" />
         <button
           v-for="item in statusFilters"
           :key="item.id"
           type="button"
           class="chip"
           :class="{ active: statusFilter === item.id }"
-          @click="statusFilter = item.id"
+          :data-selection-active="statusFilter === item.id ? 'true' : undefined"
+          @click="setStatusFilter(item.id)"
         >
           {{ t(item.labelKey) }}
         </button>
@@ -186,7 +215,11 @@ function formatFiled(iso: string) {
 
       <label class="select-wrap">
         <span class="sr-label">{{ t('reports.category') }}</span>
-        <select v-model="categoryFilter" class="control">
+        <select
+          class="control"
+          :value="categoryFilter"
+          @change="setCategoryFilter(($event.target as HTMLSelectElement).value as 'all' | IssueCategory)"
+        >
           <option value="all">{{ t('reports.allCategories') }}</option>
           <option v-for="cat in issueCategories" :key="cat.id" :value="cat.id">
             {{ t(`category.${cat.id}`) }}
@@ -195,6 +228,7 @@ function formatFiled(iso: string) {
       </label>
     </GlassPanel>
 
+    <div ref="resultsRoot" class="results">
     <p v-if="scopedIssues.length > 0" class="results-count">
       {{ t('reports.count', { filtered: filtered.length, total: scopedIssues.length }) }}
     </p>
@@ -253,6 +287,7 @@ function formatFiled(iso: string) {
             <tr
               v-for="issue in filtered"
               :key="issue.id"
+              data-flip-item
               :class="[`severity-${issue.severity}`, { highlighted: highlightIssueId === issue.id }]"
               @click="emit('openIssue', issue.id)"
             >
@@ -266,6 +301,7 @@ function formatFiled(iso: string) {
           </tbody>
         </table>
       </GlassPanel>
+    </div>
     </div>
   </section>
 </template>
@@ -329,10 +365,14 @@ function formatFiled(iso: string) {
 }
 
 .chips {
+  position: relative;
   display: flex;
-  gap: 0.35rem;
+  gap: 0.2rem;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 0.2rem;
+  border-radius: var(--radius-pill);
+  background: #f1f0f0;
 }
 
 .chips::-webkit-scrollbar {
@@ -340,12 +380,14 @@ function formatFiled(iso: string) {
 }
 
 .chip {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  min-height: 2.15rem;
-  padding: 0.35rem 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.75rem;
   border-radius: var(--radius-pill);
   border: none;
-  background: #f1f0f0;
+  background: transparent;
   color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 500;
@@ -354,7 +396,12 @@ function formatFiled(iso: string) {
 
 .chip.active {
   color: var(--accent-ink);
-  background: var(--ink);
+  background: transparent;
+}
+
+.results {
+  display: grid;
+  gap: 0.8rem;
 }
 
 .list {
@@ -456,6 +503,10 @@ function formatFiled(iso: string) {
 
   .select-wrap {
     min-width: 12rem;
+  }
+
+  .list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cards {

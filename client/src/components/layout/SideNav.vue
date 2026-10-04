@@ -5,6 +5,7 @@ import { appName } from '../../config/appConfig'
 import type { NavItem } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
+import SelectionIndicator from '../ui/SelectionIndicator.vue'
 const props = defineProps<{
   items: readonly NavItem[]
   sectionKey: string
@@ -38,12 +39,14 @@ async function onAccount() {
 
     <p class="side-section">{{ t(props.sectionKey) }}</p>
     <nav class="side-nav">
+      <SelectionIndicator :active-key="String(activeName ?? '')" />
       <button
         v-for="item in items"
         :key="item.name"
         type="button"
         class="side-link"
         :class="{ active: activeName === item.name }"
+        :data-selection-active="activeName === item.name ? 'true' : undefined"
         :aria-current="activeName === item.name ? 'page' : undefined"
         @click="router.push(item.path)"
       >
@@ -115,11 +118,14 @@ async function onAccount() {
   }
 
   .side-nav {
+    position: relative;
     display: grid;
     gap: 0.2rem;
   }
 
   .side-link {
+    position: relative;
+    z-index: 1;
     text-align: left;
     min-height: 2.6rem;
     padding: 0.5rem 0.7rem;
@@ -134,13 +140,16 @@ async function onAccount() {
 
   .side-link:hover {
     color: var(--text-h);
-    background: #f1f0f0;
   }
 
   .side-link.active {
     color: var(--text-h);
-    background: #f1f0f0;
-    box-shadow: inset 2px 0 0 var(--civic-bar);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .side-nav :deep(.indicator.fill) {
+    border-radius: var(--radius-pill);
   }
 
   .side-foot {

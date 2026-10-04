@@ -4,6 +4,7 @@ import { requestCurrentPosition } from '../../composables/useCurrentLocation'
 import { useLocale } from '../../composables/useLocale'
 import { useMapLibre } from '../../composables/useMapLibre'
 import { defaultMapCenter, defaultPickerZoom } from '../../config/mapConfig'
+import MorphText from '../ui/MorphText.vue'
 
 const latitude = defineModel<number | undefined>('latitude')
 const longitude = defineModel<number | undefined>('longitude')
@@ -189,7 +190,7 @@ onMounted(async () => {
   <div class="field">
     <span class="field-label">{{ t('report.location') }}</span>
     <p class="hint">{{ t(disabled ? 'report.mapLocked' : 'report.mapHint') }}</p>
-    <div class="stage" :class="{ locked: disabled, tall }">
+    <div class="stage" :class="{ locked: disabled, tall }" data-flip-id="report-map">
       <div
         ref="container"
         class="map"
@@ -209,7 +210,7 @@ onMounted(async () => {
         :aria-label="t('report.recenter')"
         @click="recenter"
       >
-        {{ locating ? t('report.locating') : t('report.recenter') }}
+        <MorphText :text="locating ? t('report.locating') : t('report.recenter')" />
       </button>
     </div>
     <p v-if="locationError" class="error">{{ locationError }}</p>
@@ -225,8 +226,8 @@ onMounted(async () => {
 .stage {
   position: relative;
   overflow: hidden;
-  min-height: 16rem;
-  height: 16rem;
+  min-height: 12rem;
+  height: min(42vh, 16rem);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: #e8e6e3;

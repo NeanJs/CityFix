@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLocale } from '../../composables/useLocale'
+import SelectionIndicator from '../ui/SelectionIndicator.vue'
 
 const props = defineProps<{
   current: 1 | 2 | 3
@@ -17,10 +18,12 @@ const items = computed(() => [
 
 <template>
   <ol class="steps" :aria-label="t('report.stepOf', { current: props.current, total: 3 })">
+    <SelectionIndicator :active-key="props.current" variant="underline" />
     <li
       v-for="item in items"
       :key="item.step"
       :class="{ active: props.current === item.step, done: props.current > item.step }"
+      :data-selection-active="props.current === item.step ? 'true' : undefined"
     >
       {{ item.label }}
     </li>
@@ -29,6 +32,7 @@ const items = computed(() => [
 
 <style scoped>
 .steps {
+  position: relative;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -38,6 +42,8 @@ const items = computed(() => [
 }
 
 .steps li {
+  position: relative;
+  z-index: 1;
   padding: 0.45rem 0.3rem;
   border-bottom: 2px solid var(--border);
   color: var(--text-muted);
@@ -48,7 +54,7 @@ const items = computed(() => [
 
 .steps li.active {
   color: var(--text-h);
-  border-bottom-color: var(--accent);
+  border-bottom-color: transparent;
 }
 
 .steps li.done {

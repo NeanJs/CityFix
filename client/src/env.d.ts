@@ -45,3 +45,11 @@ interface Window {
   SpeechRecognition?: SpeechRecognitionConstructor
   webkitSpeechRecognition?: SpeechRecognitionConstructor
 }
+
+interface ViewTransition {
+  finished: Promise<void>
+}
+
+interface Document {
+  startViewTransition?: (update: () => void | Promise<void>) => ViewTransition
+}

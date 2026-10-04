@@ -39,6 +39,7 @@ function onAdvance(event: Event) {
   <div
     class="issue-card surface-frost"
     :class="{ highlighted: props.highlighted }"
+    data-flip-item
     role="button"
     tabindex="0"
     @click="emit('select', props.issue.id)"
@@ -47,16 +48,23 @@ function onAdvance(event: Event) {
   >
     <div class="body">
       <div v-if="props.issue.photoDataUrl" class="thumb-wrap">
-        <img class="thumb" :src="props.issue.photoDataUrl" alt="" />
+        <img
+          class="thumb"
+          :src="props.issue.photoDataUrl"
+          alt=""
+          :data-flip-id="`issue-${props.issue.id}-photo`"
+        />
       </div>
       <div class="copy">
         <div class="topline">
-          <h3 class="title">{{ props.issue.title }}</h3>
-          <StatusPill :status="props.issue.status" />
+          <h3 class="title" :data-flip-id="`issue-${props.issue.id}-title`">{{ props.issue.title }}</h3>
+          <StatusPill :status="props.issue.status" :flip-id="`issue-${props.issue.id}-status`" />
         </div>
         <p class="location">{{ props.issue.locationLabel }}</p>
         <div class="meta">
-          <span class="stamp">{{ props.issue.trackingId }}</span>
+          <span class="stamp" :data-flip-id="`issue-${props.issue.id}-tracking`">{{
+            props.issue.trackingId
+          }}</span>
           <SeverityPill :severity="props.issue.severity" />
           <time class="when" :datetime="props.issue.updatedAt">{{ formatWhen(props.issue.updatedAt) }}</time>
           <button

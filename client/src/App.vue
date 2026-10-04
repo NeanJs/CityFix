@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterView } from 'vue-router'
+import PageSwitch from './components/layout/PageSwitch.vue'
 import BackgroundScene from './components/layout/BackgroundScene.vue'
 import { useAuth } from './composables/useAuth'
 import { useIssues } from './composables/useIssues'
@@ -14,16 +14,24 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
 </script>
 
 <template>
-  <div v-if="booting" class="boot" aria-live="polite">
-    <p>{{ t('boot') }}</p>
-  </div>
-  <div v-else class="app">
-    <BackgroundScene />
-    <RouterView />
+  <div class="shell">
+    <Transition name="boot" mode="out-in">
+      <div v-if="booting" key="boot" class="boot" aria-live="polite">
+        <p>{{ t('boot') }}</p>
+      </div>
+      <div v-else key="app" class="app">
+        <BackgroundScene />
+        <PageSwitch layer="layout" />
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+.shell {
+  min-height: 100svh;
+}
+
 .boot {
   min-height: 100svh;
   display: grid;
@@ -48,5 +56,15 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
   height: 3px;
   background: var(--civic-bar);
   pointer-events: none;
+}
+
+.boot-enter-active,
+.boot-leave-active {
+  transition: opacity var(--motion-duration-md) var(--motion-ease);
+}
+
+.boot-enter-from,
+.boot-leave-to {
+  opacity: 0;
 }
 </style>

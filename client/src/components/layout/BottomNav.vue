@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { NavItem } from '../../config/nav'
 import { useLocale } from '../../composables/useLocale'
+import SelectionIndicator from '../ui/SelectionIndicator.vue'
 
 const props = defineProps<{
   items: readonly NavItem[]
@@ -19,12 +20,14 @@ const columns = computed(() => props.items.length)
 <template>
   <nav class="nav" :aria-label="ariaLabel">
     <div class="dock glass-dock" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
+      <SelectionIndicator :active-key="String(activeName ?? '')" />
       <button
         v-for="item in items"
         :key="item.name"
         type="button"
         class="item"
         :class="{ active: activeName === item.name, emphasis: item.emphasis }"
+        :data-selection-active="activeName === item.name ? 'true' : undefined"
         :aria-current="activeName === item.name ? 'page' : undefined"
         @click="router.push(item.path)"
       >
@@ -79,6 +82,7 @@ const columns = computed(() => props.items.length)
 
 .dock {
   pointer-events: auto;
+  position: relative;
   max-width: 28rem;
   margin: 0 auto;
   display: grid;
@@ -89,6 +93,8 @@ const columns = computed(() => props.items.length)
 }
 
 .item {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -102,10 +108,8 @@ const columns = computed(() => props.items.length)
   font-weight: 500;
   cursor: pointer;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.15s ease;
+    color var(--motion-duration-xs) var(--motion-ease),
+    transform var(--motion-duration-press) var(--motion-ease);
 }
 
 .item:active {
@@ -114,7 +118,11 @@ const columns = computed(() => props.items.length)
 
 .item.active {
   color: var(--text-h);
-  background: #f1f0f0;
+  background: transparent;
+}
+
+.dock :deep(.indicator.fill) {
+  border-radius: var(--radius-md);
 }
 
 .item.emphasis .icon {

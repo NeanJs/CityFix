@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
@@ -9,6 +9,9 @@ import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import SpeakButton from '../components/SpeakButton.vue'
 import StatusTrack from '../components/StatusTrack.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
+import gsap from 'gsap'
+import { easings } from '../motion/easings'
+import { duration } from '../motion/tokens'
 
 const route = useRoute()
 const router = useRouter()
@@ -48,6 +51,21 @@ function formatWhen(iso: string) {
     timeStyle: 'short',
   }).format(new Date(iso))
 }
+
+const mark = ref<SVGPathElement | null>(null)
+
+onMounted(() => {
+  const path = mark.value
+  if (!path) {
+    return
+  }
+  const length = path.getTotalLength()
+  gsap.fromTo(
+    path,
+    { strokeDasharray: length, strokeDashoffset: length },
+    { strokeDashoffset: 0, duration: duration.lg, ease: easings.primary, overwrite: 'auto' },
+  )
+})
 </script>
 
 <template>
@@ -67,6 +85,7 @@ function formatWhen(iso: string) {
       <div class="success" aria-hidden="true">
         <svg class="success-mark" viewBox="0 0 24 24" fill="none">
           <path
+            ref="mark"
             d="m5 12 4 4L19 6"
             stroke="currentColor"
             stroke-width="1.8"
@@ -79,13 +98,15 @@ function formatWhen(iso: string) {
       <p class="headline">{{ t('receipt.headline') }}</p>
       <p class="lead">{{ t('receipt.lead') }}</p>
 
-      <div class="reference">
-        <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
-        <p class="tracking">{{ issue.trackingId }}</p>
-        <p class="hint">{{ t('receipt.trackingHint') }}</p>
-      </div>
+      <div class="hero-row">
+        <div class="reference">
+          <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
+          <p class="tracking">{{ issue.trackingId }}</p>
+          <p class="hint">{{ t('receipt.trackingHint') }}</p>
+        </div>
 
-      <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+        <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
+      </div>
       <h2 class="title">{{ issue.title }}</h2>
       <p class="summary">{{ issue.summary }}</p>
       <div v-if="issue.recommendedAction" class="action-note">
@@ -181,6 +202,13 @@ function formatWhen(iso: string) {
   color: var(--text-muted);
 }
 
+.hero-row {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+}
+
 .tracking {
   margin: 0;
   font-size: clamp(1.4rem, 4.5vw, 2rem);
@@ -188,6 +216,7 @@ function formatWhen(iso: string) {
   letter-spacing: 0.04em;
   color: var(--text-h);
   font-variant-numeric: tabular-nums;
+  user-select: all;
 }
 
 .photo {
@@ -197,6 +226,7 @@ function formatWhen(iso: string) {
   object-fit: cover;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  view-transition-name: report-photo;
 }
 
 .title {
@@ -204,6 +234,7 @@ function formatWhen(iso: string) {
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-h);
+  view-transition-name: report-title;
 }
 
 .summary,
@@ -236,6 +267,17 @@ function formatWhen(iso: string) {
 @media (min-width: 1024px) {
   .record {
     max-width: none;
+  }
+
+  .hero-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    align-items: stretch;
+  }
+
+  .photo {
+    max-height: none;
+    height: 100%;
+    min-height: 10rem;
   }
 }
 </style>

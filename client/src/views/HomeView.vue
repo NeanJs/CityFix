@@ -36,30 +36,32 @@ const emit = defineEmits<{
       </button>
     </div>
 
-    <div class="section-head">
-      <h2 class="section-title">{{ t('home.openReports') }}</h2>
-      <button
-        v-if="recentIssues.length > 0"
-        type="button"
-        class="btn-ghost"
-        @click="router.push('/reports')"
-      >
-        {{ t('home.viewAll') }}
-      </button>
-    </div>
+    <div class="recent">
+      <div class="section-head">
+        <h2 class="section-title">{{ t('home.openReports') }}</h2>
+        <button
+          v-if="recentIssues.length > 0"
+          type="button"
+          class="btn-ghost"
+          @click="router.push('/reports')"
+        >
+          {{ t('home.viewAll') }}
+        </button>
+      </div>
 
-    <GlassPanel v-if="recentIssues.length === 0" padding="lg" tone="fill" class="empty">
-      <p class="empty-title">{{ t('home.emptyTitle') }}</p>
-      <p class="hint">{{ t('home.emptyHint') }}</p>
-    </GlassPanel>
+      <GlassPanel v-if="recentIssues.length === 0" padding="lg" tone="fill" class="empty">
+        <p class="empty-title">{{ t('home.emptyTitle') }}</p>
+        <p class="hint">{{ t('home.emptyHint') }}</p>
+      </GlassPanel>
 
-    <div v-else class="list">
-      <IssueCard
-        v-for="issue in recentIssues.slice(0, 4)"
-        :key="issue.id"
-        :issue="issue"
-        @select="emit('openIssue', $event)"
-      />
+      <div v-else class="list">
+        <IssueCard
+          v-for="issue in recentIssues.slice(0, 4)"
+          :key="issue.id"
+          :issue="issue"
+          @select="emit('openIssue', $event)"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -130,7 +132,22 @@ const emit = defineEmits<{
   gap: 0.65rem;
 }
 
+.recent {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
 @media (min-width: 720px) {
+  .home {
+    grid-template-columns: minmax(16rem, 0.85fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+
+  .home :deep(.header) {
+    grid-column: 1 / -1;
+  }
+
   .hero-value {
     font-size: 4rem;
   }

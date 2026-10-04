@@ -7,6 +7,7 @@ import AdminLayout from '../components/layout/AdminLayout.vue'
 import AuthLayout from '../components/layout/AuthLayout.vue'
 import UserLayout from '../components/layout/UserLayout.vue'
 import { hydrateAuth, useAuth } from '../composables/useAuth'
+import { preparePageMotion } from '../motion/pageTransition'
 import { homePathForRole } from '../services/auth/authService'
 import type { UserRole } from '../types/user'
 import AdminHomeView from '../views/admin/AdminHomeView.vue'
@@ -116,4 +117,8 @@ router.beforeEach(async (to) => {
   }
 
   return true
+})
+
+router.beforeEach((to, from) => {
+  preparePageMotion(to, from)
 })

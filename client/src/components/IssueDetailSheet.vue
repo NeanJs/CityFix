@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocale } from '../composables/useLocale'
+import { playIssueFlip } from '../motion/issueFlip'
+import { useMotionScope } from '../motion/useMotionScope'
+import { dismissSurface, enterBlocks, presentSurface } from '../motion/transitions'
 import { nextStatus } from '../services/report/statusFlow'
 import type { Issue, IssueStatus } from '../types/issue'
 import SeverityPill from './SeverityPill.vue'
 import SpeakButton from './SpeakButton.vue'
+import StatusPill from './StatusPill.vue'
 import StatusTrack from './StatusTrack.vue'
 
 const props = defineProps<{
@@ -20,6 +24,13 @@ const emit = defineEmits<{
 
 const { t } = useLocale()
 const overlayRef = ref<HTMLElement | null>(null)
+const sheetRef = ref<HTMLElement | null>(null)
+const rendered = ref(false)
+const dragY = ref(0)
+let generation = 0
+let dragPointer: number | null = null
+let dragStartY = 0
+const { run } = useMotionScope(overlayRef)
 
 const confirmation = computed(() => {
   if (!props.issue) {
@@ -59,6 +70,10 @@ function formatDateTime(date: Date) {
   }).format(date)
 }
 
+function surfaceOrigin() {
+  return window.matchMedia('(min-width: 1024px)').matches ? 'end' : 'bottom'
+}
+
 function onBackdropClick(event: MouseEvent) {
   if (event.target === event.currentTarget) {
     emit('close')
@@ -71,24 +86,115 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+function onGrabPointerDown(event: PointerEvent) {
+  if (window.matchMedia('(min-width: 1024px)').matches) {
+    return
+  }
+  dragPointer = event.pointerId
+  dragStartY = event.clientY
+  dragY.value = 0
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function onGrabPointerMove(event: PointerEvent) {
+  if (dragPointer !== event.pointerId) {
+    return
+  }
+  dragY.value = Math.max(0, event.clientY - dragStartY)
+}
+
+function onGrabPointerUp(event: PointerEvent) {
+  if (dragPointer !== event.pointerId) {
+    return
+  }
+  dragPointer = null
+  const distance = dragY.value
+  dragY.value = 0
+  if (distance > 96) {
+    emit('close')
+  }
+}
+
+function onGrabPointerCancel() {
+  dragPointer = null
+  dragY.value = 0
+}
+
 function setBodyScrollLocked(locked: boolean) {
   document.body.style.overflow = locked ? 'hidden' : ''
 }
 
+async function show() {
+  const gen = ++generation
+  rendered.value = true
+  setBodyScrollLocked(true)
+  await nextTick()
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+  if (gen !== generation) {
+    return
+  }
+  overlayRef.value?.focus()
+  const overlay = overlayRef.value
+  const sheet = sheetRef.value
+  if (!overlay || !sheet) {
+    return
+  }
+  run(() => {
+    presentSurface(overlay, sheet, surfaceOrigin())
+    playIssueFlip()
+    enterBlocks(sheet.querySelectorAll('[data-enter-block]'))
+  })
+}
+
+async function hide() {
+  const gen = ++generation
+  setBodyScrollLocked(false)
+  const overlay = overlayRef.value
+  const sheet = sheetRef.value
+  const finish = async () => {
+    if (gen !== generation) {
+      return
+    }
+    rendered.value = false
+    await nextTick()
+    if (gen === generation) {
+      playIssueFlip()
+    }
+  }
+  if (!overlay || !sheet) {
+    await finish()
+    return
+  }
+  run(() => {
+    const tween = dismissSurface(overlay, sheet, surfaceOrigin())
+    if (!tween) {
+      void finish()
+      return
+    }
+    tween.eventCallback('onComplete', () => {
+      void finish()
+    })
+  })
+}
+
 watch(
-  () => props.open,
+  () => props.open && Boolean(props.issue),
   (isOpen) => {
-    setBodyScrollLocked(isOpen)
     if (isOpen) {
-      void nextTick(() => {
-        overlayRef.value?.focus()
-      })
+      void show()
+      return
+    }
+    if (rendered.value) {
+      void hide()
     }
   },
   { immediate: true },
 )
 
 onBeforeUnmount(() => {
+  generation += 1
   setBodyScrollLocked(false)
 })
 
@@ -102,108 +208,128 @@ function advance() {
 
 <template>
   <Teleport to="body">
-    <Transition name="sheet">
-      <div
-        v-if="open && issue"
-        ref="overlayRef"
-        class="overlay"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="issue.title"
-        tabindex="-1"
-        @click="onBackdropClick"
-        @keydown="onKeydown"
-      >
-        <div class="sheet" @click.stop>
-          <div class="grab" aria-hidden="true" />
-          <header class="sheet-head">
-            <div class="head-copy">
-              <p class="stamp">{{ issue.trackingId }}</p>
-              <h2 class="title">{{ issue.title }}</h2>
+    <div
+      v-if="rendered && issue"
+      ref="overlayRef"
+      class="overlay"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="issue.title"
+      tabindex="-1"
+      @click="onBackdropClick"
+      @keydown="onKeydown"
+    >
+      <div ref="sheetRef" class="sheet" @click.stop>
+        <div
+          class="sheet-drag"
+          :style="dragY ? { transform: `translate3d(0, ${dragY}px, 0)` } : undefined"
+        >
+        <div
+          class="grab"
+          aria-hidden="true"
+          @pointerdown="onGrabPointerDown"
+          @pointermove="onGrabPointerMove"
+          @pointerup="onGrabPointerUp"
+          @pointercancel="onGrabPointerCancel"
+        />
+        <header class="sheet-head">
+          <div class="head-copy">
+            <div class="head-meta">
+              <p class="stamp" :data-flip-id="`issue-${issue.id}-tracking`">{{ issue.trackingId }}</p>
+              <StatusPill :status="issue.status" :flip-id="`issue-${issue.id}-status`" />
             </div>
-            <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6 6 18"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </button>
-          </header>
-
-          <div class="sheet-body">
-            <StatusTrack :status="issue.status" />
-
-            <div v-if="canManageStatus && upcoming" class="advance-wrap">
-              <button type="button" class="btn advance-btn" @click="advance">
-                {{
-                  upcoming === 'resolved'
-                    ? t('sheet.markResolved')
-                    : t('sheet.advanceTo', { status: t(`status.${upcoming}`) })
-                }}
-              </button>
-            </div>
-
-            <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
-
-            <div class="pills">
-              <SeverityPill :severity="issue.severity" />
-              <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
-            </div>
-
-            <div class="block">
-              <p class="row-label">{{ t('sheet.summary') }}</p>
-              <p class="description">{{ issue.summary }}</p>
-            </div>
-
-            <div class="block">
-              <p class="row-label">{{ t('sheet.location') }}</p>
-              <p class="location">{{ issue.locationLabel }}</p>
-              <p
-                v-if="issue.latitude !== undefined && issue.longitude !== undefined"
-                class="coords hint"
-              >
-                {{ issue.latitude.toFixed(5) }}, {{ issue.longitude.toFixed(5) }}
-              </p>
-            </div>
-
-            <div v-if="showTranscript" class="block">
-              <p class="row-label">{{ t('sheet.transcript') }}</p>
-              <p class="description">{{ issue.transcript }}</p>
-            </div>
-
-            <div class="block">
-              <p class="row-label">{{ t('sheet.description') }}</p>
-              <p class="description">{{ issue.description }}</p>
-            </div>
-
-            <div v-if="issue.recommendedAction" class="block">
-              <p class="row-label">{{ t('sheet.recommendedAction') }}</p>
-              <p class="description">{{ issue.recommendedAction }}</p>
-            </div>
-
-            <ul class="timeline">
-              <li v-for="entry in timeline" :key="entry.label">
-                <span class="dot" aria-hidden="true" />
-                <div>
-                  <p class="timeline-label">{{ entry.label }}</p>
-                  <p class="timeline-when">{{ formatDateTime(entry.at) }}</p>
-                </div>
-              </li>
-            </ul>
-
-            <SpeakButton
-              :text="confirmation"
-              play-key="sheet.play"
-              playing-key="sheet.playing"
-              unavailable-key="sheet.playUnavailable"
-            />
+            <h2 class="title" :data-flip-id="`issue-${issue.id}-title`">{{ issue.title }}</h2>
           </div>
+          <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </header>
+
+        <div class="sheet-body">
+          <StatusTrack data-enter-block :status="issue.status" />
+
+          <div v-if="canManageStatus && upcoming" class="advance-wrap" data-enter-block>
+            <button type="button" class="btn advance-btn" @click="advance">
+              {{
+                upcoming === 'resolved'
+                  ? t('sheet.markResolved')
+                  : t('sheet.advanceTo', { status: t(`status.${upcoming}`) })
+              }}
+            </button>
+          </div>
+
+          <img
+            v-if="issue.photoDataUrl"
+            class="photo"
+            :src="issue.photoDataUrl"
+            alt=""
+            :data-flip-id="`issue-${issue.id}-photo`"
+          />
+
+          <div class="pills" data-enter-block>
+            <SeverityPill :severity="issue.severity" />
+            <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
+          </div>
+
+          <div class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.summary') }}</p>
+            <p class="description">{{ issue.summary }}</p>
+          </div>
+
+          <div class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.location') }}</p>
+            <p class="location">{{ issue.locationLabel }}</p>
+            <p
+              v-if="issue.latitude !== undefined && issue.longitude !== undefined"
+              class="coords hint"
+            >
+              {{ issue.latitude.toFixed(5) }}, {{ issue.longitude.toFixed(5) }}
+            </p>
+          </div>
+
+          <div v-if="showTranscript" class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.transcript') }}</p>
+            <p class="description">{{ issue.transcript }}</p>
+          </div>
+
+          <div class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.description') }}</p>
+            <p class="description">{{ issue.description }}</p>
+          </div>
+
+          <div v-if="issue.recommendedAction" class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.recommendedAction') }}</p>
+            <p class="description">{{ issue.recommendedAction }}</p>
+          </div>
+
+          <ul class="timeline" data-enter-block>
+            <li v-for="entry in timeline" :key="entry.label">
+              <span class="dot" aria-hidden="true" />
+              <div>
+                <p class="timeline-label">{{ entry.label }}</p>
+                <p class="timeline-when">{{ formatDateTime(entry.at) }}</p>
+              </div>
+            </li>
+          </ul>
+
+          <SpeakButton
+            data-enter-block
+            :text="confirmation"
+            play-key="sheet.play"
+            playing-key="sheet.playing"
+            unavailable-key="sheet.playUnavailable"
+          />
+        </div>
         </div>
       </div>
-    </Transition>
+    </div>
   </Teleport>
 </template>
 
@@ -232,13 +358,28 @@ function advance() {
   overflow: hidden;
 }
 
+.sheet-drag {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  max-height: min(92dvh, 100%);
+}
+
 .grab {
   flex-shrink: 0;
-  width: 2.5rem;
-  height: 0.25rem;
-  margin: 0.55rem auto 0;
-  border-radius: var(--radius-pill);
-  background: var(--border);
+  width: 100%;
+  height: 1.35rem;
+  margin: 0;
+  padding: 0.55rem 0 0.55rem;
+  background:
+    linear-gradient(var(--border), var(--border)) center 0.55rem / 2.5rem 0.25rem no-repeat;
+  cursor: grab;
+  touch-action: none;
+}
+
+.grab:active {
+  cursor: grabbing;
 }
 
 .sheet-head {
@@ -254,6 +395,13 @@ function advance() {
 
 .head-copy {
   min-width: 0;
+}
+
+.head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .sheet-body {
@@ -386,26 +534,6 @@ function advance() {
   width: 100%;
 }
 
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: opacity 0.22s ease;
-}
-
-.sheet-enter-active .sheet,
-.sheet-leave-active .sheet {
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.sheet-enter-from,
-.sheet-leave-to {
-  opacity: 0;
-}
-
-.sheet-enter-from .sheet,
-.sheet-leave-to .sheet {
-  transform: translateY(100%);
-}
-
 @media (min-width: 1024px) {
   .overlay {
     align-items: stretch;
@@ -448,11 +576,6 @@ function advance() {
 
   .sheet :deep(.speak .btn-secondary) {
     width: fit-content;
-  }
-
-  .sheet-enter-from .sheet,
-  .sheet-leave-to .sheet {
-    transform: translateX(100%);
   }
 }
 </style>

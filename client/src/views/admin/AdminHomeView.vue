@@ -8,6 +8,8 @@ import IssuesMap from '../../components/IssuesMap.vue'
 import AppHeader from '../../components/layout/AppHeader.vue'
 import SpeakButton from '../../components/SpeakButton.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
+import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
+import { useFlipGroup } from '../../motion/useFlipGroup'
 import { compareQueuePriority, nextStatus } from '../../services/report/statusFlow'
 
 type DeskFilter = 'open' | 'high' | 'resolved' | 'all'
@@ -22,6 +24,8 @@ const mapOpen = ref(
   typeof window !== 'undefined' && window.matchMedia('(min-width: 720px)').matches,
 )
 const mapRef = ref<{ resizeMap: () => void } | null>(null)
+const queueRoot = ref<HTMLElement | null>(null)
+const { animate: animateQueue } = useFlipGroup(queueRoot)
 
 const briefing = computed(() => {
   const today = issuesCreatedOn(new Date())
@@ -64,6 +68,12 @@ const filterItems = computed(() => [
   { id: 'all' as const, labelKey: 'adminHome.onRecord', value: issues.value.length },
 ])
 
+function setFilter(id: DeskFilter) {
+  void animateQueue(() => {
+    filter.value = id
+  })
+}
+
 async function advanceIssue(id: string) {
   const issue = issues.value.find((item) => item.id === id)
   if (!issue) {
@@ -71,7 +81,7 @@ async function advanceIssue(id: string) {
   }
   const upcoming = nextStatus(issue.status)
   if (upcoming) {
-    await updateStatus(id, upcoming)
+    await animateQueue(() => updateStatus(id, upcoming))
   }
 }
 
@@ -92,13 +102,15 @@ watch(mapOpen, async () => {
     <AppHeader :subtitle="t('adminHome.title')" show-account />
 
     <div class="stats surface-frost">
+      <SelectionIndicator :active-key="filter" />
       <button
         v-for="item in filterItems"
         :key="item.id"
         type="button"
         class="stat"
         :class="{ active: filter === item.id }"
-        @click="filter = item.id"
+        :data-selection-active="filter === item.id ? 'true' : undefined"
+        @click="setFilter(item.id)"
       >
         <span class="stat-value">{{ item.value }}</span>
         <span class="stat-label">{{ t(item.labelKey) }}</span>
@@ -123,6 +135,7 @@ watch(mapOpen, async () => {
           </div>
         </div>
 
+        <div ref="queueRoot" class="queue-results">
         <GlassPanel v-if="queue.length === 0" padding="lg" tone="fill" class="empty">
           <p class="empty-title">{{ t('adminHome.emptyTitle') }}</p>
           <p class="hint">{{ t('adminHome.emptyHint') }}</p>
@@ -137,6 +150,7 @@ watch(mapOpen, async () => {
             @select="emit('openIssue', $event)"
             @advance="advanceIssue"
           />
+        </div>
         </div>
       </div>
 
@@ -162,6 +176,7 @@ watch(mapOpen, async () => {
 }
 
 .stats {
+  position: relative;
   display: flex;
   gap: 0.75rem;
   overflow-x: auto;
@@ -173,8 +188,8 @@ watch(mapOpen, async () => {
   box-shadow: inset 0 2px 0 var(--civic-bar);
 }
 
-.stats.surface-frost {
-  isolation: isolate;
+.stats :deep(.indicator.fill) {
+  border-radius: var(--radius-md);
 }
 
 .stats::-webkit-scrollbar {
@@ -182,6 +197,8 @@ watch(mapOpen, async () => {
 }
 
 .stat {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 0.2rem;
   justify-items: start;
@@ -261,6 +278,11 @@ watch(mapOpen, async () => {
 
 .briefing {
   display: none;
+}
+
+.queue-results {
+  display: grid;
+  gap: 0.65rem;
 }
 
 .empty {

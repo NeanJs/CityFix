@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import gsap from 'gsap'
+import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { compressImageFile } from '../../services/media/compressImage'
-import { ref } from 'vue'
+import { easings } from '../../motion/easings'
+import { duration } from '../../motion/tokens'
+import MorphText from '../ui/MorphText.vue'
 
 const photoDataUrl = defineModel<string>('photoDataUrl', { default: '' })
 
 const { t } = useLocale()
 const cameraInput = ref<HTMLInputElement | null>(null)
 const galleryInput = ref<HTMLInputElement | null>(null)
+const preview = ref<HTMLElement | null>(null)
 const errorKey = ref('')
 
 async function onFile(event: Event) {
@@ -24,26 +29,53 @@ async function onFile(event: Event) {
     errorKey.value = 'report.photoFailed'
   }
 }
+
+watch(photoDataUrl, async (value, previous) => {
+  if (Boolean(value) === Boolean(previous) || !preview.value) {
+    return
+  }
+  await nextTick()
+  const shown = preview.value.querySelector(value ? 'img' : '.empty')
+  if (!shown) {
+    return
+  }
+  gsap.fromTo(
+    shown,
+    { opacity: 0 },
+    { opacity: 1, duration: duration.sm, ease: easings.primary, overwrite: 'auto' },
+  )
+})
 </script>
 
 <template>
   <div class="field">
     <span class="field-label">{{ t('report.photo') }}</span>
-    <div class="stage" :class="{ filled: Boolean(photoDataUrl) }">
-      <div class="preview">
-        <img v-if="photoDataUrl" :src="photoDataUrl" :alt="t('report.photo')" />
+    <div class="stage" :class="{ filled: Boolean(photoDataUrl) }" data-flip-id="report-photo-stage">
+      <button
+        ref="preview"
+        type="button"
+        class="preview"
+        :aria-label="photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto')"
+        @click="cameraInput?.click()"
+      >
+        <img
+          v-if="photoDataUrl"
+          :src="photoDataUrl"
+          :alt="t('report.photo')"
+          data-flip-id="report-photo"
+        />
         <div v-else class="empty">
           <p class="empty-title">{{ t('report.photoEmptyTitle') }}</p>
           <p class="empty-hint">{{ t('report.photoHint') }}</p>
         </div>
-      </div>
+      </button>
       <div class="actions">
         <button
           type="button"
           :class="photoDataUrl ? 'btn-secondary' : 'btn'"
           @click="cameraInput?.click()"
         >
-          {{ photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto') }}
+          <MorphText :text="photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto')" />
         </button>
         <button type="button" class="btn-secondary" @click="galleryInput?.click()">
           {{ t('report.choosePhoto') }}
@@ -85,7 +117,15 @@ async function onFile(event: Event) {
 
 .preview {
   display: grid;
+  width: 100%;
   min-height: 8.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+  color: inherit;
+  font: inherit;
 }
 
 .preview img {

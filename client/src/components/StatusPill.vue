@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { useLocale } from '../composables/useLocale'
 import type { IssueStatus } from '../types/issue'
+import MorphText from './ui/MorphText.vue'
 
 const props = defineProps<{
   status: IssueStatus
+  flipId?: string
 }>()
 
 const { t } = useLocale()
 </script>
 
 <template>
-  <span class="stamp status" :class="`status-${props.status}`">{{ t(`status.${props.status}`) }}</span>
+  <span
+    class="stamp status"
+    :class="`status-${props.status}`"
+    :data-flip-id="props.flipId"
+  >
+    <MorphText :text="t(`status.${props.status}`)" />
+  </span>
 </template>
 
 <style scoped>
