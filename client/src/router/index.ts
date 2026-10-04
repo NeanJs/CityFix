@@ -12,7 +12,6 @@ import { homePathForRole } from '../services/auth/authService'
 import type { UserRole } from '../types/user'
 import AdminHomeView from '../views/admin/AdminHomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
-import RegisterView from '../views/auth/RegisterView.vue'
 import HomeView from '../views/HomeView.vue'
 import ReceiptView from '../views/ReceiptView.vue'
 import ReportView from '../views/ReportView.vue'
@@ -45,9 +44,7 @@ export const router = createRouter({
     },
     {
       path: '/register',
-      component: AuthLayout,
-      meta: { guest: true },
-      children: [{ path: '', name: 'register', component: RegisterView }],
+      redirect: '/login',
     },
     {
       path: '/',

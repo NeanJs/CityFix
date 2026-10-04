@@ -13,7 +13,6 @@ type PageMotionIntent = {
 
 const pageRank: Record<string, number> = {
   login: 0,
-  register: 1,
   home: 0,
   report: 1,
   reportReceipt: 2,

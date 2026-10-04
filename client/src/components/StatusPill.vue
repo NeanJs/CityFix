@@ -22,27 +22,27 @@ const { t } = useLocale()
 </template>
 
 <style scoped>
-.status-submitted {
-  color: var(--status-submitted-fg);
-  background: var(--status-submitted-bg);
-  border-color: var(--status-submitted-bd);
+.status-queued {
+  color: var(--status-queued-fg);
+  background: var(--status-queued-bg);
+  border-color: var(--status-queued-bd);
 }
 
-.status-in_review {
-  color: var(--status-review-fg);
-  background: var(--status-review-bg);
-  border-color: var(--status-review-bd);
-}
-
-.status-scheduled {
-  color: var(--status-scheduled-fg);
-  background: var(--status-scheduled-bg);
-  border-color: var(--status-scheduled-bd);
+.status-in_progress {
+  color: var(--status-progress-fg);
+  background: var(--status-progress-bg);
+  border-color: var(--status-progress-bd);
 }
 
 .status-resolved {
   color: var(--status-resolved-fg);
   background: var(--status-resolved-bg);
   border-color: var(--status-resolved-bd);
+}
+
+.status-rejected {
+  color: var(--status-rejected-fg);
+  background: var(--status-rejected-bg);
+  border-color: var(--status-rejected-bd);
 }
 </style>

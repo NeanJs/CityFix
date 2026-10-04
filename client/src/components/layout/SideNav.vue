@@ -5,6 +5,7 @@ import { appName } from '../../config/appConfig'
 import type { NavItem } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
+import AppIcon from '../ui/AppIcon.vue'
 import SelectionIndicator from '../ui/SelectionIndicator.vue'
 const props = defineProps<{
   items: readonly NavItem[]
@@ -50,12 +51,18 @@ async function onAccount() {
         :aria-current="activeName === item.name ? 'page' : undefined"
         @click="router.push(item.path)"
       >
+        <AppIcon
+          :name="item.icon"
+          size="1.05rem"
+          :weight="activeName === item.name ? 'bold' : 'regular'"
+        />
         {{ t(item.labelKey) }}
       </button>
     </nav>
 
     <div class="side-foot">
       <button type="button" class="btn-ghost sign-out" @click="onAccount">
+        <AppIcon :name="currentUser ? 'signOut' : 'signIn'" size="1rem" />
         {{ currentUser ? t('nav.logout') : t('nav.login') }}
       </button>
     </div>
@@ -126,6 +133,9 @@ async function onAccount() {
   .side-link {
     position: relative;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     text-align: left;
     min-height: 2.6rem;
     padding: 0.5rem 0.7rem;

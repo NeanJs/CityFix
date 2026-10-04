@@ -7,6 +7,7 @@ import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import StatusTrack from '../components/StatusTrack.vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 import gsap from 'gsap'
 import { easings } from '../motion/easings'
@@ -41,18 +42,24 @@ function formatWhen(iso: string) {
   }).format(new Date(iso))
 }
 
-const mark = ref<SVGPathElement | null>(null)
+const mark = ref<HTMLElement | null>(null)
 
 onMounted(() => {
-  const path = mark.value
-  if (!path) {
+  const node = mark.value
+  if (!node) {
     return
   }
-  const length = path.getTotalLength()
   gsap.fromTo(
-    path,
-    { strokeDasharray: length, strokeDashoffset: length },
-    { strokeDashoffset: 0, duration: duration.lg, ease: easings.primary, overwrite: 'auto' },
+    node,
+    { opacity: 0, scale: 0.72 },
+    {
+      opacity: 1,
+      scale: 1,
+      duration: duration.lg,
+      ease: easings.primary,
+      overwrite: 'auto',
+      transformOrigin: '50% 50%',
+    },
   )
 })
 </script>
@@ -63,25 +70,20 @@ onMounted(() => {
     <ReportFlowSteps :current="3" />
 
     <GlassPanel v-if="!issue" padding="lg" tone="fill" class="empty">
+      <AppIcon class="empty-icon" name="tray" size="1.75rem" />
       <p class="empty-title">{{ t('receipt.missingTitle') }}</p>
       <p class="hint">{{ t('receipt.missingHint') }}</p>
       <button type="button" class="btn" @click="router.push('/report')">
+        <AppIcon name="plus" size="1rem" />
         {{ t('receipt.fileAnother') }}
       </button>
     </GlassPanel>
 
     <GlassPanel v-else padding="lg" tone="fill" class="record">
       <div class="success" aria-hidden="true">
-        <svg class="success-mark" viewBox="0 0 24 24" fill="none">
-          <path
-            ref="mark"
-            d="m5 12 4 4L19 6"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <span ref="mark" class="success-mark">
+          <AppIcon name="check" size="1.6rem" weight="fill" />
+        </span>
       </div>
       <p class="section-kicker">{{ t('receipt.eyebrow') }}</p>
       <p class="headline">{{ t('receipt.headline') }}</p>
@@ -131,6 +133,10 @@ onMounted(() => {
   justify-items: start;
 }
 
+.empty-icon {
+  color: var(--text-muted);
+}
+
 .success {
   display: grid;
   place-items: center;
@@ -142,6 +148,8 @@ onMounted(() => {
 }
 
 .success-mark {
+  display: grid;
+  place-items: center;
   width: 1.6rem;
   height: 1.6rem;
 }

@@ -12,6 +12,7 @@ import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import SeverityPill from '../components/SeverityPill.vue'
 import StatusPill from '../components/StatusPill.vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 import MorphText from '../components/ui/MorphText.vue'
 import SelectionIndicator from '../components/ui/SelectionIndicator.vue'
@@ -69,10 +70,10 @@ const filtered = computed(() => {
 
 const statusFilters: { id: 'all' | IssueStatus; labelKey: string }[] = [
   { id: 'all', labelKey: 'reports.statusAll' },
-  { id: 'submitted', labelKey: 'status.submitted' },
-  { id: 'in_review', labelKey: 'status.in_review' },
-  { id: 'scheduled', labelKey: 'status.scheduled' },
+  { id: 'queued', labelKey: 'status.queued' },
+  { id: 'in_progress', labelKey: 'status.in_progress' },
   { id: 'resolved', labelKey: 'status.resolved' },
+  { id: 'rejected', labelKey: 'status.rejected' },
 ]
 
 function setStatusFilter(id: (typeof statusFilters)[number]['id']) {
@@ -188,6 +189,7 @@ function formatFiled(iso: string) {
           <button type="submit" class="btn" :disabled="tracking || !trackingQuery.trim()">
             <span class="btn-inner">
               <span v-show="tracking" class="spinner" aria-hidden="true" />
+              <AppIcon v-show="!tracking" name="magnifyingGlass" size="1rem" />
               <MorphText :text="tracking ? t('reports.trackSearching') : t('reports.trackSubmit')" />
             </span>
           </button>
@@ -199,13 +201,16 @@ function formatFiled(iso: string) {
     <GlassPanel padding="md" tone="fill" class="toolbar">
       <label class="search">
         <span class="sr-label">{{ t('reports.search') }}</span>
-            <input
-              class="control"
-              type="search"
-              :value="query"
-              :placeholder="t('reports.searchPlaceholder')"
-              @input="setQuery(($event.target as HTMLInputElement).value)"
-            />
+        <span class="search-field">
+          <AppIcon class="search-icon" name="magnifyingGlass" size="1rem" />
+          <input
+            class="control search-input"
+            type="search"
+            :value="query"
+            :placeholder="t('reports.searchPlaceholder')"
+            @input="setQuery(($event.target as HTMLInputElement).value)"
+          />
+        </span>
       </label>
 
       <div class="chips" role="tablist" :aria-label="t('reports.filterStatus')">
@@ -244,6 +249,11 @@ function formatFiled(iso: string) {
     </p>
 
     <GlassPanel v-if="scopedIssues.length === 0" padding="lg" tone="fill" class="empty">
+      <AppIcon
+        class="empty-icon"
+        :name="isStaffQueue ? 'clipboardText' : 'tray'"
+        size="1.75rem"
+      />
       <p class="empty-title">
         {{ t(isStaffQueue ? 'reports.emptyStaffTitle' : 'reports.emptyCitizenTitle') }}
       </p>
@@ -251,11 +261,13 @@ function formatFiled(iso: string) {
         {{ t(isStaffQueue ? 'reports.emptyStaffHint' : 'reports.emptyCitizenHint') }}
       </p>
       <button v-if="!isStaffQueue" type="button" class="btn" @click="router.push('/report')">
+        <AppIcon name="plus" size="1rem" />
         {{ t('reports.newReport') }}
       </button>
     </GlassPanel>
 
     <GlassPanel v-else-if="filtered.length === 0" padding="lg" tone="fill" class="empty">
+      <AppIcon class="empty-icon" name="magnifyingGlass" size="1.75rem" />
       <p class="empty-title">{{ t('reports.noMatches') }}</p>
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
     </GlassPanel>
@@ -374,6 +386,25 @@ function formatFiled(iso: string) {
   display: block;
 }
 
+.search-field {
+  position: relative;
+  display: block;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  z-index: 1;
+  color: var(--text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.search-input {
+  padding-inline-start: 2.4rem;
+}
+
 .chips {
   position: relative;
   display: flex;
@@ -483,6 +514,10 @@ function formatFiled(iso: string) {
   display: grid;
   gap: 0.5rem;
   justify-items: start;
+}
+
+.empty-icon {
+  color: var(--text-muted);
 }
 
 .empty-title {

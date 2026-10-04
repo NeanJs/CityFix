@@ -4,6 +4,7 @@ import { requestCurrentPosition } from '../../composables/useCurrentLocation'
 import { useLocale } from '../../composables/useLocale'
 import { useMapLibre } from '../../composables/useMapLibre'
 import { defaultMapCenter, defaultPickerZoom } from '../../config/mapConfig'
+import AppIcon from '../ui/AppIcon.vue'
 import MorphText from '../ui/MorphText.vue'
 
 const latitude = defineModel<number | undefined>('latitude')
@@ -210,6 +211,7 @@ onMounted(async () => {
         :aria-label="t('report.recenter')"
         @click="recenter"
       >
+        <AppIcon name="crosshair" size="1rem" />
         <MorphText :text="locating ? t('report.locating') : t('report.recenter')" />
       </button>
     </div>
@@ -281,6 +283,9 @@ onMounted(async () => {
   right: 0.55rem;
   bottom: 0.55rem;
   z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-height: 2.75rem;
   padding: 0.45rem 0.75rem;
   border: 1.5px solid var(--text-h);

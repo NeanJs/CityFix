@@ -53,19 +53,24 @@ function submit() {
           type="email"
           autocomplete="email"
           inputmode="email"
+          required
         />
       </label>
       <label class="field">
         <span class="field-label">{{ t('auth.password') }}</span>
-        <input v-model="password" class="control" type="password" autocomplete="current-password" />
+        <input
+          v-model="password"
+          class="control"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
       </label>
       <p v-if="errorKey" class="error" role="alert">{{ t(errorKey) }}</p>
       <button type="submit" class="btn submit" :disabled="submitting">
         {{ submitting ? t('auth.submitting') : t('auth.submitLogin') }}
       </button>
     </form>
-
-    <RouterLink class="switch" to="/register">{{ t('auth.toRegister') }}</RouterLink>
   </GlassPanel>
 </template>
 
@@ -114,12 +119,5 @@ function submit() {
   margin: 0;
   font-size: 0.82rem;
   color: var(--danger);
-}
-
-.switch {
-  color: var(--text-h);
-  font-size: 0.88rem;
-  font-weight: 500;
-  text-decoration: none;
 }
 </style>

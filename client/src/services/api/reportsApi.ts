@@ -1,4 +1,10 @@
-import { reportsCollectionUrl, reportTrackUrl } from '../../config/apiConfig'
+import {
+  adminReportsUrl,
+  adminReportStatusUrl,
+  adminReportUrl,
+  reportsCollectionUrl,
+  reportTrackUrl,
+} from '../../config/apiConfig'
 import {
   apiRequestErrorFromResponse,
   ApiRequestError,
@@ -6,10 +12,9 @@ import {
 } from './apiRequestError'
 import { defaultIssueType } from '../report/issueType'
 import { normalizeSeverity } from '../report/severity'
+import { normalizeStatus } from '../report/statusFlow'
 import { pickIssueType } from './pickIssueType'
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
-
-const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
 
 export class ReportApiError extends ApiRequestError {
   constructor(code: ApiRequestErrorCode, retryAfterSeconds?: number) {
@@ -55,6 +60,7 @@ export type CreateReportInput = {
 }
 
 export type RemoteReport = {
+  remoteId?: string
   trackingId: string
   title: string
   description: string
@@ -67,9 +73,34 @@ export type RemoteReport = {
   latitude?: number
   longitude?: number
   photoUrl?: string
+  audioUrl?: string
   recommendedAction: string
   createdAt?: string
   updatedAt?: string
+  partial?: boolean
+}
+
+function asList(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) {
+    return value
+  }
+  const record = asRecord(value)
+  if (!record) {
+    return null
+  }
+  const nested =
+    record.reports ?? record.data ?? record.items ?? record.results ?? record.rows
+  if (Array.isArray(nested)) {
+    return nested
+  }
+  const nestedRecord = asRecord(nested)
+  if (nestedRecord) {
+    const inner = nestedRecord.reports ?? nestedRecord.data ?? nestedRecord.items
+    if (Array.isArray(inner)) {
+      return inner
+    }
+  }
+  return null
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -115,30 +146,34 @@ function remoteMediaUrl(value: string | undefined) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : ''
 }
 
-function normalizeStatus(value: string): IssueStatus {
-  const token = value.toLowerCase().replace(/[\s-]+/g, '_')
-  if (token === 'in_review' || token === 'review' || token === 'reviewing') {
-    return 'in_review'
+function isPublicTrackingId(value: string) {
+  return /^CF-/i.test(value.trim())
+}
+
+function readRemoteId(records: Record<string, unknown>[]) {
+  for (const source of records) {
+    const id = pickString(source, ['id', 'reportId', 'report_id'])
+    if (id && !isPublicTrackingId(id)) {
+      return id
+    }
   }
-  if (token === 'scheduled' || token === 'in_progress' || token === 'assigned') {
-    return 'scheduled'
+  return ''
+}
+
+function readTrackingId(records: Record<string, unknown>[]) {
+  for (const source of records) {
+    const explicit = pickString(source, ['trackingId', 'tracking_id', 'trackingID'])
+    if (explicit) {
+      return explicit
+    }
   }
-  if (token === 'resolved' || token === 'closed' || token === 'complete' || token === 'completed' || token === 'fixed') {
-    return 'resolved'
+  for (const source of records) {
+    const id = pickString(source, ['id', 'reference', 'reference_id'])
+    if (isPublicTrackingId(id)) {
+      return id
+    }
   }
-  if (
-    token === 'submitted' ||
-    token === 'queued' ||
-    token === 'new' ||
-    token === 'open' ||
-    token === 'pending'
-  ) {
-    return 'submitted'
-  }
-  if (statuses.includes(token as IssueStatus)) {
-    return token as IssueStatus
-  }
-  return 'submitted'
+  return ''
 }
 
 function readLocation(source: Record<string, unknown>) {
@@ -161,22 +196,6 @@ function readLocation(source: Record<string, unknown>) {
     latitude: pickNumber(source, ['latitude', 'lat']),
     longitude: pickNumber(source, ['longitude', 'lng', 'lon']),
   }
-}
-
-function readTrackingId(records: Record<string, unknown>[]) {
-  for (const source of records) {
-    const explicit = pickString(source, ['trackingId', 'tracking_id', 'trackingID'])
-    if (explicit) {
-      return explicit
-    }
-  }
-  for (const source of records) {
-    const id = pickString(source, ['id', 'reference', 'reference_id'])
-    if (/^CF-/i.test(id)) {
-      return id
-    }
-  }
-  return ''
 }
 
 export function buildCreateReportBody(input: CreateReportInput): CreateReportBody {
@@ -210,14 +229,20 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   return body
 }
 
-export function parseRemoteReport(payload: unknown): RemoteReport {
+function parseReportEnvelope(payload: unknown) {
   const top = asRecord(payload)
   const envelope = top ? asRecord(top.data) ?? asRecord(top.result) ?? top : null
   const source = envelope ? asRecord(envelope.report) ?? envelope : null
+  return { top, envelope, source }
+}
+
+export function parseRemoteReport(payload: unknown): RemoteReport {
+  const { top, envelope, source } = parseReportEnvelope(payload)
   if (!envelope || !source) {
     throw new ReportApiError('failed')
   }
-  const trackingId = readTrackingId([top ?? {}, envelope, source])
+  const records = [top ?? {}, envelope, source]
+  const trackingId = readTrackingId(records)
   if (!trackingId) {
     throw new ReportApiError('failed')
   }
@@ -232,7 +257,10 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
   const recommendedAction =
     pickString(source, ['recommended_action', 'recommendedAction']) ||
     pickString(envelope, ['recommended_action', 'recommendedAction'])
+  const photoUrl = remoteMediaUrl(pickString(source, ['photo_url', 'photoUrl', 'photo'])) || undefined
+  const audioUrl = remoteMediaUrl(pickString(source, ['audio_url', 'audioUrl', 'audio'])) || undefined
   return {
+    remoteId: readRemoteId(records) || undefined,
     trackingId,
     title,
     description: description || title,
@@ -244,10 +272,43 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
     locationLabel: location.description,
     latitude: location.latitude,
     longitude: location.longitude,
-    photoUrl: pickString(source, ['photo_url', 'photoUrl', 'photo']) || undefined,
+    photoUrl,
+    audioUrl,
     recommendedAction,
     createdAt: pickString(source, ['created_at', 'createdAt', 'timestamp']) || undefined,
     updatedAt: pickString(source, ['updated_at', 'updatedAt']) || undefined,
+  }
+}
+
+export function parseRemoteStatusUpdate(payload: unknown): RemoteReport {
+  const { top, envelope, source } = parseReportEnvelope(payload)
+  if (!envelope || !source) {
+    throw new ReportApiError('failed')
+  }
+  const records = [top ?? {}, envelope, source]
+  const trackingId = readTrackingId(records)
+  const remoteId = readRemoteId(records)
+  if (!trackingId && !remoteId) {
+    throw new ReportApiError('failed')
+  }
+  const statusRaw = pickString(source, ['status', 'current_status', 'currentStatus'])
+  if (!statusRaw) {
+    throw new ReportApiError('failed')
+  }
+  return {
+    remoteId: remoteId || undefined,
+    trackingId,
+    title: '',
+    description: '',
+    transcript: '',
+    summary: '',
+    issueType: defaultIssueType,
+    severity: 'medium',
+    status: normalizeStatus(statusRaw),
+    locationLabel: '',
+    recommendedAction: '',
+    updatedAt: pickString(source, ['updated_at', 'updatedAt']) || undefined,
+    partial: true,
   }
 }
 
@@ -257,6 +318,104 @@ async function readPayload(response: Response) {
     return null
   }
   return JSON.parse(text) as unknown
+}
+
+function adminHeaders(accessToken: string): HeadersInit {
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`,
+  }
+}
+
+export async function listReports(accessToken: string): Promise<RemoteReport[]> {
+  const url = adminReportsUrl
+  if (!url) {
+    throw new ReportApiError('unavailable')
+  }
+  const token = accessToken.trim()
+  if (!token) {
+    throw new ReportApiError('unauthorized')
+  }
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: adminHeaders(token),
+  })
+  if (!response.ok) {
+    throw errorFromResponse(response)
+  }
+  const payload = await readPayload(response)
+  const items = asList(payload)
+  if (!items) {
+    throw new ReportApiError('failed')
+  }
+  const reports: RemoteReport[] = []
+  for (const item of items) {
+    try {
+      reports.push(parseRemoteReport(item))
+    } catch {
+      continue
+    }
+  }
+  return reports
+}
+
+export async function getAdminReport(
+  reportId: string,
+  accessToken: string,
+): Promise<RemoteReport> {
+  const url = adminReportUrl(reportId)
+  if (!url) {
+    throw new ReportApiError('unavailable')
+  }
+  const token = accessToken.trim()
+  if (!token) {
+    throw new ReportApiError('unauthorized')
+  }
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: adminHeaders(token),
+  })
+  if (!response.ok) {
+    throw errorFromResponse(response)
+  }
+  return parseRemoteReport(await readPayload(response))
+}
+
+export async function updateReportStatus(
+  reportId: string,
+  status: IssueStatus,
+  accessToken: string,
+): Promise<RemoteReport | null> {
+  const url = adminReportStatusUrl(reportId)
+  if (!url) {
+    throw new ReportApiError('unavailable')
+  }
+  const token = accessToken.trim()
+  if (!token) {
+    throw new ReportApiError('unauthorized')
+  }
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: adminHeaders(token),
+    body: JSON.stringify({ status }),
+  })
+  if (!response.ok) {
+    throw errorFromResponse(response)
+  }
+  const payload = await readPayload(response)
+  if (payload === null) {
+    return null
+  }
+  try {
+    return parseRemoteStatusUpdate(payload)
+  } catch {
+    try {
+      return parseRemoteReport(payload)
+    } catch {
+      return null
+    }
+  }
 }
 
 export async function createReport(input: CreateReportInput): Promise<RemoteReport> {

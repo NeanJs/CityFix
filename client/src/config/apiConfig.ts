@@ -47,10 +47,30 @@ export const reportsCollectionPath = '/api/reports'
 
 export const reportsCollectionUrl = joinApiUrl(apiBaseUrl, reportsCollectionPath)
 
+export const adminReportsPath = '/api/admin/reports'
+
+export const adminReportsUrl = joinApiUrl(apiBaseUrl, adminReportsPath)
+
 export function reportTrackUrl(trackingId: string) {
   const id = trackingId.trim()
   if (!reportsCollectionUrl || !id) {
     return ''
   }
   return `${reportsCollectionUrl}/track/${encodeURIComponent(id)}`
+}
+
+export function adminReportUrl(reportId: string) {
+  const id = reportId.trim()
+  if (!adminReportsUrl || !id) {
+    return ''
+  }
+  return `${adminReportsUrl}/${encodeURIComponent(id)}`
+}
+
+export function adminReportStatusUrl(reportId: string) {
+  const url = adminReportUrl(reportId)
+  if (!url) {
+    return ''
+  }
+  return `${url}/status`
 }

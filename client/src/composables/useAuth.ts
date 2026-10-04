@@ -1,13 +1,13 @@
 import { computed, ref } from 'vue'
 import {
   bootstrapAuth,
+  getAccessToken as readAccessToken,
   getCurrentUser,
   getGuestReporterId,
   login as loginUser,
   logout as logoutUser,
-  register as registerUser,
 } from '../services/auth/authService'
-import type { PublicUser, RegisterInput } from '../types/user'
+import type { PublicUser } from '../types/user'
 
 const currentUser = ref<PublicUser | null>(null)
 const guestReporterId = ref('')
@@ -38,15 +38,13 @@ export function useAuth() {
     return user
   }
 
-  async function register(input: RegisterInput) {
-    const user = await registerUser(input)
-    currentUser.value = user
-    return user
-  }
-
   async function logout() {
     await logoutUser()
     currentUser.value = null
+  }
+
+  async function getAccessToken() {
+    return readAccessToken()
   }
 
   return {
@@ -56,7 +54,7 @@ export function useAuth() {
     isCitizen,
     ready,
     login,
-    register,
     logout,
+    getAccessToken,
   }
 }

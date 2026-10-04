@@ -17,6 +17,21 @@ function typeFromName(filename: string) {
   return 'image/jpeg'
 }
 
+export function isAnalyzeImage(blob: Blob | undefined | null) {
+  if (!blob || blob.size < 1) {
+    return false
+  }
+  const type = blob.type.toLowerCase()
+  if (type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png' || type === 'image/webp') {
+    return true
+  }
+  if (blob instanceof File) {
+    const name = blob.name.toLowerCase()
+    return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')
+  }
+  return false
+}
+
 export function photoFileName(blob: Blob) {
   if (blob instanceof File && blob.name.trim()) {
     return blob.name

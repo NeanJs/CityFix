@@ -5,6 +5,7 @@ import { useLocale } from '../../composables/useLocale'
 import { compressImageFile, dataUrlFromBlob } from '../../services/media/compressImage'
 import { easings } from '../../motion/easings'
 import { duration } from '../../motion/tokens'
+import AppIcon from '../ui/AppIcon.vue'
 import MorphText from '../ui/MorphText.vue'
 
 const photoDataUrl = defineModel<string>('photoDataUrl', { default: '' })
@@ -68,6 +69,7 @@ watch(photoDataUrl, async (value, previous) => {
           data-flip-id="report-photo"
         />
         <div v-else class="empty">
+          <AppIcon name="camera" size="1.75rem" class="empty-icon" />
           <p class="empty-title">{{ t('report.photoEmptyTitle') }}</p>
           <p class="empty-hint">{{ t('report.photoHint') }}</p>
         </div>
@@ -78,9 +80,11 @@ watch(photoDataUrl, async (value, previous) => {
           :class="photoDataUrl ? 'btn-secondary' : 'btn'"
           @click="cameraInput?.click()"
         >
+          <AppIcon name="camera" size="1rem" />
           <MorphText :text="photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto')" />
         </button>
         <button type="button" class="btn-secondary" @click="galleryInput?.click()">
+          <AppIcon name="images" size="1rem" />
           {{ t('report.choosePhoto') }}
         </button>
       </div>
@@ -144,6 +148,11 @@ watch(photoDataUrl, async (value, previous) => {
   gap: 0.2rem;
   min-height: 8.75rem;
   padding: 1rem 1.1rem;
+}
+
+.empty-icon {
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
 }
 
 .empty-title {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { NavItem } from '../../config/nav'
 import { useAndroidBackHandler } from '../../composables/useAndroidBackHandler'
 import { useAuth } from '../../composables/useAuth'
@@ -21,7 +21,7 @@ const props = defineProps<{
 
 const { t } = useLocale()
 const { reporterId } = useAuth()
-const { getIssue, updateStatus, syncTrackedReport } = useIssues()
+const { getIssue, loadStaffReports, loadStaffReport, updateStatus, syncTrackedReport } = useIssues()
 
 const selectedIssueId = ref<string | null>(null)
 const detailOpen = ref(false)
@@ -35,9 +35,19 @@ const selectedIssue = computed(() => {
 
 const navAriaLabel = computed(() => t(props.navAriaKey))
 
-async function refreshIssueFromRemote(trackingId: string) {
+async function refreshIssueFromRemote() {
+  const issue = selectedIssue.value
+  if (!issue) {
+    return
+  }
   try {
-    await syncTrackedReport(trackingId, reporterId.value)
+    if (props.canManageStatus && issue.remoteId) {
+      await loadStaffReport(issue.remoteId)
+      return
+    }
+    if (issue.trackingId) {
+      await syncTrackedReport(issue.trackingId, reporterId.value)
+    }
   } catch {
     /* keep local issue; sheet already open */
   }
@@ -47,11 +57,7 @@ function openIssue(id: string) {
   captureIssueFlip(id)
   selectedIssueId.value = id
   detailOpen.value = true
-  const issue = getIssue(id)
-  if (!issue?.trackingId) {
-    return
-  }
-  void refreshIssueFromRemote(issue.trackingId)
+  void refreshIssueFromRemote()
 }
 
 function closeDetail() {
@@ -60,6 +66,12 @@ function closeDetail() {
 }
 
 useAndroidBackHandler(detailOpen, closeDetail)
+
+onMounted(() => {
+  if (props.canManageStatus) {
+    void loadStaffReports()
+  }
+})
 </script>
 
 <template>

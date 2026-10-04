@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { NavItem } from '../../config/nav'
 import { useLocale } from '../../composables/useLocale'
+import AppIcon from '../ui/AppIcon.vue'
 import SelectionIndicator from '../ui/SelectionIndicator.vue'
 
 const props = defineProps<{
@@ -32,30 +33,11 @@ const columns = computed(() => props.items.length)
         @click="router.push(item.path)"
       >
         <span class="icon" aria-hidden="true">
-          <svg v-if="item.icon === 'home' || item.icon === 'dashboard'" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <svg v-else-if="item.icon === 'report'" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 5v14M5 12h14"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none">
-            <path
-              d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2-3-2V6a2 2 0 0 1 2-2Z"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <AppIcon
+            :name="item.icon"
+            size="1.2rem"
+            :weight="item.emphasis || activeName === item.name ? 'bold' : 'regular'"
+          />
         </span>
         <span class="label">{{ t(item.labelKey) }}</span>
       </button>
@@ -129,7 +111,9 @@ const columns = computed(() => props.items.length)
   color: var(--text-h);
 }
 
-.icon svg {
+.icon {
+  display: grid;
+  place-items: center;
   width: 1.2rem;
   height: 1.2rem;
 }

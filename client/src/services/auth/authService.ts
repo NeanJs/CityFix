@@ -1,21 +1,10 @@
-import {
-  readStoreItem,
-  removeStoreItem,
-  writeStoreItem,
-} from '../storage/persistentStore'
-import type { AuthSession, PublicUser, RegisterInput, User, UserRole } from '../../types/user'
-import { hashPassword } from './passwordHash'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { isSupabaseConfigured } from '../../config/supabaseConfig'
+import type { PublicUser, UserRole } from '../../types/user'
+import { readStoreItem, writeStoreItem } from '../storage/persistentStore'
+import { getSupabaseClient } from './supabaseClient'
 
-const usersKey = 'cityfix.users.v1'
-const sessionKey = 'cityfix.session.v1'
-const guestReporterKey = 'cityfix.guestReporter.v1'
-
-export type AuthErrorCode =
-  | 'invalidCredentials'
-  | 'emailTaken'
-  | 'invalidEmail'
-  | 'weakPassword'
-  | 'nameRequired'
+export type AuthErrorCode = 'invalidCredentials' | 'unavailable'
 
 export class AuthError extends Error {
   readonly code: AuthErrorCode
@@ -27,8 +16,9 @@ export class AuthError extends Error {
   }
 }
 
-let users: User[] = []
-let session: AuthSession | null = null
+const guestReporterKey = 'cityfix.guestReporter.v1'
+
+let currentUser: PublicUser | null = null
 let guestReporterId = ''
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
@@ -40,70 +30,25 @@ function createId() {
   return `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
+function pickDisplayName(user: SupabaseUser) {
+  const metadata = user.user_metadata ?? {}
+  const candidates = [metadata.displayName, metadata.full_name, metadata.name, metadata.display_name]
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+  return user.email?.trim() || user.id
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function toPublicUser(user: User): PublicUser {
+function toPublicUser(user: SupabaseUser): PublicUser {
   return {
     id: user.id,
-    email: user.email,
-    displayName: user.displayName,
-    role: user.role,
-    createdAt: user.createdAt,
+    email: user.email?.trim() || '',
+    displayName: pickDisplayName(user),
+    role: 'staff',
+    createdAt: user.created_at,
   }
-}
-
-async function persistUsers() {
-  await writeStoreItem(usersKey, JSON.stringify(users))
-}
-
-async function persistSession() {
-  if (!session) {
-    await removeStoreItem(sessionKey)
-    return
-  }
-  await writeStoreItem(sessionKey, JSON.stringify(session))
-}
-
-export async function bootstrapAuth() {
-  if (bootstrapPromise) {
-    return bootstrapPromise
-  }
-  bootstrapPromise = (async () => {
-    if (hydrated) {
-      return
-    }
-    hydrated = true
-    try {
-      const rawUsers = await readStoreItem(usersKey)
-      if (rawUsers) {
-        const parsed = JSON.parse(rawUsers) as User[]
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          users = parsed
-        }
-      }
-    } catch {
-      users = []
-    }
-    await ensureGuestReporter()
-    try {
-      const rawSession = await readStoreItem(sessionKey)
-      if (rawSession) {
-        const parsed = JSON.parse(rawSession) as AuthSession
-        if (parsed?.userId && users.some((user) => user.id === parsed.userId)) {
-          session = parsed
-        }
-      }
-    } catch {
-      session = null
-    }
-  })()
-  return bootstrapPromise
 }
 
 async function ensureGuestReporter() {
@@ -120,65 +65,76 @@ async function ensureGuestReporter() {
   await writeStoreItem(guestReporterKey, guestReporterId)
 }
 
+export async function bootstrapAuth() {
+  if (bootstrapPromise) {
+    return bootstrapPromise
+  }
+  bootstrapPromise = (async () => {
+    if (hydrated) {
+      return
+    }
+    hydrated = true
+    await ensureGuestReporter()
+    if (!isSupabaseConfigured()) {
+      currentUser = null
+      return
+    }
+    try {
+      const client = getSupabaseClient()
+      const { data } = await client.auth.getSession()
+      const user = data.session?.user ?? null
+      currentUser = user ? toPublicUser(user) : null
+    } catch {
+      currentUser = null
+    }
+  })()
+  return bootstrapPromise
+}
+
 export function getGuestReporterId(): string {
   return guestReporterId
 }
 
 export function getCurrentUser(): PublicUser | null {
-  if (!session) {
-    return null
+  return currentUser
+}
+
+export async function getAccessToken(): Promise<string> {
+  if (!isSupabaseConfigured()) {
+    return ''
   }
-  const user = users.find((item) => item.id === session?.userId)
-  return user ? toPublicUser(user) : null
+  const client = getSupabaseClient()
+  const { data } = await client.auth.getSession()
+  const session = data.session
+  if (!session?.access_token || !session.user) {
+    return ''
+  }
+  return session.access_token
 }
 
 export async function login(email: string, password: string): Promise<PublicUser> {
-  const normalized = normalizeEmail(email)
-  const passwordHash = await hashPassword(password)
-  const user = users.find(
-    (item) => item.email === normalized && item.passwordHash === passwordHash,
-  )
-  if (!user) {
+  if (!isSupabaseConfigured()) {
+    throw new AuthError('unavailable')
+  }
+  const client = getSupabaseClient()
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  })
+  if (error || !data.session?.user) {
     throw new AuthError('invalidCredentials')
   }
-  session = { userId: user.id }
-  await persistSession()
-  return toPublicUser(user)
-}
-
-export async function register(input: RegisterInput): Promise<PublicUser> {
-  const displayName = input.displayName.trim()
-  const email = normalizeEmail(input.email)
-  if (displayName.length < 2) {
-    throw new AuthError('nameRequired')
-  }
-  if (!isValidEmail(email)) {
-    throw new AuthError('invalidEmail')
-  }
-  if (input.password.length < 8) {
-    throw new AuthError('weakPassword')
-  }
-  if (users.some((item) => item.email === email)) {
-    throw new AuthError('emailTaken')
-  }
-  const user: User = {
-    id: createId(),
-    email,
-    displayName,
-    role: 'citizen',
-    passwordHash: await hashPassword(input.password),
-    createdAt: new Date().toISOString(),
-  }
-  users = [...users, user]
-  await persistUsers()
-  session = { userId: user.id }
-  await persistSession()
-  return toPublicUser(user)
+  currentUser = toPublicUser(data.session.user)
+  return currentUser
 }
 
 export async function logout(): Promise<void> {
-  session = null
-  await persistSession()
+  currentUser = null
+  if (!isSupabaseConfigured()) {
+    return
+  }
+  const client = getSupabaseClient()
+  await client.auth.signOut()
 }
 
 export function homePathForRole(role: UserRole) {

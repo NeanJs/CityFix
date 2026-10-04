@@ -6,10 +6,11 @@ import { useLocale } from '../../composables/useLocale'
 import IssueCard from '../../components/IssueCard.vue'
 import IssuesMap from '../../components/IssuesMap.vue'
 import AppHeader from '../../components/layout/AppHeader.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
 import { useFlipGroup } from '../../motion/useFlipGroup'
-import { compareQueuePriority, nextStatus } from '../../services/report/statusFlow'
+import { compareQueuePriority, isOpenStatus, nextStatus } from '../../services/report/statusFlow'
 
 type DeskFilter = 'open' | 'high' | 'resolved' | 'all'
 
@@ -35,7 +36,7 @@ const mappedIssues = computed(() =>
 const queue = computed(() => {
   const items = issues.value.filter((issue) => {
     if (filter.value === 'open') {
-      return issue.status !== 'resolved'
+      return isOpenStatus(issue.status)
     }
     if (filter.value === 'high') {
       return issue.severity === 'high'
@@ -114,6 +115,7 @@ watch(mapOpen, async () => {
           <h2 class="section-title">{{ t('adminHome.queue') }}</h2>
           <div class="queue-actions">
             <button type="button" class="btn-ghost" @click="router.push('/admin/reports')">
+              <AppIcon name="clipboardText" size="1rem" />
               {{ t('adminHome.viewLedger') }}
             </button>
           </div>
@@ -121,6 +123,7 @@ watch(mapOpen, async () => {
 
         <div ref="queueRoot" class="queue-results">
         <GlassPanel v-if="queue.length === 0" padding="lg" tone="fill" class="empty">
+          <AppIcon class="empty-icon" name="clipboardText" size="1.75rem" />
           <p class="empty-title">{{ t('adminHome.emptyTitle') }}</p>
           <p class="hint">{{ t('adminHome.emptyHint') }}</p>
         </GlassPanel>
@@ -142,6 +145,7 @@ watch(mapOpen, async () => {
         <div class="map-head">
           <h2 class="section-title">{{ t('adminHome.map') }}</h2>
           <button type="button" class="btn-ghost map-toggle" @click="toggleMap">
+            <AppIcon name="mapTrifold" size="1rem" />
             {{ mapOpen ? t('adminHome.hideMap') : t('adminHome.showMap') }}
           </button>
         </div>
@@ -268,6 +272,10 @@ watch(mapOpen, async () => {
 .empty {
   display: grid;
   gap: 0.4rem;
+}
+
+.empty-icon {
+  color: var(--text-muted);
 }
 
 .empty-title {

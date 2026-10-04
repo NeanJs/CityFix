@@ -1,4 +1,9 @@
-export type ApiRequestErrorCode = 'not-found' | 'failed' | 'unavailable' | 'rate-limited'
+export type ApiRequestErrorCode =
+  | 'not-found'
+  | 'failed'
+  | 'unavailable'
+  | 'rate-limited'
+  | 'unauthorized'
 
 export class ApiRequestError extends Error {
   readonly code: ApiRequestErrorCode
@@ -29,6 +34,9 @@ export function parseRetryAfterSeconds(response: Response): number | undefined {
 }
 
 export function apiRequestErrorFromResponse(response: Response): ApiRequestError {
+  if (response.status === 401) {
+    return new ApiRequestError('unauthorized')
+  }
   if (response.status === 404) {
     return new ApiRequestError('not-found')
   }
@@ -66,6 +74,9 @@ export function apiErrorMessage(error: unknown, t: Translate, fallbackKey: strin
   }
   if (error instanceof ApiRequestError && error.code === 'unavailable') {
     return t('api.unavailable')
+  }
+  if (error instanceof ApiRequestError && error.code === 'unauthorized') {
+    return t('api.unauthorized')
   }
   return t(fallbackKey)
 }

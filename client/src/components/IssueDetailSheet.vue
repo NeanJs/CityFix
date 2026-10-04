@@ -4,8 +4,9 @@ import { useLocale } from '../composables/useLocale'
 import { playIssueFlip } from '../motion/issueFlip'
 import { useMotionScope } from '../motion/useMotionScope'
 import { dismissSurface, enterBlocks, presentSurface } from '../motion/transitions'
-import { nextStatus } from '../services/report/statusFlow'
+import { canRejectStatus, nextStatus } from '../services/report/statusFlow'
 import type { Issue, IssueStatus } from '../types/issue'
+import AppIcon from './ui/AppIcon.vue'
 import SeverityPill from './SeverityPill.vue'
 import StatusPill from './StatusPill.vue'
 import StatusTrack from './StatusTrack.vue'
@@ -26,12 +27,15 @@ const overlayRef = ref<HTMLElement | null>(null)
 const sheetRef = ref<HTMLElement | null>(null)
 const rendered = ref(false)
 const dragY = ref(0)
+const copied = ref(false)
+let copiedTimer = 0
 let generation = 0
 let dragPointer: number | null = null
 let dragStartY = 0
 const { run } = useMotionScope(overlayRef)
 
 const upcoming = computed(() => (props.issue ? nextStatus(props.issue.status) : null))
+const canReject = computed(() => Boolean(props.issue && canRejectStatus(props.issue.status)))
 
 const showTranscript = computed(() => {
   if (!props.issue?.transcript) {
@@ -182,10 +186,13 @@ watch(
   { immediate: true },
 )
 
-onBeforeUnmount(() => {
-  generation += 1
-  setBodyScrollLocked(false)
-})
+watch(
+  () => props.issue?.id,
+  () => {
+    copied.value = false
+    window.clearTimeout(copiedTimer)
+  },
+)
 
 function advance() {
   if (!props.issue || !upcoming.value) {
@@ -193,6 +200,37 @@ function advance() {
   }
   emit('statusChange', props.issue.id, upcoming.value)
 }
+
+function reject() {
+  if (!props.issue || !canReject.value) {
+    return
+  }
+  emit('statusChange', props.issue.id, 'rejected')
+}
+
+async function copyTracking() {
+  const trackingId = props.issue?.trackingId.trim()
+  if (!trackingId || typeof navigator === 'undefined' || !navigator.clipboard) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(trackingId)
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1600)
+  } catch {
+    copied.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  generation += 1
+  copied.value = false
+  window.clearTimeout(copiedTimer)
+  setBodyScrollLocked(false)
+})
 </script>
 
 <template>
@@ -224,33 +262,39 @@ function advance() {
         <header class="sheet-head">
           <div class="head-copy">
             <div class="head-meta">
-              <p class="stamp" :data-flip-id="`issue-${issue.id}-tracking`">{{ issue.trackingId }}</p>
+              <div class="tracking">
+                <p class="stamp" :data-flip-id="`issue-${issue.id}-tracking`">{{ issue.trackingId }}</p>
+                <button
+                  type="button"
+                  class="copy"
+                  :aria-label="copied ? t('sheet.copied') : t('sheet.copyTracking')"
+                  @click="copyTracking"
+                >
+                  <AppIcon :name="copied ? 'check' : 'copy'" size="0.95rem" />
+                </button>
+              </div>
               <StatusPill :status="issue.status" :flip-id="`issue-${issue.id}-status`" />
             </div>
             <h2 class="title" :data-flip-id="`issue-${issue.id}-title`">{{ issue.title }}</h2>
           </div>
           <button type="button" class="close" :aria-label="t('sheet.close')" @click="emit('close')">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M6 6l12 12M18 6 6 18"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              />
-            </svg>
+            <AppIcon name="x" size="1rem" />
           </button>
         </header>
 
         <div class="sheet-body">
           <StatusTrack data-enter-block :status="issue.status" />
 
-          <div v-if="canManageStatus && upcoming" class="advance-wrap" data-enter-block>
-            <button type="button" class="btn advance-btn" @click="advance">
+          <div v-if="canManageStatus && (upcoming || canReject)" class="advance-wrap" data-enter-block>
+            <button v-if="upcoming" type="button" class="btn advance-btn" @click="advance">
               {{
                 upcoming === 'resolved'
                   ? t('sheet.markResolved')
                   : t('sheet.advanceTo', { status: t(`status.${upcoming}`) })
               }}
+            </button>
+            <button v-if="canReject" type="button" class="btn-secondary reject-btn" @click="reject">
+              {{ t('sheet.reject') }}
             </button>
           </div>
 
@@ -281,6 +325,16 @@ function advance() {
             >
               {{ issue.latitude.toFixed(5) }}, {{ issue.longitude.toFixed(5) }}
             </p>
+          </div>
+
+          <div v-if="issue.recommendedAction" class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.recommendedAction') }}</p>
+            <p class="description">{{ issue.recommendedAction }}</p>
+          </div>
+
+          <div v-if="issue.audioUrl" class="block" data-enter-block>
+            <p class="row-label">{{ t('sheet.audio') }}</p>
+            <audio class="audio" :src="issue.audioUrl" controls />
           </div>
 
           <div v-if="showTranscript" class="block" data-enter-block>
@@ -381,6 +435,30 @@ function advance() {
   gap: 0.35rem;
 }
 
+.tracking {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.copy {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.copy:hover {
+  color: var(--text-h);
+  background: #f1f0f0;
+}
+
 .sheet-body {
   flex: 1;
   min-height: 0;
@@ -399,10 +477,14 @@ function advance() {
 }
 
 .advance-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin: 0.85rem 0 0.35rem;
 }
 
-.advance-btn {
+.advance-btn,
+.reject-btn {
   width: 100%;
 }
 
@@ -436,10 +518,6 @@ function advance() {
   cursor: pointer;
 }
 
-.close svg {
-  width: 1rem;
-  height: 1rem;
-}
 
 .block {
   margin-bottom: 0.85rem;
@@ -471,6 +549,11 @@ function advance() {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text);
+}
+
+.audio {
+  display: block;
+  width: 100%;
 }
 
 .timeline {
@@ -547,7 +630,8 @@ function advance() {
     font-size: 1.7rem;
   }
 
-  .advance-btn {
+  .advance-btn,
+  .reject-btn {
     width: fit-content;
   }
 

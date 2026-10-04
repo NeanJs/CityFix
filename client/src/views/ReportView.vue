@@ -9,6 +9,7 @@ import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { defaultIssueType } from '../services/report/issueType'
 import { apiErrorMessage } from '../services/api/apiRequestError'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
+import { isAnalyzeImage } from '../services/media/formFile'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
 import type { ReportIngestDraft } from '../types/reportIngest'
 import AppHeader from '../components/layout/AppHeader.vue'
@@ -16,6 +17,7 @@ import LocationPickerField from '../components/report/LocationPickerField.vue'
 import PhotoCaptureField from '../components/report/PhotoCaptureField.vue'
 import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import VoiceCaptureField from '../components/report/VoiceCaptureField.vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 import MorphText from '../components/ui/MorphText.vue'
 import SeverityPill from '../components/SeverityPill.vue'
@@ -54,7 +56,7 @@ const draft = reactive<ReportIngestDraft>({
   issueType: defaultIssueType,
   severity: 'medium',
   locationLabel: '',
-  status: 'submitted',
+  status: 'queued',
 })
 
 const hasPhoto = computed(() => Boolean(form.photoDataUrl))
@@ -181,7 +183,7 @@ function applyDraft(next: ReportIngestDraft) {
   draft.photoUrl = next.photoUrl
   draft.recommendedAction = next.recommendedAction
   draft.trackingId = next.trackingId
-  draft.status = next.status ?? 'submitted'
+  draft.status = next.status ?? 'queued'
   draft.createdAt = next.createdAt
   if (next.latitude !== undefined) {
     latitude.value = next.latitude
@@ -278,7 +280,7 @@ function resetForm() {
     issueType: defaultIssueType,
     severity: 'medium',
     locationLabel: '',
-    status: 'submitted',
+    status: 'queued',
   })
   voiceField.value?.reset()
 }
@@ -315,7 +317,12 @@ async function send() {
   submitting.value = true
   submitStage.value = 'read'
   try {
-    const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
+    const storedPhoto = photoFile.value
+    const photo =
+      (isAnalyzeImage(storedPhoto) ? storedPhoto : undefined) ??
+      (form.photoDataUrl.startsWith('data:image')
+        ? await blobFromDataUrl(form.photoDataUrl)
+        : undefined)
     const next = await ingestReport({
       photo,
       audio: audioBlob.value ?? undefined,
@@ -397,12 +404,15 @@ async function confirm() {
       summary: next.summary.trim() || filedDescription || t('report.untitled'),
       issueType: next.issueType,
       severity: next.severity,
+      status: created.status,
       locationLabel: next.locationLabel.trim() || t('report.locationUnset'),
       latitude: next.latitude ?? latitude.value,
       longitude: next.longitude ?? longitude.value,
       photoDataUrl,
+      audioUrl: created.audioUrl,
       recommendedAction,
       reporterId: reporterId.value,
+      remoteId: created.remoteId,
       trackingId: next.trackingId,
     })
     await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
@@ -574,6 +584,7 @@ async function confirm() {
             >
               <span class="btn-inner">
                 <span v-show="submitting" class="spinner" aria-hidden="true" />
+                <AppIcon v-show="!submitting" name="paperPlaneTilt" size="1rem" />
                 <MorphText :text="primaryLabel" />
               </span>
             </button>

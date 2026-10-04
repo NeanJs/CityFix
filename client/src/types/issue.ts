@@ -1,9 +1,10 @@
-export type IssueStatus = 'submitted' | 'in_review' | 'scheduled' | 'resolved'
+export type IssueStatus = 'queued' | 'in_progress' | 'resolved' | 'rejected'
 
 export type IssueSeverity = 'low' | 'medium' | 'high'
 
 export type Issue = {
   id: string
+  remoteId?: string
   trackingId: string
   title: string
   description: string
@@ -16,6 +17,7 @@ export type Issue = {
   latitude?: number
   longitude?: number
   photoDataUrl?: string
+  audioUrl?: string
   recommendedAction?: string
   reporterId: string
   createdAt: string
@@ -29,11 +31,14 @@ export type NewIssueInput = {
   summary: string
   issueType: string
   severity: IssueSeverity
+  status?: IssueStatus
   locationLabel: string
   latitude?: number
   longitude?: number
   photoDataUrl?: string
+  audioUrl?: string
   recommendedAction?: string
   reporterId: string
+  remoteId?: string
   trackingId?: string
 }

@@ -1,22 +1,9 @@
 export type UserRole = 'citizen' | 'staff'
 
-export type User = {
+export type PublicUser = {
   id: string
   email: string
   displayName: string
   role: UserRole
-  passwordHash: string
   createdAt: string
-}
-
-export type PublicUser = Omit<User, 'passwordHash'>
-
-export type RegisterInput = {
-  displayName: string
-  email: string
-  password: string
-}
-
-export type AuthSession = {
-  userId: string
 }

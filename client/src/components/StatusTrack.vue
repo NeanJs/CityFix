@@ -3,6 +3,7 @@ import { useLocale } from '../composables/useLocale'
 import { statusOrder } from '../services/report/statusFlow'
 import type { IssueStatus } from '../types/issue'
 import SelectionIndicator from './ui/SelectionIndicator.vue'
+import StatusPill from './StatusPill.vue'
 
 const props = defineProps<{
   status: IssueStatus
@@ -24,7 +25,10 @@ function stateFor(id: IssueStatus) {
 </script>
 
 <template>
-  <ol class="track" :aria-label="t('sheet.status')">
+  <div v-if="props.status === 'rejected'" class="rejected" :aria-label="t('sheet.status')">
+    <StatusPill status="rejected" />
+  </div>
+  <ol v-else class="track" :aria-label="t('sheet.status')">
     <SelectionIndicator :active-key="props.status" variant="bar" tone="accent" />
     <li
       v-for="id in statusOrder"
@@ -39,13 +43,18 @@ function stateFor(id: IssueStatus) {
 </template>
 
 <style scoped>
+.rejected {
+  display: flex;
+  align-items: center;
+}
+
 .track {
   position: relative;
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.25rem;
 }
 

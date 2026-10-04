@@ -4,8 +4,10 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import { isOpenStatus } from '../services/report/statusFlow'
 import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 
 const { reporterId } = useAuth()
@@ -16,7 +18,7 @@ const router = useRouter()
 const recentIssues = computed(() => issuesForReporter(reporterId.value))
 
 const openCount = computed(
-  () => recentIssues.value.filter((issue) => issue.status !== 'resolved').length,
+  () => recentIssues.value.filter((issue) => isOpenStatus(issue.status)).length,
 )
 
 const emit = defineEmits<{
@@ -32,6 +34,7 @@ const emit = defineEmits<{
       <p class="hero-value">{{ openCount }}</p>
       <p class="hero-label">{{ t('home.openReports') }}</p>
       <button type="button" class="btn report-cta" @click="router.push('/report')">
+        <AppIcon name="plus" size="1rem" />
         {{ t('home.reportProblem') }}
       </button>
     </div>
@@ -50,6 +53,7 @@ const emit = defineEmits<{
       </div>
 
       <GlassPanel v-if="recentIssues.length === 0" padding="lg" tone="fill" class="empty">
+        <AppIcon class="empty-icon" name="tray" size="1.75rem" />
         <p class="empty-title">{{ t('home.emptyTitle') }}</p>
         <p class="hint">{{ t('home.emptyHint') }}</p>
       </GlassPanel>
@@ -118,6 +122,10 @@ const emit = defineEmits<{
 .empty {
   display: grid;
   gap: 0.4rem;
+}
+
+.empty-icon {
+  color: var(--text-muted);
 }
 
 .empty-title {

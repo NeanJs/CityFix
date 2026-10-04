@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
+import AppIcon from '../ui/AppIcon.vue'
 
 const props = defineProps<{
   subtitle?: string
@@ -30,6 +31,7 @@ async function onAccount() {
       <span class="civic-rule" aria-hidden="true" />
     </div>
     <button v-if="showAccount" type="button" class="btn-ghost logout" @click="onAccount">
+      <AppIcon :name="currentUser ? 'signOut' : 'signIn'" size="1rem" />
       {{ currentUser ? t('nav.logout') : t('nav.login') }}
     </button>
   </header>

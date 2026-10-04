@@ -1,16 +1,69 @@
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
 
-export const statusOrder: IssueStatus[] = [
-  'submitted',
-  'in_review',
-  'scheduled',
+export const issueStatuses: IssueStatus[] = [
+  'queued',
+  'in_progress',
   'resolved',
+  'rejected',
 ]
+
+export const statusOrder: IssueStatus[] = ['queued', 'in_progress', 'resolved']
 
 const severityRank: Record<IssueSeverity, number> = {
   high: 0,
   medium: 1,
   low: 2,
+}
+
+export function isIssueStatus(value: string): value is IssueStatus {
+  return issueStatuses.includes(value as IssueStatus)
+}
+
+export function isOpenStatus(status: IssueStatus) {
+  return status === 'queued' || status === 'in_progress'
+}
+
+export function canRejectStatus(status: IssueStatus) {
+  return isOpenStatus(status)
+}
+
+export function normalizeStatus(value: string): IssueStatus {
+  const token = value.toLowerCase().replace(/[\s-]+/g, '_')
+  if (token === 'rejected' || token === 'declined' || token === 'denied') {
+    return 'rejected'
+  }
+  if (
+    token === 'resolved' ||
+    token === 'closed' ||
+    token === 'complete' ||
+    token === 'completed' ||
+    token === 'fixed'
+  ) {
+    return 'resolved'
+  }
+  if (
+    token === 'in_progress' ||
+    token === 'assigned' ||
+    token === 'in_review' ||
+    token === 'review' ||
+    token === 'reviewing' ||
+    token === 'scheduled'
+  ) {
+    return 'in_progress'
+  }
+  if (
+    token === 'queued' ||
+    token === 'submitted' ||
+    token === 'new' ||
+    token === 'open' ||
+    token === 'pending'
+  ) {
+    return 'queued'
+  }
+  if (isIssueStatus(token)) {
+    return token
+  }
+  return 'queued'
 }
 
 export function nextStatus(status: IssueStatus): IssueStatus | null {

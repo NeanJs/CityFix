@@ -2,16 +2,10 @@ import { reportIngestUrl } from '../../config/apiConfig'
 import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
 import { defaultIssueType } from '../report/issueType'
 import { normalizeSeverity } from '../report/severity'
+import { normalizeStatus } from '../report/statusFlow'
 import { pickIssueType } from './pickIssueType'
-import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
-import type { IssueStatus } from '../../types/issue'
+import { appendFormFile, audioFileName, fileFromDataUrl, isAnalyzeImage, photoFileName } from '../media/formFile'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
-
-const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
-
-function isStatus(value: string): value is IssueStatus {
-  return statuses.includes(value as IssueStatus)
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -46,14 +40,32 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
+function analyzePhoto(input: ReportIngestInput) {
+  return isAnalyzeImage(input.photo) ? input.photo : undefined
+}
+
+function analyzeAudio(input: ReportIngestInput) {
+  const audio = input.audio
+  if (!audio || audio.size < 1 || isAnalyzeImage(audio)) {
+    return undefined
+  }
+  return audio
+}
+
+function analyzeText(input: ReportIngestInput) {
+  return input.text?.trim() || ''
+}
+
 function toFormData(input: ReportIngestInput) {
   const body = new FormData()
-  if (input.photo) {
-    appendFormFile(body, 'file', input.photo, photoFileName(input.photo))
-  } else if (input.audio) {
-    appendFormFile(body, 'file', input.audio, audioFileName(input.audio))
+  const photo = analyzePhoto(input)
+  const audio = analyzeAudio(input)
+  if (photo) {
+    appendFormFile(body, 'file', photo, photoFileName(photo))
+  } else if (audio) {
+    appendFormFile(body, 'file', audio, audioFileName(audio))
   } else {
-    const text = input.text?.trim()
+    const text = analyzeText(input)
     if (text) {
       body.append('text', text)
     }
@@ -86,7 +98,7 @@ function emptyDraft(overrides: Partial<ReportIngestDraft> = {}): ReportIngestDra
     issueType: defaultIssueType,
     severity: 'medium',
     locationLabel: '',
-    status: 'submitted',
+    status: 'queued',
     ...overrides,
   }
 }
@@ -150,7 +162,7 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
     photoUrl: pickString(source, ['photoUrl', 'photo_url', 'photo']),
     recommendedAction,
     trackingId: pickString(source, ['trackingId', 'tracking_id']),
-    status: isStatus(statusRaw) ? statusRaw : 'submitted',
+    status: statusRaw ? normalizeStatus(statusRaw) : 'queued',
     createdAt: pickString(source, ['createdAt', 'created_at', 'timestamp']),
   })
   if (!hasMeaningfulAnalysisText(draft)) {
@@ -159,11 +171,27 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   return draft
 }
 
-export async function ingestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
-  const url = reportIngestUrl
-  if (!url) {
-    throw new ApiRequestError('unavailable')
+function errorMessageFromPayload(payload: unknown) {
+  const record = asRecord(payload)
+  if (!record) {
+    return typeof payload === 'string' ? payload : ''
   }
+  const error = record.error
+  if (typeof error === 'string') {
+    return error
+  }
+  const nested = asRecord(error)
+  if (nested) {
+    return pickString(nested, ['message', 'error'])
+  }
+  return pickString(record, ['message'])
+}
+
+function isPhotoAnalysisRejection(payload: unknown) {
+  return /only images are supported for photo analysis/i.test(errorMessageFromPayload(payload))
+}
+
+async function postIngest(url: string, input: ReportIngestInput) {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -171,16 +199,41 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
     },
     body: toFormData(input),
   })
-  if (!response.ok) {
-    throw apiRequestErrorFromResponse(response)
-  }
   let payload: unknown
   try {
     payload = (await response.json()) as unknown
   } catch {
+    if (!response.ok) {
+      throw apiRequestErrorFromResponse(response)
+    }
     throw new ApiRequestError('failed')
   }
-  return parseReportIngestResponse(payload)
+  if (!response.ok) {
+    if (isPhotoAnalysisRejection(payload)) {
+      return { kind: 'photo-rejected' as const }
+    }
+    throw apiRequestErrorFromResponse(response)
+  }
+  return { kind: 'ok' as const, draft: parseReportIngestResponse(payload) }
+}
+
+export async function ingestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
+  const url = reportIngestUrl
+  if (!url) {
+    throw new ApiRequestError('unavailable')
+  }
+  const first = await postIngest(url, input)
+  if (first.kind === 'ok') {
+    return first.draft
+  }
+  const note = analyzeText(input)
+  if (!analyzePhoto(input) && analyzeAudio(input) && note) {
+    const retry = await postIngest(url, { ...input, photo: undefined, audio: undefined })
+    if (retry.kind === 'ok') {
+      return retry.draft
+    }
+  }
+  throw new ApiRequestError('failed')
 }
 
 export async function blobFromDataUrl(dataUrl: string) {

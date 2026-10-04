@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
+import AppIcon from '../ui/AppIcon.vue'
 import AudioWaveform from '../ui/AudioWaveform.vue'
 import MorphText from '../ui/MorphText.vue'
 
@@ -65,7 +66,10 @@ defineExpose({ reset, stop: voice.stop })
       @click="onMeter"
     >
       <span class="meta">
-        <span class="time">{{ voice.formatElapsed() }}</span>
+        <span class="time-row">
+          <AppIcon name="microphone" size="1.05rem" />
+          <span class="time">{{ voice.formatElapsed() }}</span>
+        </span>
         <span class="state">
           <MorphText
             :text="
@@ -87,6 +91,7 @@ defineExpose({ reset, stop: voice.stop })
     </button>
     <div v-if="props.includeNote && !voice.recording.value" class="actions">
       <button type="button" class="btn-ghost" @click="typeInstead">
+        <AppIcon name="keyboard" size="1rem" />
         {{ t('report.typeInstead') }}
       </button>
     </div>
@@ -132,6 +137,13 @@ defineExpose({ reset, stop: voice.stop })
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.time-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-h);
 }
 
 .wave {

@@ -1,7 +1,17 @@
 import { computed, ref } from 'vue'
-import { reportTrackUrl } from '../config/apiConfig'
-import { trackReport, type RemoteReport } from '../services/api/reportsApi'
+import { adminReportsUrl, reportTrackUrl } from '../config/apiConfig'
+import { useAuth } from './useAuth'
+import {
+  getAdminReport,
+  listReports,
+  trackReport,
+  updateReportStatus,
+  type RemoteReport,
+} from '../services/api/reportsApi'
+import { ApiRequestError } from '../services/api/apiRequestError'
+import { getAccessToken, getCurrentUser } from '../services/auth/authService'
 import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
+import { isOpenStatus, normalizeStatus } from '../services/report/statusFlow'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 import { defaultIssueType, normalizeIssueType } from '../services/report/issueType'
 import { normalizeSeverity } from '../services/report/severity'
@@ -13,6 +23,7 @@ const issues = ref<Issue[]>([])
 const hydrated = ref(false)
 const storeReady = ref(false)
 let bootstrapPromise: Promise<void> | null = null
+const statusUpdates = new Set<string>()
 
 async function persist() {
   await writeStoreItem(storageKey, JSON.stringify(issues.value))
@@ -48,22 +59,41 @@ function remoteReportIsNewerThanLocal(current: Issue, remote: RemoteReport) {
   return remoteMs > localMs
 }
 
-function normalizeIssue(issue: Issue & { category?: string }): Issue {
+function normalizeIssue(
+  issue: Issue & { category?: string; audioDataUrl?: string },
+): Issue {
   const description = issue.description?.trim() ?? ''
   const transcript = issue.transcript?.trim() ?? ''
   const legacyCategory = typeof issue.category === 'string' ? issue.category : ''
   const issueType = normalizeIssueType(issue.issueType ?? legacyCategory ?? defaultIssueType)
-  const { category: _legacy, ...rest } = issue
+  const { category: _legacy, audioDataUrl, ...rest } = issue
   return {
     ...rest,
     issueType,
+    remoteId: issue.remoteId?.trim() || undefined,
     trackingId: issue.trackingId || trackingIdFromInternal(issue.id),
     reporterId: issue.reporterId ?? '',
     transcript,
     summary: issue.summary?.trim() || description || transcript,
     severity: normalizeSeverity(typeof issue.severity === 'string' ? issue.severity : ''),
+    status: normalizeStatus(typeof issue.status === 'string' ? issue.status : ''),
     photoDataUrl: issue.photoDataUrl,
+    audioUrl: issue.audioUrl || audioDataUrl,
   }
+}
+
+function findRemoteIndex(remote: RemoteReport) {
+  if (remote.remoteId) {
+    const byRemote = issues.value.findIndex((issue) => issue.remoteId === remote.remoteId)
+    if (byRemote >= 0) {
+      return byRemote
+    }
+  }
+  const trackingId = remote.trackingId.trim().toLowerCase()
+  if (!trackingId) {
+    return -1
+  }
+  return issues.value.findIndex((issue) => issue.trackingId.toLowerCase() === trackingId)
 }
 
 export async function bootstrapIssues() {
@@ -100,7 +130,7 @@ export function useIssues() {
   )
 
   const openCount = computed(
-    () => issues.value.filter((issue) => issue.status !== 'resolved').length,
+    () => issues.value.filter((issue) => isOpenStatus(issue.status)).length,
   )
 
   const resolvedCount = computed(
@@ -130,18 +160,21 @@ export function useIssues() {
     const now = new Date().toISOString()
     const issue: Issue = {
       id: createId(),
-      trackingId: input.trackingId?.trim() || createTrackingId(issues.value.map((item) => item.trackingId)),
+      remoteId: input.remoteId?.trim() || undefined,
+      trackingId:
+        input.trackingId?.trim() || createTrackingId(issues.value.map((item) => item.trackingId)),
       title: input.title?.trim() || input.summary.trim(),
       description: input.description.trim(),
       transcript: input.transcript?.trim() ?? '',
       summary: input.summary.trim(),
       issueType: normalizeIssueType(input.issueType),
       severity: input.severity,
-      status: 'submitted',
+      status: input.status ?? 'queued',
       locationLabel: input.locationLabel.trim(),
       latitude: input.latitude,
       longitude: input.longitude,
       photoDataUrl: input.photoDataUrl,
+      audioUrl: input.audioUrl,
       recommendedAction: input.recommendedAction?.trim() || undefined,
       reporterId: input.reporterId,
       createdAt: now,
@@ -152,18 +185,112 @@ export function useIssues() {
     return issue
   }
 
+  async function handleUnauthorized() {
+    const { logout } = useAuth()
+    await logout()
+    const { router } = await import('../router')
+    if (router.currentRoute.value.path !== '/login') {
+      await router.replace('/login')
+    }
+  }
+
+  function isUnauthorized(error: unknown) {
+    return error instanceof ApiRequestError && error.code === 'unauthorized'
+  }
+
+  async function requireStaffToken() {
+    const token = await getAccessToken()
+    if (!token) {
+      await handleUnauthorized()
+      return ''
+    }
+    return token
+  }
+
+  async function loadStaffReports() {
+    if (!adminReportsUrl) {
+      return
+    }
+    const token = await requireStaffToken()
+    if (!token) {
+      return
+    }
+    try {
+      const remotes = await listReports(token)
+      for (const remote of remotes) {
+        await saveRemoteReport(remote, getCurrentUser()?.id ?? '', true)
+      }
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        await handleUnauthorized()
+      }
+    }
+  }
+
+  async function loadStaffReport(reportId: string) {
+    const id = reportId.trim()
+    if (!id || !adminReportsUrl) {
+      return null
+    }
+    const token = await requireStaffToken()
+    if (!token) {
+      return null
+    }
+    try {
+      const remote = await getAdminReport(id, token)
+      return saveRemoteReport(remote, getCurrentUser()?.id ?? '', true)
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        await handleUnauthorized()
+      }
+      throw error
+    }
+  }
+
   async function updateStatus(id: string, status: IssueStatus) {
+    if (statusUpdates.has(id)) {
+      return
+    }
     const index = issues.value.findIndex((issue) => issue.id === id)
     if (index === -1) {
       return
     }
-    const next = { ...issues.value[index], status, updatedAt: new Date().toISOString() }
-    issues.value = [
-      ...issues.value.slice(0, index),
-      next,
-      ...issues.value.slice(index + 1),
-    ]
-    await persist()
+    const current = issues.value[index]
+    const staff = getCurrentUser()?.role === 'staff'
+    statusUpdates.add(id)
+    try {
+      if (staff && adminReportsUrl) {
+        const remoteId = current.remoteId?.trim()
+        if (!remoteId) {
+          return
+        }
+        const token = await requireStaffToken()
+        if (!token) {
+          return
+        }
+        try {
+          const remote = await updateReportStatus(remoteId, status, token)
+          if (remote) {
+            await saveRemoteReport(remote, current.reporterId, true)
+            return
+          }
+        } catch (error) {
+          if (isUnauthorized(error)) {
+            await handleUnauthorized()
+          }
+          return
+        }
+      }
+      const next = { ...current, status, updatedAt: new Date().toISOString() }
+      issues.value = [
+        ...issues.value.slice(0, index),
+        next,
+        ...issues.value.slice(index + 1),
+      ]
+      await persist()
+    } finally {
+      statusUpdates.delete(id)
+    }
   }
 
   function getIssue(id: string) {
@@ -189,16 +316,32 @@ export function useIssues() {
     return new Date(time).toISOString()
   }
 
-  async function saveRemoteReport(remote: RemoteReport, ownerId: string) {
+  async function saveRemoteReport(remote: RemoteReport, ownerId: string, preferRemote = false) {
     const now = new Date().toISOString()
-    const index = issues.value.findIndex(
-      (issue) => issue.trackingId.toLowerCase() === remote.trackingId.toLowerCase(),
-    )
+    const index = findRemoteIndex(remote)
     if (index >= 0) {
       const current = issues.value[index]
-      const acceptRemoteStatus = remoteReportIsNewerThanLocal(current, remote)
+      if (remote.partial) {
+        const next: Issue = {
+          ...current,
+          remoteId: remote.remoteId || current.remoteId,
+          trackingId: remote.trackingId || current.trackingId,
+          status: remote.status,
+          updatedAt: isoOr(remote.updatedAt, now),
+        }
+        issues.value = [
+          ...issues.value.slice(0, index),
+          next,
+          ...issues.value.slice(index + 1),
+        ]
+        await persist()
+        return next
+      }
+      const acceptRemoteStatus = preferRemote || remoteReportIsNewerThanLocal(current, remote)
       const next: Issue = {
         ...current,
+        remoteId: remote.remoteId || current.remoteId,
+        trackingId: remote.trackingId || current.trackingId,
         title: remote.title || current.title,
         description: remote.description || current.description,
         transcript: remote.transcript || current.transcript,
@@ -210,6 +353,7 @@ export function useIssues() {
         latitude: remote.latitude ?? current.latitude,
         longitude: remote.longitude ?? current.longitude,
         photoDataUrl: current.photoDataUrl || remote.photoUrl,
+        audioUrl: current.audioUrl || remote.audioUrl,
         recommendedAction: remote.recommendedAction || current.recommendedAction,
         createdAt: isoOr(remote.createdAt, current.createdAt),
         updatedAt: acceptRemoteStatus
@@ -224,9 +368,13 @@ export function useIssues() {
       await persist()
       return next
     }
+    if (remote.partial || !remote.trackingId) {
+      return null
+    }
     const createdAt = isoOr(remote.createdAt, now)
     const issue: Issue = {
       id: createId(),
+      remoteId: remote.remoteId,
       trackingId: remote.trackingId,
       title: remote.title,
       description: remote.description,
@@ -239,6 +387,7 @@ export function useIssues() {
       latitude: remote.latitude,
       longitude: remote.longitude,
       photoDataUrl: remote.photoUrl,
+      audioUrl: remote.audioUrl,
       recommendedAction: remote.recommendedAction,
       reporterId: ownerId,
       createdAt,
@@ -270,6 +419,8 @@ export function useIssues() {
     issuesForReporter,
     issuesCreatedOn,
     addIssue,
+    loadStaffReports,
+    loadStaffReport,
     updateStatus,
     getIssue,
     getIssueByTrackingId,
