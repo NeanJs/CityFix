@@ -44,6 +44,7 @@ interface SpeechRecognitionConstructor {
 interface Window {
   SpeechRecognition?: SpeechRecognitionConstructor
   webkitSpeechRecognition?: SpeechRecognitionConstructor
+  webkitAudioContext?: typeof AudioContext
 }
 
 interface ViewTransition {
