@@ -172,10 +172,37 @@ function onTrackSubmit() {
 }
 
 .action-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 1.25rem;
+}
+
+.action-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(48%, 14rem);
+  height: 42%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.85;
+  background: radial-gradient(
+    ellipse 100% 100% at 100% 0%,
+    rgba(125, 94, 48, 0.045),
+    transparent 72%
+  );
+  mask-image: linear-gradient(to bottom, black 0%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 92%);
+}
+
+.action-card-header,
+.action-buttons {
+  position: relative;
+  z-index: 1;
 }
 
 .action-card-header {

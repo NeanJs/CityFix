@@ -15,12 +15,12 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
 
 <template>
   <div class="shell">
+    <BackgroundScene />
     <Transition name="boot" mode="out-in">
       <div v-if="booting" key="boot" class="boot" aria-live="polite">
         <p>{{ t('boot') }}</p>
       </div>
       <div v-else key="app" class="app">
-        <BackgroundScene />
         <PageSwitch layer="layout" />
       </div>
     </Transition>
@@ -29,10 +29,14 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
 
 <style scoped>
 .shell {
+  position: relative;
   min-height: 100svh;
+  isolation: isolate;
 }
 
 .boot {
+  position: relative;
+  z-index: 1;
   min-height: 100svh;
   display: grid;
   place-items: center;

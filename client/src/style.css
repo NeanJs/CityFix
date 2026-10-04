@@ -19,6 +19,12 @@
   --danger: #9a3a30;
   --civic-bar: #7d5e30;
 
+  --scene-grid-lot: rgba(47, 61, 82, 0.018);
+  --scene-grid-street: rgba(125, 94, 48, 0.026);
+  --scene-horizon: rgba(47, 61, 82, 0.04);
+  --scene-lot-step: 1.125rem;
+  --scene-block-step: 4.5rem;
+
   --glass-regular-bg: rgba(255, 255, 255, 0.5);
   --glass-thick-bg: rgba(252, 252, 252, 0.62);
   --glass-fill-bg: rgba(252, 252, 252, 0.58);

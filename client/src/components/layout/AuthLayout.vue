@@ -44,7 +44,23 @@ import { appName } from '../../config/appConfig'
     calc(1.2rem + env(safe-area-inset-bottom, 0px));
 }
 
+.auth-shell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -0.9rem;
+  right: -0.9rem;
+  height: 4rem;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(125, 94, 48, 0.032), transparent 88%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+}
+
 .auth-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -81,10 +97,30 @@ import { appName } from '../../config/appConfig'
 }
 
 .auth-main {
+  position: relative;
+  z-index: 1;
   display: grid;
   align-content: start;
   justify-items: center;
   padding-top: 1.5rem;
+}
+
+.auth-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 100% 88% at 50% 42%,
+    transparent 72%,
+    rgba(47, 61, 82, 0.018) 100%
+  );
+}
+
+.auth-main > :deep(*) {
+  position: relative;
+  z-index: 1;
 }
 
 @media (min-width: 720px) {
