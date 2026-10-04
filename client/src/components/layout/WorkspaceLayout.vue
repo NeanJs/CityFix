@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import type { NavItem } from '../../config/nav'
 import { useAndroidBackHandler } from '../../composables/useAndroidBackHandler'
+import { useAuth } from '../../composables/useAuth'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
 import IssueDetailSheet from '../IssueDetailSheet.vue'
@@ -18,7 +19,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useLocale()
-const { getIssue, updateStatus } = useIssues()
+const { reporterId } = useAuth()
+const { getIssue, updateStatus, syncTrackedReport } = useIssues()
 
 const selectedIssueId = ref<string | null>(null)
 const detailOpen = ref(false)
@@ -35,6 +37,11 @@ const navAriaLabel = computed(() => t(props.navAriaKey))
 function openIssue(id: string) {
   selectedIssueId.value = id
   detailOpen.value = true
+  const issue = getIssue(id)
+  if (!issue?.trackingId) {
+    return
+  }
+  void syncTrackedReport(issue.trackingId, reporterId.value).catch(() => undefined)
 }
 
 function closeDetail() {

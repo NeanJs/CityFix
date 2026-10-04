@@ -1,6 +1,8 @@
 import { computed, ref } from 'vue'
+import { reportTrackUrl } from '../config/apiConfig'
 import { seedCitizenId } from '../data/seedUsers'
 import { seedIssues } from '../data/seedIssues'
+import { trackReport, type RemoteReport } from '../services/api/reportsApi'
 import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 import type { Issue, IssueSeverity, IssueStatus, NewIssueInput } from '../types/issue'
@@ -123,6 +125,7 @@ export function useIssues() {
       latitude: input.latitude,
       longitude: input.longitude,
       photoDataUrl: input.photoDataUrl,
+      recommendedAction: input.recommendedAction?.trim() || undefined,
       reporterId: input.reporterId,
       createdAt: now,
       updatedAt: now,
@@ -150,6 +153,94 @@ export function useIssues() {
     return issues.value.find((issue) => issue.id === id)
   }
 
+  function getIssueByTrackingId(trackingId: string) {
+    const needle = trackingId.trim().toLowerCase()
+    if (!needle) {
+      return undefined
+    }
+    return issues.value.find((issue) => issue.trackingId.toLowerCase() === needle)
+  }
+
+  function isoOr(value: string | undefined, fallback: string) {
+    if (!value) {
+      return fallback
+    }
+    const time = new Date(value).getTime()
+    if (Number.isNaN(time)) {
+      return fallback
+    }
+    return new Date(time).toISOString()
+  }
+
+  async function saveRemoteReport(remote: RemoteReport, ownerId: string) {
+    const now = new Date().toISOString()
+    const index = issues.value.findIndex(
+      (issue) => issue.trackingId.toLowerCase() === remote.trackingId.toLowerCase(),
+    )
+    if (index >= 0) {
+      const current = issues.value[index]
+      const next: Issue = {
+        ...current,
+        title: remote.title || current.title,
+        description: remote.description || current.description,
+        transcript: remote.transcript || current.transcript,
+        summary: remote.summary || current.summary,
+        category: remote.category,
+        severity: remote.severity,
+        status: remote.status,
+        locationLabel: remote.locationLabel || current.locationLabel,
+        latitude: remote.latitude ?? current.latitude,
+        longitude: remote.longitude ?? current.longitude,
+        photoDataUrl: current.photoDataUrl || remote.photoUrl,
+        recommendedAction: remote.recommendedAction || current.recommendedAction,
+        createdAt: isoOr(remote.createdAt, current.createdAt),
+        updatedAt: isoOr(remote.updatedAt, now),
+      }
+      issues.value = [
+        ...issues.value.slice(0, index),
+        next,
+        ...issues.value.slice(index + 1),
+      ]
+      await persist()
+      return next
+    }
+    const createdAt = isoOr(remote.createdAt, now)
+    const issue: Issue = {
+      id: createId(),
+      trackingId: remote.trackingId,
+      title: remote.title,
+      description: remote.description,
+      transcript: remote.transcript,
+      summary: remote.summary,
+      category: remote.category,
+      severity: remote.severity,
+      status: remote.status,
+      locationLabel: remote.locationLabel,
+      latitude: remote.latitude,
+      longitude: remote.longitude,
+      photoDataUrl: remote.photoUrl,
+      recommendedAction: remote.recommendedAction,
+      reporterId: ownerId,
+      createdAt,
+      updatedAt: isoOr(remote.updatedAt, createdAt),
+    }
+    issues.value = [issue, ...issues.value]
+    await persist()
+    return issue
+  }
+
+  async function syncTrackedReport(trackingId: string, ownerId: string) {
+    const id = trackingId.trim()
+    if (!id) {
+      return null
+    }
+    if (!reportTrackUrl(id)) {
+      return getIssueByTrackingId(id) ?? null
+    }
+    const remote = await trackReport(id)
+    return saveRemoteReport(remote, ownerId)
+  }
+
   return {
     storeReady,
     issues: sortedIssues,
@@ -161,5 +252,7 @@ export function useIssues() {
     addIssue,
     updateStatus,
     getIssue,
+    getIssueByTrackingId,
+    syncTrackedReport,
   }
 }

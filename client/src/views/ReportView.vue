@@ -6,7 +6,10 @@ import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
+import { reportsCollectionUrl } from '../config/apiConfig'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
+import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
+import { buildReportTitle, inferSeverity } from '../services/report/enrichReport'
 import type { ReportIngestDraft } from '../types/reportIngest'
 import AppHeader from '../components/layout/AppHeader.vue'
 import LocationPickerField from '../components/report/LocationPickerField.vue'
@@ -153,6 +156,33 @@ function goBack() {
   }
 }
 
+function captureDraft(note: string): ReportIngestDraft {
+  const place = form.locationLabel.trim()
+  const category = 'pothole' as const
+  const severity = inferSeverity(`${note} ${place}`)
+  return {
+    title: place ? buildReportTitle(t(`category.${category}`), place) : '',
+    description: note,
+    transcript: note,
+    summary: note,
+    category,
+    severity,
+    locationLabel: place,
+    latitude: latitude.value,
+    longitude: longitude.value,
+    photoUrl: form.photoDataUrl || undefined,
+    status: 'submitted',
+  }
+}
+
+function placeForApi(label: string) {
+  const trimmed = label.trim()
+  if (!trimmed || trimmed === t('report.locationUnset')) {
+    return undefined
+  }
+  return trimmed
+}
+
 async function send() {
   if (submitting.value) {
     return
@@ -168,15 +198,23 @@ async function send() {
   submitStage.value = 'read'
   try {
     const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
-    const next = await ingestReport({
-      photo,
-      audio: audioBlob.value ?? undefined,
-      text: note || undefined,
-      locationLabel: form.locationLabel.trim() || undefined,
-      latitude: latitude.value,
-      longitude: longitude.value,
-      confirmed: false,
-    })
+    let next: ReportIngestDraft
+    try {
+      next = await ingestReport({
+        photo,
+        audio: audioBlob.value ?? undefined,
+        text: note || undefined,
+        locationLabel: form.locationLabel.trim() || undefined,
+        latitude: latitude.value,
+        longitude: longitude.value,
+        confirmed: false,
+      })
+    } catch (error) {
+      if (!reportsCollectionUrl) {
+        throw error
+      }
+      next = captureDraft(note)
+    }
     applyDraft({
       ...next,
       transcript: next.transcript || note,
@@ -200,31 +238,73 @@ async function confirm() {
   submitting.value = true
   submitStage.value = 'file'
   try {
-    const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
-    const next = await ingestReport({
-      photo,
-      audio: audioBlob.value ?? undefined,
-      text: form.transcript.trim() || draft.description.trim() || undefined,
-      locationLabel: draft.locationLabel.trim() || form.locationLabel.trim() || undefined,
+    const place = placeForApi(draft.locationLabel) || placeForApi(form.locationLabel)
+    const note = draft.transcript.trim() || form.transcript.trim()
+    const description =
+      draft.description.trim() || note || draft.summary.trim() || draft.title.trim()
+    const request = {
+      issueType: draft.category,
+      title: draft.title.trim() || draft.summary.trim() || undefined,
+      description: description || undefined,
+      severity: draft.severity,
+      locationDescription: place,
       latitude: draft.latitude ?? latitude.value,
       longitude: draft.longitude ?? longitude.value,
-      confirmed: true,
-      draft: { ...draft },
-    })
+      transcript: note || undefined,
+      photoUrl: draft.photoUrl,
+    }
+    let next: ReportIngestDraft = { ...draft }
+    let recommendedAction = buildCreateReportBody(request).recommended_action
+    if (reportsCollectionUrl) {
+      const created = await createReport(request)
+      recommendedAction = created.recommendedAction || recommendedAction
+      next = {
+        ...draft,
+        title: created.title,
+        description: created.description,
+        transcript: created.transcript || note,
+        summary: created.summary,
+        category: created.category,
+        severity: created.severity,
+        locationLabel: created.locationLabel || place || '',
+        latitude: created.latitude ?? request.latitude,
+        longitude: created.longitude ?? request.longitude,
+        photoUrl: created.photoUrl || draft.photoUrl || form.photoDataUrl,
+        trackingId: created.trackingId,
+        status: created.status,
+        createdAt: created.createdAt,
+      }
+    } else {
+      const photo = form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined
+      next = await ingestReport({
+        photo,
+        audio: audioBlob.value ?? undefined,
+        text: note || description || undefined,
+        locationLabel: place,
+        latitude: request.latitude,
+        longitude: request.longitude,
+        confirmed: true,
+        draft: { ...draft },
+      })
+    }
     applyDraft(next)
-    const description =
+    const filedDescription =
       next.description.trim() || next.transcript.trim() || next.summary.trim() || next.title.trim()
+    const photoDataUrl =
+      form.photoDataUrl ||
+      (next.photoUrl && /^https?:\/\//i.test(next.photoUrl) ? next.photoUrl : undefined)
     const issue = await addIssue({
       title: next.title.trim() || next.summary.trim() || t('report.untitled'),
-      description: description || t('report.untitled'),
+      description: filedDescription || t('report.untitled'),
       transcript: next.transcript.trim() || next.description.trim() || form.transcript.trim(),
-      summary: next.summary.trim() || description || t('report.untitled'),
+      summary: next.summary.trim() || filedDescription || t('report.untitled'),
       category: next.category,
       severity: next.severity,
       locationLabel: next.locationLabel.trim() || t('report.locationUnset'),
       latitude: next.latitude ?? latitude.value,
       longitude: next.longitude ?? longitude.value,
-      photoDataUrl: next.photoUrl || form.photoDataUrl,
+      photoDataUrl,
+      recommendedAction,
       reporterId: reporterId.value,
       trackingId: next.trackingId,
     })

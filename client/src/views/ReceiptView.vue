@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
@@ -11,13 +12,25 @@ import GlassPanel from '../components/ui/GlassPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { getIssue } = useIssues()
+const { reporterId } = useAuth()
+const { getIssue, syncTrackedReport } = useIssues()
 const { t } = useLocale()
 
 const issue = computed(() => {
   const id = route.params.id
   return typeof id === 'string' ? (getIssue(id) ?? null) : null
 })
+
+watch(
+  () => issue.value?.trackingId,
+  (trackingId) => {
+    if (!trackingId) {
+      return
+    }
+    void syncTrackedReport(trackingId, reporterId.value).catch(() => undefined)
+  },
+  { immediate: true },
+)
 
 const confirmation = computed(() => {
   if (!issue.value) {
@@ -75,6 +88,10 @@ function formatWhen(iso: string) {
       <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
       <h2 class="title">{{ issue.title }}</h2>
       <p class="summary">{{ issue.summary }}</p>
+      <div v-if="issue.recommendedAction" class="action-note">
+        <p class="field-label">{{ t('receipt.recommendedAction') }}</p>
+        <p class="summary">{{ issue.recommendedAction }}</p>
+      </div>
       <p class="place">{{ issue.locationLabel }}</p>
       <p class="hint">{{ formatWhen(issue.createdAt) }}</p>
 
@@ -194,6 +211,11 @@ function formatWhen(iso: string) {
   margin: 0;
   color: var(--text);
   line-height: 1.5;
+}
+
+.action-note {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .progress {

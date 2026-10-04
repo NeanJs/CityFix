@@ -15,10 +15,10 @@ Copy `.env.example` to `.env` (and/or set the same keys in your host’s build e
 | `VITE_MAP_DEFAULT_LAT` | No | `49.2827` | Default map center latitude. |
 | `VITE_MAP_DEFAULT_LNG` | No | `-123.1207` | Default map center longitude. |
 | `VITE_MAP_DEFAULT_ZOOM` | No | `12` | Default map zoom. |
-| `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Needed for report ingest. Leave empty until the backend is available. |
-| `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/reports/pothole` | Optional full URL override for the report ingest endpoint. |
+| `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Files reports with `POST /api/reports` and loads them with `GET /api/reports/track/:trackingId`. Leave empty until the backend is available. |
+| `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/reports/pothole` | Optional full URL override for the photo and voice read step. |
 
-\*Required for submitting reports. The UI still builds and runs without it.
+\*Required for saving reports on the server. The UI still builds and runs without it, and keeps the report on this device.
 
 ## Scripts
 

@@ -24,6 +24,7 @@ export type Issue = {
   latitude?: number
   longitude?: number
   photoDataUrl?: string
+  recommendedAction?: string
   reporterId: string
   createdAt: string
   updatedAt: string
@@ -40,6 +41,7 @@ export type NewIssueInput = {
   latitude?: number
   longitude?: number
   photoDataUrl?: string
+  recommendedAction?: string
   reporterId: string
   trackingId?: string
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { issueCategories } from '../data/categories'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import { ReportApiError } from '../services/api/reportsApi'
 import type { IssueCategory, IssueStatus } from '../types/issue'
 import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
@@ -16,7 +17,7 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useLocale()
 const { reporterId } = useAuth()
-const { issues, issuesForReporter } = useIssues()
+const { issues, issuesForReporter, getIssueByTrackingId, syncTrackedReport } = useIssues()
 
 const highlightIssueId = computed(() => {
   const value = route.query.highlight
@@ -39,6 +40,9 @@ const emit = defineEmits<{
 const statusFilter = ref<'all' | IssueStatus>('all')
 const categoryFilter = ref<'all' | IssueCategory>('all')
 const query = ref('')
+const trackingQuery = ref('')
+const tracking = ref(false)
+const trackError = ref('')
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -66,6 +70,52 @@ const statusFilters: { id: 'all' | IssueStatus; labelKey: string }[] = [
   { id: 'resolved', labelKey: 'status.resolved' },
 ]
 
+async function lookupTracking() {
+  if (tracking.value) {
+    return
+  }
+  const id = trackingQuery.value.trim()
+  if (!id) {
+    return
+  }
+  tracking.value = true
+  trackError.value = ''
+  try {
+    const issue = await syncTrackedReport(id, reporterId.value)
+    if (!issue) {
+      trackError.value = t('reports.trackUnavailable')
+      return
+    }
+    trackingQuery.value = issue.trackingId
+    emit('openIssue', issue.id)
+  } catch (error) {
+    if (error instanceof ReportApiError && error.code === 'not-found') {
+      const local = getIssueByTrackingId(id)
+      if (local) {
+        emit('openIssue', local.id)
+        return
+      }
+      trackError.value = t('reports.trackMissing')
+      return
+    }
+    trackError.value = t('reports.trackFailed')
+  } finally {
+    tracking.value = false
+  }
+}
+
+watch(
+  () => route.query.track,
+  (value) => {
+    if (typeof value !== 'string' || !value.trim() || tracking.value) {
+      return
+    }
+    trackingQuery.value = value.trim()
+    void lookupTracking()
+  },
+  { immediate: true },
+)
+
 function formatFiled(iso: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -82,6 +132,33 @@ function formatFiled(iso: string) {
       :subtitle="t(isStaffQueue ? 'reports.staffTitle' : 'reports.citizenTitle')"
       show-account
     />
+
+    <GlassPanel padding="md" tone="fill" class="track-panel">
+      <form class="track-form" @submit.prevent="lookupTracking">
+        <div class="track-copy">
+          <p class="field-label">{{ t('reports.trackLabel') }}</p>
+          <p class="hint">{{ t('reports.trackHint') }}</p>
+        </div>
+        <div class="track-controls">
+          <label class="track-field">
+            <span class="sr-label">{{ t('reports.trackLabel') }}</span>
+            <input
+              v-model="trackingQuery"
+              class="control"
+              type="text"
+              maxlength="40"
+              autocomplete="off"
+              spellcheck="false"
+              :placeholder="t('reports.trackPlaceholder')"
+            />
+          </label>
+          <button type="submit" class="btn" :disabled="tracking || !trackingQuery.trim()">
+            {{ tracking ? t('reports.trackSearching') : t('reports.trackSubmit') }}
+          </button>
+        </div>
+        <p v-if="trackError" class="track-error" role="alert">{{ trackError }}</p>
+      </form>
+    </GlassPanel>
 
     <GlassPanel padding="md" tone="fill" class="toolbar">
       <label class="search">
@@ -197,6 +274,35 @@ function formatFiled(iso: string) {
 .reports {
   display: grid;
   gap: 0.8rem;
+}
+
+.track-panel {
+  display: grid;
+}
+
+.track-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.track-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.track-controls {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.track-field {
+  min-width: 0;
+}
+
+.track-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.82rem;
 }
 
 .toolbar {
@@ -330,6 +436,15 @@ function formatFiled(iso: string) {
 }
 
 @media (min-width: 720px) {
+  .track-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .track-controls .btn {
+    min-width: 8.5rem;
+  }
+
   .toolbar {
     grid-template-columns: minmax(0, 1.3fr) auto;
     align-items: center;
