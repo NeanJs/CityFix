@@ -1,5 +1,6 @@
 import { Mp3Encoder } from '@breezystack/lamejs'
 import { asFormFile } from './formFile'
+import { isolateVoiceSamples } from './isolateVoiceBuffer'
 
 const bitrateKbps = 64
 const targetSampleRate = 22050
@@ -89,6 +90,7 @@ export async function compressVoiceFile(blob: Blob): Promise<File> {
   if (!samples.length) {
     throw new Error('empty')
   }
-  const mp3 = await encodePcmToMp3(samples, voice.sampleRate)
+  const isolated = await isolateVoiceSamples(samples, voice.sampleRate)
+  const mp3 = await encodePcmToMp3(isolated, voice.sampleRate)
   return asFormFile(mp3, 'voice.mp3')
 }

@@ -16,6 +16,7 @@ import HomeView from '../views/HomeView.vue'
 import ReceiptView from '../views/ReceiptView.vue'
 import ReportView from '../views/ReportView.vue'
 import ReportsView from '../views/ReportsView.vue'
+import VoiceView from '../views/VoiceView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -53,6 +54,7 @@ export const router = createRouter({
       children: [
         { path: '', name: 'home', component: HomeView },
         { path: 'report', name: 'report', component: ReportView },
+        { path: 'voice', name: 'voice', component: VoiceView },
         {
           path: 'report/receipt/:id',
           name: 'reportReceipt',

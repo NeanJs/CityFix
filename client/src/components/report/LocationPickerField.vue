@@ -105,20 +105,24 @@ function onMoveEnd() {
 async function locate(force: boolean, refresh = false) {
   locating.value = true
   locationError.value = ''
-  const result = await requestCurrentPosition({ force: refresh })
-  locating.value = false
-  if (!result.ok) {
-    locationError.value = t(result.errorKey)
-    if (latitude.value === undefined || longitude.value === undefined) {
-      jumpTo(defaultMapCenter[1], defaultMapCenter[0])
+  try {
+    const result = await requestCurrentPosition({ force: refresh })
+    if (!result.ok) {
+      locationError.value = t(result.errorKey)
+      if (latitude.value === undefined || longitude.value === undefined) {
+        jumpTo(defaultMapCenter[1], defaultMapCenter[0])
+      }
+      return
     }
-    return
+    if (!force && userMoved.value) {
+      return
+    }
+    userMoved.value = false
+    jumpTo(result.latitude, result.longitude)
+  } finally {
+    locating.value = false
+    await nextTick()
   }
-  if (!force && userMoved.value) {
-    return
-  }
-  userMoved.value = false
-  jumpTo(result.latitude, result.longitude)
 }
 
 async function locateIfNeeded() {

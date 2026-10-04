@@ -65,7 +65,7 @@ const columns = computed(() => props.items.length)
 .dock {
   pointer-events: auto;
   position: relative;
-  max-width: 28rem;
+  max-width: 34rem;
   margin: 0 auto;
   display: grid;
   gap: 0.2rem;

@@ -45,6 +45,7 @@ export type AppIconName =
   | 'tray'
   | 'paperPlaneTilt'
   | 'keyboard'
+  | 'voice'
 
 export type AppIconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone'
 
@@ -71,6 +72,7 @@ const icons: Record<AppIconName, Component> = {
   tray: PhTray,
   paperPlaneTilt: PhPaperPlaneTilt,
   keyboard: PhKeyboard,
+  voice: PhMicrophone,
 }
 
 const props = withDefaults(

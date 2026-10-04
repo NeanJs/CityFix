@@ -12,6 +12,7 @@ interface ImportMetaEnv {
   readonly VITE_REPORT_INGEST_URL?: string
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
+  readonly VITE_ELEVENLABS_AGENT_ID?: string
 }
 
 interface ImportMeta {
@@ -20,6 +21,10 @@ interface ImportMeta {
 
 interface Window {
   webkitAudioContext?: typeof AudioContext
+}
+
+interface MediaTrackConstraintSet {
+  voiceIsolation?: ConstrainBoolean
 }
 
 interface ViewTransition {

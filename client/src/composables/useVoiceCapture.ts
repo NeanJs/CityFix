@@ -1,6 +1,10 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { compressVoiceFile } from '../services/media/compressAudio'
 import { createSpeechEndpoint } from '../services/media/speechEndpoint'
+import {
+  createVoiceIsolateGraph,
+  requestVoiceMediaStream,
+} from '../services/media/voiceIsolate'
 
 const minRecordingMs = 3000
 
@@ -26,6 +30,7 @@ export function useVoiceCapture() {
   let encodePromise: Promise<Blob | null> | null = null
   let stopResolve: ((blob: Blob | null) => void) | null = null
   let endpointClosing = false
+  let stopIsolate: (() => void) | null = null
 
   const endpoint = createSpeechEndpoint({
     onEnded: () => {
@@ -57,7 +62,12 @@ export function useVoiceCapture() {
   }
 
   function stopStream() {
-    mediaStream.value?.getTracks().forEach((track) => track.stop())
+    if (stopIsolate) {
+      stopIsolate()
+      stopIsolate = null
+    } else {
+      mediaStream.value?.getTracks().forEach((track) => track.stop())
+    }
     mediaStream.value = null
   }
 
@@ -105,15 +115,23 @@ export function useVoiceCapture() {
       return
     }
     endpoint.prime()
+    const generation = captureGeneration
+    let captured: MediaStream | null = null
     try {
-      mediaStream.value = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
+      captured = await requestVoiceMediaStream()
+      if (generation !== captureGeneration) {
+        captured.getTracks().forEach((track) => track.stop())
+        return
+      }
+      const graph = await createVoiceIsolateGraph(captured)
+      if (generation !== captureGeneration) {
+        graph.stop()
+        return
+      }
+      stopIsolate = graph.stop
+      mediaStream.value = graph.stream
     } catch (error) {
+      captured?.getTracks().forEach((track) => track.stop())
       const name = error instanceof DOMException ? error.name : ''
       errorKey.value = name === 'NotAllowedError' ? 'report.voiceDenied' : 'report.voiceFailed'
       return
@@ -124,6 +142,7 @@ export function useVoiceCapture() {
     const mimeType = recorderMime()
     const stream = mediaStream.value
     if (!stream) {
+      stopStream()
       return
     }
     mediaRecorder = mimeType
@@ -134,7 +153,6 @@ export function useVoiceCapture() {
         chunks.push(event.data)
       }
     }
-    const generation = captureGeneration
     mediaRecorder.onstop = () => {
       const durationMs = Date.now() - startedAt
       const recorded = chunks

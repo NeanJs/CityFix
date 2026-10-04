@@ -19,14 +19,11 @@ function swap(next: string) {
     shown.value = next
     return
   }
+  shown.value = next
   run(() => {
     gsap.killTweensOf(node)
     gsap
       .timeline({ overwrite: 'auto' })
-      .to(node, { opacity: 0, y: 4, duration: duration.xs, ease: easings.primary })
-      .add(() => {
-        shown.value = next
-      })
       .fromTo(
         node,
         { opacity: 0, y: -4 },

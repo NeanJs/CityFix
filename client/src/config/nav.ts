@@ -1,6 +1,6 @@
 import type { UserRole } from '../types/user'
 
-export type NavIcon = 'home' | 'report' | 'reports' | 'dashboard'
+export type NavIcon = 'home' | 'report' | 'reports' | 'dashboard' | 'voice'
 
 export type NavItem = {
   name: string
@@ -13,6 +13,7 @@ export type NavItem = {
 export const citizenNavItems: NavItem[] = [
   { name: 'home', path: '/', labelKey: 'nav.overview', icon: 'home' },
   { name: 'report', path: '/report', labelKey: 'nav.newReport', icon: 'report', emphasis: true },
+  { name: 'voice', path: '/voice', labelKey: 'nav.voice', icon: 'voice' },
   { name: 'reports', path: '/reports', labelKey: 'nav.myReports', icon: 'reports' },
 ]
 
