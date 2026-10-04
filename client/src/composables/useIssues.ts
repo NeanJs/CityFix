@@ -31,6 +31,29 @@ function isSeverity(value: unknown): value is IssueSeverity {
   return typeof value === 'string' && severities.includes(value as IssueSeverity)
 }
 
+function isoTimestamp(value: string | undefined) {
+  if (!value) {
+    return null
+  }
+  const time = new Date(value).getTime()
+  if (Number.isNaN(time)) {
+    return null
+  }
+  return time
+}
+
+function remoteReportIsNewerThanLocal(current: Issue, remote: RemoteReport) {
+  const remoteMs = isoTimestamp(remote.updatedAt)
+  if (remoteMs === null) {
+    return false
+  }
+  const localMs = isoTimestamp(current.updatedAt)
+  if (localMs === null) {
+    return true
+  }
+  return remoteMs > localMs
+}
+
 function normalizeIssue(issue: Issue): Issue {
   const description = issue.description?.trim() ?? ''
   const transcript = issue.transcript?.trim() ?? ''
@@ -179,6 +202,7 @@ export function useIssues() {
     )
     if (index >= 0) {
       const current = issues.value[index]
+      const acceptRemoteStatus = remoteReportIsNewerThanLocal(current, remote)
       const next: Issue = {
         ...current,
         title: remote.title || current.title,
@@ -187,14 +211,16 @@ export function useIssues() {
         summary: remote.summary || current.summary,
         category: remote.category,
         severity: remote.severity,
-        status: remote.status,
+        status: acceptRemoteStatus ? remote.status : current.status,
         locationLabel: remote.locationLabel || current.locationLabel,
         latitude: remote.latitude ?? current.latitude,
         longitude: remote.longitude ?? current.longitude,
         photoDataUrl: current.photoDataUrl || remote.photoUrl,
         recommendedAction: remote.recommendedAction || current.recommendedAction,
         createdAt: isoOr(remote.createdAt, current.createdAt),
-        updatedAt: isoOr(remote.updatedAt, now),
+        updatedAt: acceptRemoteStatus
+          ? isoOr(remote.updatedAt, current.updatedAt)
+          : current.updatedAt,
       }
       issues.value = [
         ...issues.value.slice(0, index),

@@ -1,4 +1,9 @@
 import { reportsCollectionUrl, reportTrackUrl } from '../../config/apiConfig'
+import {
+  apiRequestErrorFromResponse,
+  ApiRequestError,
+  type ApiRequestErrorCode,
+} from './apiRequestError'
 import { demoReport } from '../../data/demoReport'
 import { normalizeIssueCategory } from '../../data/categories'
 import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
@@ -7,14 +12,16 @@ import type { IssueCategory, IssueSeverity, IssueStatus } from '../../types/issu
 const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
 
-export class ReportApiError extends Error {
-  readonly code: 'not-found' | 'failed' | 'unavailable'
-
-  constructor(code: 'not-found' | 'failed' | 'unavailable') {
-    super(code)
-    this.code = code
+export class ReportApiError extends ApiRequestError {
+  constructor(code: ApiRequestErrorCode, retryAfterSeconds?: number) {
+    super(code, retryAfterSeconds)
     this.name = 'ReportApiError'
   }
+}
+
+function errorFromResponse(response: Response) {
+  const mapped = apiRequestErrorFromResponse(response)
+  return new ReportApiError(mapped.code, mapped.retryAfterSeconds)
 }
 
 export type CreateReportBody = {
@@ -272,7 +279,7 @@ export async function createReport(input: CreateReportInput): Promise<RemoteRepo
     body: buildCreateReportFormData(input),
   })
   if (!response.ok) {
-    throw new ReportApiError(response.status === 404 ? 'not-found' : 'failed')
+    throw errorFromResponse(response)
   }
   return parseRemoteReport(await readPayload(response))
 }
@@ -287,7 +294,7 @@ export async function trackReport(trackingId: string): Promise<RemoteReport> {
     headers: { Accept: 'application/json' },
   })
   if (!response.ok) {
-    throw new ReportApiError(response.status === 404 ? 'not-found' : 'failed')
+    throw errorFromResponse(response)
   }
   return parseRemoteReport(await readPayload(response))
 }

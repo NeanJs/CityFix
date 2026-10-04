@@ -1,4 +1,5 @@
 import { reportIngestUrl } from '../../config/apiConfig'
+import { apiRequestErrorFromResponse } from './apiRequestError'
 import { normalizeIssueCategory } from '../../data/categories'
 import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
@@ -163,7 +164,7 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
     body: toFormData(input),
   })
   if (!response.ok) {
-    throw new Error('ingest-failed')
+    throw apiRequestErrorFromResponse(response)
   }
   const payload = (await response.json()) as unknown
   return parseReportIngestResponse(payload)

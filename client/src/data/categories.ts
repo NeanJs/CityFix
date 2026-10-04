@@ -1,4 +1,4 @@
-import type { IssueCategory } from '../types/issue'
+import type { IssueCategory } from '../types/issue.ts'
 
 export type CategoryMeta = {
   id: IssueCategory

@@ -1,5 +1,11 @@
 export const en = {
   boot: 'Loading workspace…',
+  api: {
+    rateLimitedGeneric: 'Too many requests. Please try again later.',
+    rateLimitedSeconds: 'Too many requests. Try again in about {count} seconds.',
+    rateLimitedMinutes: 'Too many requests. Try again in about {count} minutes.',
+    rateLimitedHours: 'Too many requests. Try again in about {count} hours.',
+  },
   language: {
     label: 'Language',
     en: 'English',

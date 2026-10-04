@@ -8,6 +8,7 @@ import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { reportsCollectionUrl } from '../config/apiConfig'
 import { normalizeIssueCategory } from '../data/categories'
+import { apiErrorMessage, isApiRateLimited } from '../services/api/apiRequestError'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
 import { buildReportTitle, inferSeverity } from '../services/report/enrichReport'
@@ -332,7 +333,7 @@ async function send() {
         confirmed: false,
       })
     } catch (error) {
-      if (!reportsCollectionUrl) {
+      if (isApiRateLimited(error) || !reportsCollectionUrl) {
         throw error
       }
       next = captureDraft(note)
@@ -345,8 +346,8 @@ async function send() {
       photoUrl: next.photoUrl || form.photoDataUrl,
     })
     await setPhase('review')
-  } catch {
-    submitError.value = t('report.ingestFailed')
+  } catch (error) {
+    submitError.value = apiErrorMessage(error, t, 'report.ingestFailed')
   } finally {
     submitting.value = false
   }
@@ -435,8 +436,8 @@ async function confirm() {
     await withViewTransition(() =>
       router.replace({ name: 'reportReceipt', params: { id: issue.id } }),
     )
-  } catch {
-    submitError.value = t('report.fileFailed')
+  } catch (error) {
+    submitError.value = apiErrorMessage(error, t, 'report.fileFailed')
   } finally {
     submitting.value = false
   }

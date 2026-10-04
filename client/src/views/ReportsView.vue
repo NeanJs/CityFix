@@ -6,6 +6,7 @@ import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useFlipGroup } from '../motion/useFlipGroup'
+import { apiErrorMessage } from '../services/api/apiRequestError'
 import { ReportApiError } from '../services/api/reportsApi'
 import type { IssueCategory, IssueStatus } from '../types/issue'
 import IssueCard from '../components/IssueCard.vue'
@@ -121,7 +122,7 @@ async function lookupTracking() {
       trackError.value = t('reports.trackMissing')
       return
     }
-    trackError.value = t('reports.trackFailed')
+    trackError.value = apiErrorMessage(error, t, 'reports.trackFailed')
   } finally {
     tracking.value = false
   }

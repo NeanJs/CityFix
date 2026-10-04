@@ -35,6 +35,14 @@ const selectedIssue = computed(() => {
 
 const navAriaLabel = computed(() => t(props.navAriaKey))
 
+async function refreshIssueFromRemote(trackingId: string) {
+  try {
+    await syncTrackedReport(trackingId, reporterId.value)
+  } catch {
+    /* keep local issue; sheet already open */
+  }
+}
+
 function openIssue(id: string) {
   captureIssueFlip(id)
   selectedIssueId.value = id
@@ -43,7 +51,7 @@ function openIssue(id: string) {
   if (!issue?.trackingId) {
     return
   }
-  void syncTrackedReport(issue.trackingId, reporterId.value).catch(() => undefined)
+  void refreshIssueFromRemote(issue.trackingId)
 }
 
 function closeDetail() {
