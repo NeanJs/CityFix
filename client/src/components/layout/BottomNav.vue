@@ -86,9 +86,9 @@ const columns = computed(() => props.items.length)
   max-width: 28rem;
   margin: 0 auto;
   display: grid;
-  gap: 0.3rem;
-  padding: 0.3rem;
-  border-radius: var(--radius-lg);
+  gap: 0.2rem;
+  padding: 0.28rem;
+  border-radius: var(--radius-pill);
   border-width: 1.5px;
 }
 
@@ -101,7 +101,7 @@ const columns = computed(() => props.items.length)
   gap: 0.2rem;
   padding: 0.45rem 0.3rem;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text);
   font-size: 0.7rem;
@@ -122,7 +122,7 @@ const columns = computed(() => props.items.length)
 }
 
 .dock :deep(.indicator.fill) {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
 }
 
 .item.emphasis .icon {

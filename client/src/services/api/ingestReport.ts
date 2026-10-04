@@ -50,13 +50,13 @@ function toFormData(input: ReportIngestInput) {
   const body = new FormData()
   if (input.photo) {
     appendFormFile(body, 'file', input.photo, photoFileName(input.photo))
-  }
-  if (input.audio) {
+  } else if (input.audio) {
     appendFormFile(body, 'file', input.audio, audioFileName(input.audio))
-  }
-  const text = input.text?.trim()
-  if (text) {
-    body.append('text', text)
+  } else {
+    const text = input.text?.trim()
+    if (text) {
+      body.append('text', text)
+    }
   }
   const place = input.locationLabel?.trim()
   if (place) {
