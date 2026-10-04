@@ -37,11 +37,15 @@ function ingestOverrideUrl(value: string) {
 
 export const apiBaseUrl = stripTrailingSlash(withScheme(import.meta.env.VITE_API_BASE_URL ?? ''))
 
-export const reportIngestPath = '/reports/analyze'
+export const reportIngestPath = '/api/reports/analyze'
 
 export const reportIngestUrl =
   ingestOverrideUrl(import.meta.env.VITE_REPORT_INGEST_URL ?? '') ||
   joinApiUrl(apiBaseUrl, reportIngestPath)
+
+export const reportTranscribePath = '/api/reports/transcribe'
+
+export const reportTranscribeUrl = joinApiUrl(apiBaseUrl, reportTranscribePath)
 
 export const reportsCollectionPath = '/api/reports'
 

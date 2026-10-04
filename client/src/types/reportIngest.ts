@@ -19,7 +19,6 @@ export type ReportIngestDraft = {
 
 export type ReportIngestInput = {
   photo?: Blob
-  audio?: Blob
   text?: string
   locationLabel?: string
   latitude?: number

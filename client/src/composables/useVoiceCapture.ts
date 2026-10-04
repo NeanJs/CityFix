@@ -1,13 +1,6 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { compressVoiceFile } from '../services/media/compressAudio'
 
-function recognitionCtor() {
-  if (typeof window === 'undefined') {
-    return undefined
-  }
-  return window.SpeechRecognition ?? window.webkitSpeechRecognition
-}
-
 function recorderMime() {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
   return types.find((type) => MediaRecorder.isTypeSupported(type))
@@ -19,13 +12,10 @@ export function useVoiceCapture() {
   const elapsed = ref(0)
   const audioUrl = ref('')
   const audioBlob = ref<Blob | null>(null)
-  const transcript = ref('')
   const errorKey = ref('')
-  const recognitionSupported = Boolean(recognitionCtor())
 
   const mediaStream = ref<MediaStream | null>(null)
   let mediaRecorder: MediaRecorder | null = null
-  let recognition: SpeechRecognition | null = null
   let chunks: Blob[] = []
   let timer: number | null = null
   let startedAt = 0
@@ -47,60 +37,9 @@ export function useVoiceCapture() {
     }
   }
 
-  function stopRecognition() {
-    if (!recognition) {
-      return
-    }
-    recognition.onresult = null
-    recognition.onerror = null
-    recognition.onend = null
-    try {
-      recognition.stop()
-    } catch {
-      /* already stopped */
-    }
-    recognition = null
-  }
-
   function stopStream() {
     mediaStream.value?.getTracks().forEach((track) => track.stop())
     mediaStream.value = null
-  }
-
-  function startRecognition() {
-    const Ctor = recognitionCtor()
-    if (!Ctor) {
-      return
-    }
-    const session = new Ctor()
-    session.continuous = true
-    session.interimResults = true
-    session.lang = 'en-US'
-    session.onresult = (event) => {
-      let text = ''
-      for (let index = 0; index < event.results.length; index += 1) {
-        text += event.results[index][0].transcript
-      }
-      transcript.value = text.trim()
-    }
-    session.onerror = () => {
-      /* typed description remains available */
-    }
-    session.onend = () => {
-      if (recording.value) {
-        try {
-          session.start()
-        } catch {
-          /* session ended */
-        }
-      }
-    }
-    recognition = session
-    try {
-      session.start()
-    } catch {
-      recognition = null
-    }
   }
 
   async function finalizeRecording(raw: Blob, generation: number) {
@@ -150,7 +89,6 @@ export function useVoiceCapture() {
     revokeUrl()
     audioBlob.value = null
     chunks = []
-    transcript.value = ''
     const mimeType = recorderMime()
     const stream = mediaStream.value
     if (!stream) {
@@ -182,7 +120,6 @@ export function useVoiceCapture() {
     timer = window.setInterval(() => {
       elapsed.value = Math.floor((Date.now() - startedAt) / 1000)
     }, 250)
-    startRecognition()
   }
 
   function stop() {
@@ -195,7 +132,6 @@ export function useVoiceCapture() {
     recording.value = false
     encoding.value = true
     clearTimer()
-    stopRecognition()
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       return new Promise<Blob | null>((resolve) => {
         const recorder = mediaRecorder
@@ -229,7 +165,6 @@ export function useVoiceCapture() {
     if (recording.value) {
       recording.value = false
       clearTimer()
-      stopRecognition()
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.onstop = () => {
           stopStream()
@@ -246,7 +181,6 @@ export function useVoiceCapture() {
     }
     revokeUrl()
     audioBlob.value = null
-    transcript.value = ''
     elapsed.value = 0
     errorKey.value = ''
   }
@@ -270,9 +204,7 @@ export function useVoiceCapture() {
     mediaStream,
     audioUrl,
     audioBlob,
-    transcript,
     errorKey,
-    recognitionSupported,
     start,
     stop,
     reset,

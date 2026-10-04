@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { useVoiceCapture } from '../../composables/useVoiceCapture'
+import { apiErrorMessage } from '../../services/api/apiRequestError'
+import { transcribeReport } from '../../services/api/transcribeReport'
+import { playVoiceCaptureEffect } from '../../services/media/voiceCaptureEffects'
 import AppIcon from '../ui/AppIcon.vue'
 import AudioWaveform from '../ui/AudioWaveform.vue'
 import MorphText from '../ui/MorphText.vue'
@@ -20,24 +23,121 @@ const { t } = useLocale()
 const voice = useVoiceCapture()
 const note = ref<HTMLTextAreaElement | null>(null)
 const waveform = ref<{ prime: () => void; clear: () => void } | null>(null)
+const transcribing = ref(false)
+const transcribeError = ref('')
+const busy = computed(() => voice.encoding.value || transcribing.value)
+const meterLabel = computed(() => {
+  if (voice.recording.value) {
+    return t('report.stopVoice')
+  }
+  if (busy.value) {
+    return t('report.transcribing')
+  }
+  if (voice.audioUrl.value) {
+    return t('report.voiceReady')
+  }
+  return t('report.startVoice')
+})
+
+let transcribeGeneration = 0
+let transcribeAbort: AbortController | null = null
+let transcribePromise: Promise<string> | null = null
+let inFlightBlob: Blob | null = null
+let transcribedBlob: Blob | null = null
+
+function abortTranscribe() {
+  transcribeGeneration += 1
+  transcribeAbort?.abort()
+  transcribeAbort = null
+  transcribePromise = null
+  inFlightBlob = null
+  transcribing.value = false
+}
+
+function isAbortError(error: unknown) {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true
+  }
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+async function transcribeBlob(blob: Blob, force = false): Promise<string> {
+  if (blob.size < 1) {
+    return transcript.value.trim()
+  }
+  if (!force && transcribedBlob === blob && transcript.value.trim()) {
+    return transcript.value.trim()
+  }
+  if (!force && transcribePromise && inFlightBlob === blob) {
+    return transcribePromise
+  }
+  const generation = transcribeGeneration + 1
+  transcribeGeneration = generation
+  transcribeAbort?.abort()
+  const controller = new AbortController()
+  transcribeAbort = controller
+  inFlightBlob = blob
+  transcribing.value = true
+  transcribeError.value = ''
+  playVoiceCaptureEffect('send')
+  const run = (async () => {
+    try {
+      const text = await transcribeReport(blob, controller.signal)
+      if (generation !== transcribeGeneration) {
+        return ''
+      }
+      transcribedBlob = blob
+      transcript.value = text
+      playVoiceCaptureEffect('response')
+      return text
+    } catch (error) {
+      if (controller.signal.aborted || isAbortError(error) || generation !== transcribeGeneration) {
+        return ''
+      }
+      transcribeError.value = apiErrorMessage(error, t, 'report.transcribeFailed')
+      return ''
+    } finally {
+      if (generation === transcribeGeneration) {
+        transcribing.value = false
+        transcribePromise = null
+        transcribeAbort = null
+        inFlightBlob = null
+      }
+    }
+  })()
+  transcribePromise = run
+  return run
+}
 
 function onMeter() {
-  waveform.value?.prime()
   if (voice.recording.value) {
+    waveform.value?.prime()
     void voice.stop()
     return
   }
+  if (busy.value) {
+    return
+  }
+  waveform.value?.prime()
   void voice.start()
 }
 
-watch(voice.transcript, (value) => {
-  if (voice.recording.value || value) {
-    transcript.value = value
+watch(voice.recording, (recording) => {
+  if (!recording) {
+    return
   }
+  playVoiceCaptureEffect('start')
+  abortTranscribe()
+  transcribeError.value = ''
+  transcribedBlob = null
+  transcript.value = ''
 })
 
 watch(voice.audioBlob, (value) => {
   audioBlob.value = value
+  if (value && value.size > 0) {
+    void transcribeBlob(value)
+  }
 })
 
 async function typeInstead() {
@@ -45,14 +145,36 @@ async function typeInstead() {
   note.value?.focus()
 }
 
+async function awaitTranscript() {
+  const blob = await voice.stop()
+  if (transcribePromise) {
+    return transcribePromise
+  }
+  const captured = blob ?? voice.audioBlob.value ?? audioBlob.value
+  if (transcript.value.trim()) {
+    return transcript.value.trim()
+  }
+  if (captured && captured.size > 0) {
+    return transcribeBlob(captured, true)
+  }
+  return ''
+}
+
 function reset() {
+  abortTranscribe()
+  transcribeError.value = ''
+  transcribedBlob = null
   voice.reset()
   waveform.value?.clear()
   transcript.value = ''
   audioBlob.value = null
 }
 
-defineExpose({ reset, stop: voice.stop })
+onBeforeUnmount(() => {
+  abortTranscribe()
+})
+
+defineExpose({ reset, stop: voice.stop, awaitTranscript, busy })
 </script>
 
 <template>
@@ -62,7 +184,8 @@ defineExpose({ reset, stop: voice.stop })
     <button
       type="button"
       class="meter"
-      :class="{ live: voice.recording.value }"
+      :class="{ live: voice.recording.value, busy }"
+      :disabled="!voice.recording.value && busy"
       @click="onMeter"
     >
       <span class="meta">
@@ -71,15 +194,7 @@ defineExpose({ reset, stop: voice.stop })
           <span class="time">{{ voice.formatElapsed() }}</span>
         </span>
         <span class="state">
-          <MorphText
-            :text="
-              voice.recording.value
-                ? t('report.stopVoice')
-                : voice.audioUrl.value
-                  ? t('report.voiceReady')
-                  : t('report.startVoice')
-            "
-          />
+          <MorphText :text="meterLabel" />
         </span>
       </span>
       <AudioWaveform
@@ -104,10 +219,12 @@ defineExpose({ reset, stop: voice.stop })
         class="control"
         rows="4"
         maxlength="800"
+        :disabled="busy"
         :placeholder="t('report.transcriptPlaceholder')"
       />
     </label>
     <p v-if="voice.errorKey.value" class="error">{{ t(voice.errorKey.value) }}</p>
+    <p v-else-if="transcribeError" class="error">{{ transcribeError }}</p>
   </div>
 </template>
 
@@ -132,6 +249,10 @@ defineExpose({ reset, stop: voice.stop })
   text-align: start;
 }
 
+.meter:disabled {
+  cursor: default;
+}
+
 .meta {
   display: flex;
   align-items: center;
@@ -150,7 +271,8 @@ defineExpose({ reset, stop: voice.stop })
   height: 2.7rem;
 }
 
-.meter.live {
+.meter.live,
+.meter.busy {
   border-color: var(--accent);
 }
 
@@ -162,8 +284,8 @@ defineExpose({ reset, stop: voice.stop })
 
 .state {
   font-size: 0.84rem;
-  font-weight: 650;
   color: var(--text-muted);
+  font-weight: 650;
 }
 
 .actions {

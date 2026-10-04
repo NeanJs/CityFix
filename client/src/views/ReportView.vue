@@ -31,7 +31,12 @@ const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'read' | 'file'>('read')
 const phase = ref<'capture' | 'review'>('capture')
-const voiceField = ref<{ reset: () => void; stop: () => Promise<Blob | null> } | null>(null)
+const voiceField = ref<{
+  reset: () => void
+  stop: () => Promise<Blob | null>
+  awaitTranscript: () => Promise<string>
+  busy: boolean
+} | null>(null)
 const reportRoot = ref<HTMLElement | null>(null)
 const commandEl = ref<HTMLElement | null>(null)
 const keyboardInset = ref(0)
@@ -308,15 +313,15 @@ async function send() {
     return
   }
   submitError.value = ''
-  const note = form.transcript.trim()
-  await voiceField.value?.stop()
-  if (!form.photoDataUrl && !audioBlob.value && !note) {
-    submitError.value = t('report.incomplete')
-    return
-  }
   submitting.value = true
   submitStage.value = 'read'
   try {
+    await voiceField.value?.stop()
+    const note = (await voiceField.value?.awaitTranscript())?.trim() || form.transcript.trim()
+    if (!form.photoDataUrl && !note) {
+      submitError.value = audioBlob.value ? t('report.transcribeFailed') : t('report.incomplete')
+      return
+    }
     const storedPhoto = photoFile.value
     const photo =
       (isAnalyzeImage(storedPhoto) ? storedPhoto : undefined) ??
@@ -325,7 +330,6 @@ async function send() {
         : undefined)
     const next = await ingestReport({
       photo,
-      audio: audioBlob.value ?? undefined,
       text: note || undefined,
       locationLabel: form.locationLabel.trim() || undefined,
       latitude: latitude.value,
@@ -498,6 +502,7 @@ async function confirm() {
                   class="control"
                   rows="4"
                   maxlength="800"
+                  :disabled="Boolean(voiceField?.busy)"
                   :placeholder="t('report.transcriptPlaceholder')"
                 />
               </label>

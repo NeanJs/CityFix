@@ -15,8 +15,8 @@ Copy `.env.example` to `.env` (and/or set the same keys in your host’s build e
 | `VITE_MAP_DEFAULT_LAT` | No | `49.2827` | Default map center latitude. |
 | `VITE_MAP_DEFAULT_LNG` | No | `-123.1207` | Default map center longitude. |
 | `VITE_MAP_DEFAULT_ZOOM` | No | `12` | Default map zoom. |
-| `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Files reports with `POST /api/reports` and loads them with `GET /api/reports/track/:trackingId`. Leave empty until the backend is available. |
-| `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/reports/analyze` | Optional full URL override for the photo and voice read step. |
+| `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Files reports with `POST /api/reports`, transcribes voice with `POST /api/reports/transcribe`, and loads them with `GET /api/reports/track/:trackingId`. Leave empty until the backend is available. |
+| `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/api/reports/analyze` | Optional full URL override for the photo and text analysis step. |
 
 \*Required for analyzing and filing reports. Without it, the report flow shows an error instead of continuing with local-only data.
 

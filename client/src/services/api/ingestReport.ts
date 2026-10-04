@@ -4,7 +4,7 @@ import { defaultIssueType } from '../report/issueType'
 import { normalizeSeverity } from '../report/severity'
 import { normalizeStatus } from '../report/statusFlow'
 import { pickIssueType } from './pickIssueType'
-import { appendFormFile, audioFileName, fileFromDataUrl, isAnalyzeImage, photoFileName } from '../media/formFile'
+import { appendFormFile, fileFromDataUrl, isAnalyzeImage, photoFileName } from '../media/formFile'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -44,14 +44,6 @@ function analyzePhoto(input: ReportIngestInput) {
   return isAnalyzeImage(input.photo) ? input.photo : undefined
 }
 
-function analyzeAudio(input: ReportIngestInput) {
-  const audio = input.audio
-  if (!audio || audio.size < 1 || isAnalyzeImage(audio)) {
-    return undefined
-  }
-  return audio
-}
-
 function analyzeText(input: ReportIngestInput) {
   return input.text?.trim() || ''
 }
@@ -59,16 +51,8 @@ function analyzeText(input: ReportIngestInput) {
 function toFormData(input: ReportIngestInput) {
   const body = new FormData()
   const photo = analyzePhoto(input)
-  const audio = analyzeAudio(input)
   if (photo) {
     appendFormFile(body, 'file', photo, photoFileName(photo))
-  } else if (audio) {
-    appendFormFile(body, 'file', audio, audioFileName(audio))
-  } else {
-    const text = analyzeText(input)
-    if (text) {
-      body.append('text', text)
-    }
   }
   const place = input.locationLabel?.trim()
   if (place) {
@@ -171,50 +155,23 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   return draft
 }
 
-function errorMessageFromPayload(payload: unknown) {
-  const record = asRecord(payload)
-  if (!record) {
-    return typeof payload === 'string' ? payload : ''
-  }
-  const error = record.error
-  if (typeof error === 'string') {
-    return error
-  }
-  const nested = asRecord(error)
-  if (nested) {
-    return pickString(nested, ['message', 'error'])
-  }
-  return pickString(record, ['message'])
-}
-
-function isPhotoAnalysisRejection(payload: unknown) {
-  return /only images are supported for photo analysis/i.test(errorMessageFromPayload(payload))
-}
-
-async function postIngest(url: string, input: ReportIngestInput) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-    },
-    body: toFormData(input),
-  })
-  let payload: unknown
+async function readJsonPayload(response: Response) {
   try {
-    payload = (await response.json()) as unknown
+    return (await response.json()) as unknown
   } catch {
     if (!response.ok) {
       throw apiRequestErrorFromResponse(response)
     }
     throw new ApiRequestError('failed')
   }
+}
+
+async function parseOkDraft(response: Response) {
+  const payload = await readJsonPayload(response)
   if (!response.ok) {
-    if (isPhotoAnalysisRejection(payload)) {
-      return { kind: 'photo-rejected' as const }
-    }
     throw apiRequestErrorFromResponse(response)
   }
-  return { kind: 'ok' as const, draft: parseReportIngestResponse(payload) }
+  return parseReportIngestResponse(payload)
 }
 
 export async function ingestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
@@ -222,16 +179,28 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
   if (!url) {
     throw new ApiRequestError('unavailable')
   }
-  const first = await postIngest(url, input)
-  if (first.kind === 'ok') {
-    return first.draft
+  const photo = analyzePhoto(input)
+  if (photo) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      body: toFormData(input),
+    })
+    return parseOkDraft(response)
   }
-  const note = analyzeText(input)
-  if (!analyzePhoto(input) && analyzeAudio(input) && note) {
-    const retry = await postIngest(url, { ...input, photo: undefined, audio: undefined })
-    if (retry.kind === 'ok') {
-      return retry.draft
-    }
+  const text = analyzeText(input)
+  if (text) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    })
+    return parseOkDraft(response)
   }
   throw new ApiRequestError('failed')
 }
