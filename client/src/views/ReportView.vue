@@ -240,9 +240,11 @@ async function confirm() {
 
 <template>
   <section class="report">
-    <AppHeader :subtitle="t('report.title')" show-account compact />
-
-    <ReportFlowSteps :current="step" />
+    <div class="report-scroll">
+    <div class="report-top">
+      <AppHeader :subtitle="t('report.title')" show-account />
+      <ReportFlowSteps :current="step" />
+    </div>
 
     <header class="intro">
       <p class="section-kicker">
@@ -254,7 +256,7 @@ async function confirm() {
       <p class="lead">{{ phase === 'capture' ? t('report.lead') : t('report.reviewLead') }}</p>
     </header>
 
-    <div class="workspace">
+    <div class="report-body">
       <GlassPanel padding="lg" tone="fill" class="map-col">
         <LocationPickerField
           v-model:latitude="latitude"
@@ -280,123 +282,126 @@ async function confirm() {
         </div>
       </GlassPanel>
 
-      <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
-        <form class="form" @submit.prevent="send">
-          <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+      <div class="report-main">
+        <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
+          <form class="form" @submit.prevent="send">
+            <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
 
-          <VoiceCaptureField
-            ref="voiceField"
-            v-model:transcript="form.transcript"
-            v-model:audio-blob="audioBlob"
-            :include-note="false"
-          />
-
-          <label class="field">
-            <span class="field-label">{{ t('report.transcript') }}</span>
-            <p class="hint">{{ t('report.transcriptHint') }}</p>
-            <textarea
-              v-model="form.transcript"
-              class="control"
-              rows="4"
-              maxlength="800"
-              :placeholder="t('report.transcriptPlaceholder')"
+            <VoiceCaptureField
+              ref="voiceField"
+              v-model:transcript="form.transcript"
+              v-model:audio-blob="audioBlob"
+              :include-note="false"
             />
-          </label>
 
-        </form>
-      </GlassPanel>
+            <label class="field">
+              <span class="field-label">{{ t('report.transcript') }}</span>
+              <p class="hint">{{ t('report.transcriptHint') }}</p>
+              <textarea
+                v-model="form.transcript"
+                class="control"
+                rows="4"
+                maxlength="800"
+                :placeholder="t('report.transcriptPlaceholder')"
+              />
+            </label>
+          </form>
+        </GlassPanel>
 
-      <GlassPanel v-else padding="none" tone="fill" class="review-card">
-        <div v-if="photoSrc" class="hero">
-          <img class="hero-photo" :src="photoSrc" alt="" />
-          <span class="hero-badge">{{ t('report.photoBadge') }}</span>
-        </div>
-        <div v-else class="hero-empty">{{ t('report.photoEmpty') }}</div>
-
-        <div class="review-body">
-          <div v-if="aiDescription" class="ai-block">
-            <p class="field-label">{{ t('report.aiDescription') }}</p>
-            <p class="ai-text">{{ aiDescription }}</p>
+        <GlassPanel v-else padding="none" tone="fill" class="review-card">
+          <div v-if="photoSrc" class="hero">
+            <img class="hero-photo" :src="photoSrc" alt="" />
+            <span class="hero-badge">{{ t('report.photoBadge') }}</span>
           </div>
+          <div v-else class="hero-empty">{{ t('report.photoEmpty') }}</div>
 
-          <div class="meta-grid">
-            <div>
-              <p class="field-label">{{ t('report.fieldTitle') }}</p>
-              <p class="meta-value">{{ draft.title || t('report.untitled') }}</p>
+          <div class="review-body">
+            <div v-if="aiDescription" class="ai-block">
+              <p class="field-label">{{ t('report.aiDescription') }}</p>
+              <p class="ai-text">{{ aiDescription }}</p>
             </div>
-            <div>
-              <p class="field-label">{{ t('report.category') }}</p>
-              <p class="meta-value">{{ t(`category.${draft.category}`) }}</p>
+
+            <div class="meta-grid">
+              <div>
+                <p class="field-label">{{ t('report.fieldTitle') }}</p>
+                <p class="meta-value">{{ draft.title || t('report.untitled') }}</p>
+              </div>
+              <div>
+                <p class="field-label">{{ t('report.category') }}</p>
+                <p class="meta-value">{{ t(`category.${draft.category}`) }}</p>
+              </div>
+              <div>
+                <p class="field-label">{{ t('sheet.severity') }}</p>
+                <SeverityPill :severity="draft.severity" />
+              </div>
+              <div>
+                <p class="field-label">{{ t('report.trackingId') }}</p>
+                <p class="meta-value">{{ draft.trackingId || t('report.pendingId') }}</p>
+              </div>
             </div>
-            <div>
-              <p class="field-label">{{ t('sheet.severity') }}</p>
-              <SeverityPill :severity="draft.severity" />
+
+            <div v-if="currentUser" class="identity">
+              <div>
+                <p class="field-label">{{ t('report.submittedBy') }}</p>
+                <p class="meta-value">{{ currentUser.displayName }}</p>
+              </div>
+              <div>
+                <p class="field-label">{{ t('report.accountEmail') }}</p>
+                <p class="meta-value">{{ currentUser.email }}</p>
+              </div>
             </div>
-            <div>
-              <p class="field-label">{{ t('report.trackingId') }}</p>
-              <p class="meta-value">{{ draft.trackingId || t('report.pendingId') }}</p>
-            </div>
+            <p v-else class="hint">{{ t('report.guestReporter') }}</p>
           </div>
-
-          <div v-if="currentUser" class="identity">
-            <div>
-              <p class="field-label">{{ t('report.submittedBy') }}</p>
-              <p class="meta-value">{{ currentUser.displayName }}</p>
-            </div>
-            <div>
-              <p class="field-label">{{ t('report.accountEmail') }}</p>
-              <p class="meta-value">{{ currentUser.email }}</p>
-            </div>
-          </div>
-          <p v-else class="hint">{{ t('report.guestReporter') }}</p>
-
-        </div>
-      </GlassPanel>
+        </GlassPanel>
+      </div>
     </div>
 
     <footer class="command">
-      <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
-      <div class="command-row">
-        <p id="report-command-status" class="command-status" :class="{ ready: phase === 'review' || canSend }">
-          {{
-            phase === 'capture'
-              ? canSend
-                ? t('report.ready')
-                : t('report.missingInput')
-              : t('report.reviewLead')
-          }}
-        </p>
-        <div class="command-actions">
-          <template v-if="phase === 'capture'">
-            <button
-              type="button"
-              class="btn command-primary"
-              :class="{ 'is-busy': submitting }"
-              :disabled="submitting || !canSend"
-              aria-describedby="report-command-status"
-              @click="send"
-            >
-              {{ submitLabel }}
-            </button>
-          </template>
-          <template v-else>
-            <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
-              {{ t('report.editDetails') }}
-            </button>
-            <button
-              type="button"
-              class="btn command-primary"
-              :class="{ 'is-busy': submitting }"
-              :disabled="submitting"
-              aria-describedby="report-command-status"
-              @click="confirm"
-            >
-              {{ confirmLabel }}
-            </button>
-          </template>
+      <div class="command-dock glass-dock">
+        <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
+        <div class="command-row">
+          <p id="report-command-status" class="command-status" :class="{ ready: phase === 'review' || canSend }">
+            {{
+              phase === 'capture'
+                ? canSend
+                  ? t('report.ready')
+                  : t('report.missingInput')
+                : t('report.reviewLead')
+            }}
+          </p>
+          <div class="command-actions">
+            <template v-if="phase === 'capture'">
+              <button
+                type="button"
+                class="btn command-primary"
+                :class="{ 'is-busy': submitting }"
+                :disabled="submitting || !canSend"
+                aria-describedby="report-command-status"
+                @click="send"
+              >
+                {{ submitLabel }}
+              </button>
+            </template>
+            <template v-else>
+              <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
+                {{ t('report.editDetails') }}
+              </button>
+              <button
+                type="button"
+                class="btn command-primary"
+                :class="{ 'is-busy': submitting }"
+                :disabled="submitting"
+                aria-describedby="report-command-status"
+                @click="confirm"
+              >
+                {{ confirmLabel }}
+              </button>
+            </template>
+          </div>
         </div>
       </div>
     </footer>
+    </div>
   </section>
 </template>
 
@@ -404,6 +409,42 @@ async function confirm() {
 .report {
   display: grid;
   gap: 0.85rem;
+  padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.report-top {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: grid;
+  gap: 0.45rem;
+  margin-top: calc(-0.5rem - env(safe-area-inset-top, 0px));
+  margin-inline: -0.9rem;
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  padding-inline: 0.9rem;
+  padding-bottom: 0.45rem;
+  background: var(--glass-thick-bg);
+  -webkit-backdrop-filter: var(--glass-thick-filter);
+  backdrop-filter: var(--glass-thick-filter);
+  border-bottom: 1px solid var(--border);
+}
+
+.report-top :deep(.header) {
+  padding: 0 0 0.35rem;
+}
+
+.report-scroll {
+  display: contents;
+}
+
+.report-body {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.report-main {
+  min-width: 0;
 }
 
 .intro {
@@ -429,21 +470,14 @@ async function confirm() {
   max-width: 40rem;
 }
 
-.workspace {
-  display: grid;
-  gap: 0.85rem;
-}
-
 .map-col {
   display: grid;
   gap: 0.85rem;
-  order: 2;
 }
 
 .form-panel,
 .review-card {
   min-width: 0;
-  order: 1;
 }
 
 .form {
@@ -541,11 +575,26 @@ async function confirm() {
 }
 
 .command {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(4.65rem + env(safe-area-inset-bottom, 0px));
+  z-index: 28;
+  padding: 0 0.85rem;
+  pointer-events: none;
+}
+
+.command-dock {
+  pointer-events: auto;
   display: grid;
   gap: 0.55rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 0.7rem 0.55rem 0.75rem;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  box-shadow: 0 12px 32px rgba(9, 9, 10, 0.1);
 }
 
 .command-row {
@@ -560,6 +609,7 @@ async function confirm() {
   font-size: 0.95rem;
   font-weight: 650;
   line-height: 1.35;
+  text-align: center;
 }
 
 .command-status.ready {
@@ -599,23 +649,60 @@ async function confirm() {
   color: var(--danger);
 }
 
-@media (min-width: 720px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
-    align-items: start;
+@media (min-width: 1024px) {
+  .report {
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    min-height: 0;
+    margin-top: calc(-1.1rem - env(safe-area-inset-top, 0px));
+    margin-bottom: -1.5rem;
+    margin-inline: -1.5rem;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  .report-scroll {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-height: 0;
+    overflow: auto;
+    padding-bottom: 0.35rem;
+  }
+
+  .intro,
+  .report-body {
+    padding-inline: 1.5rem;
+  }
+
+  .report-body {
+    align-content: start;
   }
 
   .map-col {
-    order: 1;
+    position: sticky;
+    top: 7.75rem;
+    z-index: 1;
   }
 
-  .form-panel,
-  .review-card {
-    order: 2;
+  .command {
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    left: auto;
+    right: auto;
+    z-index: 24;
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: 0.35rem 1.5rem 0.55rem;
   }
 
-  .hero-photo {
-    max-height: 16rem;
+  .command-dock {
+    max-width: none;
+    padding: 0.75rem 1.15rem 0.85rem;
+    box-shadow: 0 10px 28px rgba(9, 9, 10, 0.08);
   }
 
   .command-row {
@@ -627,6 +714,7 @@ async function confirm() {
 
   .command-status {
     max-width: 36rem;
+    text-align: start;
   }
 
   .command-actions {
@@ -641,56 +729,28 @@ async function confirm() {
     width: auto;
     min-width: 11rem;
   }
-}
 
-@media (min-width: 1024px) {
-  .report {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    height: calc(100svh - 1.1rem - 1.5rem - env(safe-area-inset-top, 0px));
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .report > :not(.workspace) {
-    flex-shrink: 0;
-  }
-
-  .report :deep(.steps li) {
-    padding-top: 0.2rem;
-    padding-bottom: 0.35rem;
-  }
-
-  .intro {
-    gap: 0.12rem;
-  }
-
-  .heading {
-    font-size: 1.3rem;
-  }
-
-  .lead {
-    font-size: 0.88rem;
-    line-height: 1.35;
-  }
-
-  .workspace {
-    flex: 1 1 auto;
-    gap: 0.7rem;
-    min-height: 0;
-    align-content: start;
-    overflow: auto;
-    padding-bottom: 0.2rem;
-  }
-
-  .map-col {
+  .report-top {
     position: sticky;
     top: 0;
-  }
-
-  .command {
-    padding-top: 0.55rem;
+    z-index: 25;
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-inline: 0;
+    padding-top: calc(0.85rem + env(safe-area-inset-top, 0px));
+    padding-inline: 1.5rem;
   }
 }
+
+@media (min-width: 720px) {
+  .report-body {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+    align-items: start;
+  }
+
+  .hero-photo {
+    max-height: 16rem;
+  }
+}
+
 </style>

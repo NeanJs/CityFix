@@ -100,10 +100,10 @@ function onMoveEnd() {
   syncFromMap()
 }
 
-async function locate(force: boolean) {
+async function locate(force: boolean, refresh = false) {
   locating.value = true
   locationError.value = ''
-  const result = await requestCurrentPosition()
+  const result = await requestCurrentPosition({ force: refresh })
   locating.value = false
   if (!result.ok) {
     locationError.value = t(result.errorKey)
@@ -135,7 +135,7 @@ function recenter() {
   if (props.disabled || locating.value) {
     return
   }
-  void locate(true)
+  void locate(true, true)
 }
 
 watch(
