@@ -1,4 +1,3 @@
-import { demoAccounts } from '../../data/seedUsers'
 import {
   readStoreItem,
   removeStoreItem,
@@ -71,24 +70,6 @@ async function persistSession() {
   await writeStoreItem(sessionKey, JSON.stringify(session))
 }
 
-async function seedUsersIfEmpty() {
-  if (users.length > 0) {
-    return
-  }
-  const now = new Date().toISOString()
-  users = await Promise.all(
-    demoAccounts.map(async (account) => ({
-      id: account.id,
-      email: account.email,
-      displayName: account.displayName,
-      role: account.role,
-      passwordHash: await hashPassword(account.password),
-      createdAt: now,
-    })),
-  )
-  await persistUsers()
-}
-
 export async function bootstrapAuth() {
   if (bootstrapPromise) {
     return bootstrapPromise
@@ -109,7 +90,6 @@ export async function bootstrapAuth() {
     } catch {
       users = []
     }
-    await seedUsersIfEmpty()
     await ensureGuestReporter()
     try {
       const rawSession = await readStoreItem(sessionKey)

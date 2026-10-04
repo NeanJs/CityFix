@@ -4,7 +4,6 @@ import {
   ApiRequestError,
   type ApiRequestErrorCode,
 } from './apiRequestError'
-import { demoReport } from '../../data/demoReport'
 import { normalizeIssueCategory } from '../../data/categories'
 import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
 import type { IssueCategory, IssueSeverity, IssueStatus } from '../../types/issue'
@@ -176,15 +175,15 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   const longitude = input.longitude
   const body: CreateReportBody = {
     issue_type: filled(input.issueType, 'other'),
-    title: filled(input.title, demoReport.title),
-    description: filled(input.description, demoReport.description),
-    severity: filled(input.severity, demoReport.severity),
+    title: filled(input.title, ''),
+    description: filled(input.description, ''),
+    severity: filled(input.severity, 'medium'),
     location: {
-      description: filled(input.locationDescription, demoReport.locationDescription),
-      latitude: latitude ?? demoReport.latitude,
-      longitude: longitude ?? demoReport.longitude,
+      description: filled(input.locationDescription, ''),
+      latitude: latitude ?? 0,
+      longitude: longitude ?? 0,
     },
-    recommended_action: demoReport.recommendedAction,
+    recommended_action: '',
   }
   const transcript = input.transcript?.trim()
   if (transcript) {
@@ -230,15 +229,14 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
   const location = readLocation(source)
   const transcript = pickString(source, ['transcript', 'text', 'voiceText', 'voice_text'])
   const description = pickString(source, ['description', 'note']) || transcript
-  const title = pickString(source, ['title']) || description || demoReport.title
+  const title = pickString(source, ['title']) || description
   const summary = pickString(source, ['summary']) || description || title
   const category = normalizeIssueCategory(pickString(source, ['issue_type', 'issueType', 'category', 'type']))
   const severity = normalizeSeverity(pickString(source, ['severity']))
   const status = normalizeStatus(pickString(source, ['status', 'current_status', 'currentStatus']))
   const recommendedAction =
     pickString(source, ['recommended_action', 'recommendedAction']) ||
-    pickString(envelope, ['recommended_action', 'recommendedAction']) ||
-    demoReport.recommendedAction
+    pickString(envelope, ['recommended_action', 'recommendedAction'])
   return {
     trackingId,
     title,

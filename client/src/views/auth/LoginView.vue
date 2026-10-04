@@ -4,9 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
-import { demoAccounts, demoPassword } from '../../data/seedUsers'
 import { AuthError, homePathForRole } from '../../services/auth/authService'
-import type { UserRole } from '../../types/user'
 
 const { t } = useLocale()
 const { login } = useAuth()
@@ -16,7 +14,6 @@ const email = ref('')
 const password = ref('')
 const submitting = ref(false)
 const errorKey = ref('')
-const isDev = import.meta.env.DEV
 
 async function signIn(nextEmail: string, nextPassword: string) {
   if (submitting.value) {
@@ -38,14 +35,6 @@ async function signIn(nextEmail: string, nextPassword: string) {
 function submit() {
   return signIn(email.value, password.value)
 }
-
-function demoLogin(role: UserRole) {
-  const account = demoAccounts.find((item) => item.role === role)
-  if (!account) {
-    return
-  }
-  return signIn(account.email, demoPassword)
-}
 </script>
 
 <template>
@@ -55,18 +44,7 @@ function demoLogin(role: UserRole) {
 
     <RouterLink class="btn skip" to="/report">{{ t('auth.toReport') }}</RouterLink>
 
-    <div v-if="isDev" class="demo">
-      <p class="field-label">{{ t('auth.demoTitle') }}</p>
-      <button type="button" class="btn" :disabled="submitting" @click="demoLogin('citizen')">
-        {{ t('auth.demoCitizen') }}
-      </button>
-      <button type="button" class="btn-secondary" :disabled="submitting" @click="demoLogin('staff')">
-        {{ t('auth.demoStaff') }}
-      </button>
-    </div>
-
     <form class="form" @submit.prevent="submit">
-      <p v-if="isDev" class="field-label">{{ t('auth.orManual') }}</p>
       <label class="field">
         <span class="field-label">{{ t('auth.email') }}</span>
         <input
@@ -111,11 +89,6 @@ function demoLogin(role: UserRole) {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.95rem;
-}
-
-.demo {
-  display: grid;
-  gap: 0.45rem;
 }
 
 .form {

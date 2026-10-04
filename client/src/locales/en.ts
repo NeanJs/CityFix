@@ -40,10 +40,6 @@ export const en = {
     toReport: 'File a report without signing in',
     loginLead: 'Staff can open the operations desk. Residents can file a report without an account.',
     registerLead: 'Optional. You can file and track reports on this device without creating an account.',
-    demoTitle: 'Demo sign-in',
-    demoCitizen: 'Continue as resident',
-    demoStaff: 'Continue as staff',
-    orManual: 'Or sign in with email',
     errors: {
       invalidCredentials: 'Email or password is incorrect.',
       emailTaken: 'An account with this email already exists.',

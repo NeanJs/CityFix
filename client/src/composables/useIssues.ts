@@ -1,7 +1,5 @@
 import { computed, ref } from 'vue'
 import { reportTrackUrl } from '../config/apiConfig'
-import { seedCitizenId } from '../data/seedUsers'
-import { seedIssues } from '../data/seedIssues'
 import { trackReport, type RemoteReport } from '../services/api/reportsApi'
 import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
@@ -60,7 +58,7 @@ function normalizeIssue(issue: Issue): Issue {
   return {
     ...issue,
     trackingId: issue.trackingId || trackingIdFromInternal(issue.id),
-    reporterId: issue.reporterId || seedCitizenId,
+    reporterId: issue.reporterId ?? '',
     transcript,
     summary: issue.summary?.trim() || description || transcript,
     severity: isSeverity(issue.severity) ? issue.severity : 'medium',
@@ -82,17 +80,13 @@ export async function bootstrapIssues() {
       const raw = await readStoreItem(storageKey)
       if (raw) {
         const parsed = JSON.parse(raw) as Issue[]
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           issues.value = parsed.map(normalizeIssue)
-          storeReady.value = true
-          return
         }
       }
     } catch {
-      /* use seed */
+      issues.value = []
     }
-    issues.value = [...seedIssues]
-    await persist()
     storeReady.value = true
   })()
   return bootstrapPromise
