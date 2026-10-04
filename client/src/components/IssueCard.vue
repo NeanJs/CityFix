@@ -37,7 +37,7 @@ function onAdvance(event: Event) {
 
 <template>
   <div
-    class="issue-card"
+    class="issue-card surface-frost"
     :class="{ highlighted: props.highlighted }"
     role="button"
     tabindex="0"

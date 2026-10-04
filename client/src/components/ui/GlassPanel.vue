@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    padding?: 'sm' | 'md' | 'lg'
+    padding?: 'none' | 'sm' | 'md' | 'lg'
     interactive?: boolean
     tone?: 'regular' | 'thick' | 'fill' | 'clear'
   }>(),
@@ -29,6 +29,10 @@ withDefaults(
   overflow: hidden;
 }
 
+.pad-none {
+  padding: 0;
+}
+
 .pad-sm {
   padding: 0.7rem 0.8rem;
 }
@@ -47,7 +51,7 @@ withDefaults(
 
 @media (hover: hover) {
   .interactive:hover {
-    background: #f1f0f0;
+    background: var(--surface-frost-hover);
   }
 }
 </style>

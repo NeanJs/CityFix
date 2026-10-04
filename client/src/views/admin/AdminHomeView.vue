@@ -91,7 +91,7 @@ watch(mapOpen, async () => {
   <section class="desk">
     <AppHeader :subtitle="t('adminHome.title')" show-account />
 
-    <div class="stats">
+    <div class="stats surface-frost">
       <button
         v-for="item in filterItems"
         :key="item.id"
@@ -171,6 +171,10 @@ watch(mapOpen, async () => {
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: inset 0 2px 0 var(--civic-bar);
+}
+
+.stats.surface-frost {
+  isolation: isolate;
 }
 
 .stats::-webkit-scrollbar {

@@ -3,9 +3,10 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 
-defineProps<{
+const props = defineProps<{
   subtitle?: string
   showAccount?: boolean
+  compact?: boolean
 }>()
 
 const { t } = useLocale()
@@ -23,7 +24,7 @@ async function onAccount() {
 </script>
 
 <template>
-  <header class="header">
+  <header class="header" :class="{ compact: props.compact }">
     <div v-if="subtitle" class="title-block">
       <h1 class="page-title">{{ subtitle }}</h1>
       <span class="civic-rule" aria-hidden="true" />
@@ -68,6 +69,19 @@ async function onAccount() {
 
   .page-title {
     font-size: 2.75rem;
+  }
+
+  .header.compact {
+    padding: 0;
+  }
+
+  .header.compact .page-title {
+    font-size: 1.85rem;
+    line-height: 1.05;
+  }
+
+  .header.compact .civic-rule {
+    margin-top: 0.28rem;
   }
 }
 </style>

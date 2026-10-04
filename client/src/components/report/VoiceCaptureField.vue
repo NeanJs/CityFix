@@ -61,12 +61,12 @@ defineExpose({ reset, stop: voice.stop })
       <button
         v-if="!voice.recording.value"
         type="button"
-        class="btn"
+        class="btn-secondary"
         @click="voice.start"
       >
         {{ voice.audioUrl.value ? t('report.rerecordVoice') : t('report.startVoice') }}
       </button>
-      <button v-else type="button" class="btn" @click="voice.stop">
+      <button v-else type="button" class="btn-secondary" @click="voice.stop">
         {{ t('report.stopVoice') }}
       </button>
       <button
@@ -109,7 +109,7 @@ defineExpose({ reset, stop: voice.stop })
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: var(--surface-solid);
 }
 
 .meter.live {
@@ -134,6 +134,10 @@ defineExpose({ reset, stop: voice.stop })
   gap: 0.4rem;
 }
 
+.actions .btn-secondary {
+  width: 100%;
+}
+
 .note {
   display: grid;
   gap: 0.35rem;
@@ -147,5 +151,11 @@ audio {
   margin: 0;
   font-size: 0.82rem;
   color: var(--danger);
+}
+
+@media (min-width: 720px) {
+  .actions .btn-secondary {
+    width: auto;
+  }
 }
 </style>

@@ -11,8 +11,9 @@ const longitude = defineModel<number | undefined>('longitude')
 const props = withDefaults(
   defineProps<{
     disabled?: boolean
+    tall?: boolean
   }>(),
-  { disabled: false },
+  { disabled: false, tall: false },
 )
 
 const { t } = useLocale()
@@ -170,6 +171,14 @@ watch(
   },
 )
 
+watch(
+  () => props.tall,
+  async () => {
+    await nextTick()
+    resizeMap()
+  },
+)
+
 onMounted(async () => {
   await nextTick()
   resizeMap()
@@ -180,7 +189,7 @@ onMounted(async () => {
   <div class="field">
     <span class="field-label">{{ t('report.location') }}</span>
     <p class="hint">{{ t(disabled ? 'report.mapLocked' : 'report.mapHint') }}</p>
-    <div class="stage" :class="{ locked: disabled }">
+    <div class="stage" :class="{ locked: disabled, tall }">
       <div
         ref="container"
         class="map"
@@ -275,7 +284,7 @@ onMounted(async () => {
   padding: 0.45rem 0.75rem;
   border: 1.5px solid var(--text-h);
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  background: var(--surface-solid);
   color: var(--text-h);
   font-size: 0.78rem;
   font-weight: 650;
@@ -295,8 +304,13 @@ onMounted(async () => {
 
 @media (min-width: 720px) {
   .stage {
-    min-height: 22rem;
-    height: 22rem;
+    min-height: 16rem;
+    height: 16rem;
+  }
+
+  .stage.tall {
+    min-height: 16rem;
+    height: 18rem;
   }
 }
 </style>

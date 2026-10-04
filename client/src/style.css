@@ -5,8 +5,12 @@
   --bg-top: #f3f0eb;
   --bg: #f3f0eb;
   --bg-bottom: #f3f0eb;
-  --surface: #fcfcfc;
-  --surface-raised: #ffffff;
+  --surface-solid: #fcfcfc;
+  --surface-raised-solid: #ffffff;
+  --surface: rgba(252, 252, 252, 0.58);
+  --surface-raised: rgba(255, 255, 255, 0.68);
+  --surface-frost-filter: blur(24px) saturate(2.25);
+  --surface-frost-hover: rgba(241, 240, 240, 0.72);
   --border: #c9c5c0;
   --accent: #7d5e30;
   --accent-hover: #634a26;
@@ -15,16 +19,18 @@
   --danger: #9a3a30;
   --civic-bar: #7d5e30;
 
-  --glass-regular-bg: rgba(255, 255, 255, 0.86);
-  --glass-thick-bg: #fcfcfc;
-  --glass-fill-bg: #fcfcfc;
-  --glass-clear-bg: #fcfcfc;
-  --glass-tint-bg: #09090a;
-  --glass-tint-bg-hover: #1c1b1a;
+  --glass-regular-bg: rgba(255, 255, 255, 0.5);
+  --glass-thick-bg: rgba(252, 252, 252, 0.62);
+  --glass-fill-bg: rgba(252, 252, 252, 0.58);
+  --glass-clear-bg: rgba(252, 252, 252, 0.42);
+  --glass-tint-bg: rgba(9, 9, 10, 0.88);
+  --glass-tint-bg-hover: rgba(28, 27, 26, 0.92);
   --glass-border: #c9c5c0;
   --glass-border-hover: #32302f;
-  --glass-regular-filter: blur(16px) saturate(1.1);
-  --glass-thick-filter: none;
+  --glass-regular-filter: blur(18px) saturate(2);
+  --glass-thick-filter: var(--surface-frost-filter);
+  --glass-fill-filter: var(--surface-frost-filter);
+  --glass-clear-filter: blur(20px) saturate(2.35);
   --glass-rim: none;
   --glass-sheen: none;
   --glass-sheen-soft: none;
@@ -33,7 +39,7 @@
   --glass-shadow-thick: none;
   --glass-bg: var(--glass-regular-bg);
   --glass-bg-strong: var(--glass-thick-bg);
-  --glass-blur: 16px;
+  --glass-blur: 24px;
   --dock-shadow: none;
   --paper-shadow: none;
 
@@ -93,6 +99,16 @@
   box-sizing: border-box;
 }
 
+.surface-frost,
+.glass-regular,
+.glass-thick,
+.glass-fill,
+.glass-clear,
+.glass-dock {
+  -webkit-backdrop-filter: var(--surface-frost-filter);
+  backdrop-filter: var(--surface-frost-filter);
+}
+
 .glass-regular,
 .glass-thick,
 .glass-fill,
@@ -105,24 +121,62 @@
 
 .glass-regular {
   background: var(--glass-regular-bg);
+  -webkit-backdrop-filter: var(--glass-regular-filter);
+  backdrop-filter: var(--glass-regular-filter);
 }
 
 .glass-dock {
   background: var(--glass-regular-bg);
   border: 1px solid var(--border);
-  backdrop-filter: var(--glass-regular-filter);
   -webkit-backdrop-filter: var(--glass-regular-filter);
+  backdrop-filter: var(--glass-regular-filter);
 }
 
-.glass-thick,
-.glass-fill,
+.glass-thick {
+  background: var(--glass-thick-bg);
+  -webkit-backdrop-filter: var(--glass-thick-filter);
+  backdrop-filter: var(--glass-thick-filter);
+}
+
+.glass-fill {
+  background: var(--glass-fill-bg);
+  -webkit-backdrop-filter: var(--glass-fill-filter);
+  backdrop-filter: var(--glass-fill-filter);
+}
+
 .glass-clear {
-  background: var(--surface);
+  background: var(--glass-clear-bg);
+  -webkit-backdrop-filter: var(--glass-clear-filter);
+  backdrop-filter: var(--glass-clear-filter);
 }
 
 .glass-tint {
-  background: var(--ink);
+  background: var(--glass-tint-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(1.85);
+  backdrop-filter: blur(20px) saturate(1.85);
   color: var(--accent-ink);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --surface: var(--surface-solid);
+    --surface-raised: var(--surface-raised-solid);
+    --glass-regular-bg: rgba(255, 255, 255, 0.92);
+    --glass-thick-bg: var(--surface-solid);
+    --glass-fill-bg: var(--surface-solid);
+    --glass-clear-bg: var(--surface-solid);
+  }
+
+  .surface-frost,
+  .glass-regular,
+  .glass-thick,
+  .glass-fill,
+  .glass-clear,
+  .glass-dock,
+  .glass-tint {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 body {
@@ -223,7 +277,7 @@ select:focus-visible {
   padding: 0.65rem 1.1rem;
   border: 1.5px solid var(--text-h);
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  background: var(--surface-solid);
   color: var(--text-h);
   font-size: 0.88rem;
   font-weight: 500;
@@ -272,7 +326,7 @@ select:focus-visible {
   padding: 0.7rem 0.9rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-solid);
   color: var(--text-h);
   font: inherit;
   font-size: 0.95rem;

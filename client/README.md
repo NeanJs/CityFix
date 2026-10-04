@@ -2,6 +2,24 @@
 
 Vue 3 + TypeScript + Vite static frontend.
 
+## Environment variables
+
+Copy `.env.example` to `.env` (and/or set the same keys in your host’s build environment). All `VITE_` values are public client config — never put secrets in them.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `VITE_APP_NAME` | No | `CityFix` | App display name (document title, branding). |
+| `VITE_APP_TAGLINE` | No | `Report and track civic issues in your city.` | Short tagline used in meta description. |
+| `VITE_MAP_STYLE` | No | `liberty` | OpenFreeMap style id: `liberty`, `bright`, `positron`, `dark`, `fiord`, or `3d`. |
+| `VITE_MAP_STYLE_URL` | No | — | Optional full MapLibre style JSON URL; overrides `VITE_MAP_STYLE`. |
+| `VITE_MAP_DEFAULT_LAT` | No | `49.2827` | Default map center latitude. |
+| `VITE_MAP_DEFAULT_LNG` | No | `-123.1207` | Default map center longitude. |
+| `VITE_MAP_DEFAULT_ZOOM` | No | `12` | Default map zoom. |
+| `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Needed for report ingest. Leave empty until the backend is available. |
+| `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/reports/pothole` | Optional full URL override for the report ingest endpoint. |
+
+\*Required for submitting reports. The UI still builds and runs without it.
+
 ## Scripts
 
 - `pnpm dev` — local dev server

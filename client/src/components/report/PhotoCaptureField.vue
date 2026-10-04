@@ -29,18 +29,26 @@ async function onFile(event: Event) {
 <template>
   <div class="field">
     <span class="field-label">{{ t('report.photo') }}</span>
-    <p class="hint">{{ t('report.photoHint') }}</p>
-    <button type="button" class="stage" @click="cameraInput?.click()">
-      <img v-if="photoDataUrl" :src="photoDataUrl" alt="" />
-      <span v-else class="stage-empty">{{ t('report.takePhoto') }}</span>
-    </button>
-    <div class="actions">
-      <button type="button" class="btn" @click="cameraInput?.click()">
-        {{ photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto') }}
-      </button>
-      <button type="button" class="btn-secondary" @click="galleryInput?.click()">
-        {{ t('report.choosePhoto') }}
-      </button>
+    <div class="stage" :class="{ filled: Boolean(photoDataUrl) }">
+      <div class="preview">
+        <img v-if="photoDataUrl" :src="photoDataUrl" :alt="t('report.photo')" />
+        <div v-else class="empty">
+          <p class="empty-title">{{ t('report.photoEmptyTitle') }}</p>
+          <p class="empty-hint">{{ t('report.photoHint') }}</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button
+          type="button"
+          :class="photoDataUrl ? 'btn-secondary' : 'btn'"
+          @click="cameraInput?.click()"
+        >
+          {{ photoDataUrl ? t('report.retakePhoto') : t('report.takePhoto') }}
+        </button>
+        <button type="button" class="btn-secondary" @click="galleryInput?.click()">
+          {{ t('report.choosePhoto') }}
+        </button>
+      </div>
     </div>
     <p v-if="errorKey" class="error">{{ t(errorKey) }}</p>
     <input
@@ -64,34 +72,63 @@ async function onFile(event: Event) {
 
 .stage {
   display: grid;
-  place-items: center;
-  min-height: 16rem;
-  padding: 0;
   overflow: hidden;
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
   background: #f1f0f0;
-  color: var(--text-muted);
-  cursor: pointer;
 }
 
-.stage img {
+.stage.filled {
+  border-style: solid;
+  background: #e8e6e3;
+}
+
+.preview {
+  display: grid;
+  min-height: 8.75rem;
+}
+
+.preview img {
   display: block;
   width: 100%;
-  height: 16rem;
+  height: 9.5rem;
   object-fit: cover;
 }
 
-.stage-empty {
-  font-size: 0.95rem;
-  font-weight: 650;
+.empty {
+  display: grid;
+  align-content: center;
+  gap: 0.2rem;
+  min-height: 8.75rem;
+  padding: 1rem 1.1rem;
+}
+
+.empty-title {
+  margin: 0;
   color: var(--text-h);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.empty-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-solid);
+}
+
+.actions .btn,
+.actions .btn-secondary {
+  width: 100%;
 }
 
 .file {
@@ -109,10 +146,13 @@ async function onFile(event: Event) {
 }
 
 @media (min-width: 720px) {
-  .stage,
-  .stage img {
-    min-height: 20rem;
-    height: 20rem;
+  .preview,
+  .empty {
+    min-height: 11rem;
+  }
+
+  .preview img {
+    height: 11rem;
   }
 }
 </style>

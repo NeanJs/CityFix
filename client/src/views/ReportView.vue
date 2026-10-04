@@ -1,30 +1,28 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { issueCategories } from '../data/categories'
+import { computed, reactive, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
-import type { IssueCategory, IssueSeverity } from '../types/issue'
 import type { ReportIngestDraft } from '../types/reportIngest'
 import AppHeader from '../components/layout/AppHeader.vue'
 import LocationPickerField from '../components/report/LocationPickerField.vue'
 import PhotoCaptureField from '../components/report/PhotoCaptureField.vue'
+import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import VoiceCaptureField from '../components/report/VoiceCaptureField.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
-
-const severities: IssueSeverity[] = ['low', 'medium', 'high']
+import SeverityPill from '../components/SeverityPill.vue'
 
 const { addIssue } = useIssues()
-const { reporterId } = useAuth()
+const { currentUser, reporterId } = useAuth()
 const { t } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'read' | 'file'>('read')
 const phase = ref<'capture' | 'review'>('capture')
-const editing = ref(false)
 const voiceField = ref<{ reset: () => void; stop: () => Promise<Blob | null> } | null>(null)
 
 const form = reactive({
@@ -53,19 +51,44 @@ const hasVoice = computed(() => Boolean(audioBlob.value))
 const hasText = computed(() => Boolean(form.transcript.trim()))
 const canSend = computed(() => hasPhoto.value || hasVoice.value || hasText.value)
 const reviewActive = computed(() => phase.value === 'review')
+const captureActive = computed(() => phase.value === 'capture')
+const { markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync({
+  latitude,
+  longitude,
+  locationLabel: toRef(form, 'locationLabel'),
+  enabled: captureActive,
+})
+const step = computed<1 | 2>(() => (phase.value === 'review' ? 2 : 1))
+const photoSrc = computed(() => draft.photoUrl || form.photoDataUrl)
+const aiDescription = computed(
+  () =>
+    draft.summary.trim() ||
+    draft.description.trim() ||
+    draft.transcript.trim() ||
+    form.transcript.trim(),
+)
+const placeLabel = computed(
+  () => draft.locationLabel.trim() || form.locationLabel.trim() || t('report.locationUnset'),
+)
 
 const submitLabel = computed(() => {
-  if (!submitting.value) {
-    return t('report.submit')
+  if (submitting.value) {
+    return t('report.stageRead')
   }
-  return t('report.stageRead')
+  if (submitError.value) {
+    return t('report.retry')
+  }
+  return t('report.continue')
 })
 
 const confirmLabel = computed(() => {
   if (submitting.value) {
     return t('report.stageFile')
   }
-  return editing.value ? t('report.confirmEdits') : t('report.confirm')
+  if (submitError.value) {
+    return t('report.retry')
+  }
+  return t('report.confirm')
 })
 
 useAndroidBackHandler(reviewActive, goBack)
@@ -98,6 +121,7 @@ watch([latitude, longitude], ([lat, lng]) => {
 })
 
 function resetForm() {
+  resetLocationLabelSync()
   form.photoDataUrl = ''
   form.transcript = ''
   form.locationLabel = ''
@@ -105,7 +129,6 @@ function resetForm() {
   latitude.value = undefined
   longitude.value = undefined
   submitError.value = ''
-  editing.value = false
   phase.value = 'capture'
   applyDraft({
     title: '',
@@ -126,7 +149,6 @@ function goBack() {
   }
   if (phase.value === 'review') {
     phase.value = 'capture'
-    editing.value = false
     submitError.value = ''
   }
 }
@@ -162,7 +184,6 @@ async function send() {
       locationLabel: next.locationLabel || form.locationLabel.trim(),
       photoUrl: next.photoUrl || form.photoDataUrl,
     })
-    editing.value = false
     phase.value = 'review'
   } catch {
     submitError.value = t('report.ingestFailed')
@@ -184,7 +205,7 @@ async function confirm() {
       photo,
       audio: audioBlob.value ?? undefined,
       text: form.transcript.trim() || draft.description.trim() || undefined,
-      locationLabel: draft.locationLabel.trim() || undefined,
+      locationLabel: draft.locationLabel.trim() || form.locationLabel.trim() || undefined,
       latitude: draft.latitude ?? latitude.value,
       longitude: draft.longitude ?? longitude.value,
       confirmed: true,
@@ -215,244 +236,167 @@ async function confirm() {
     submitting.value = false
   }
 }
-
-function setCategory(id: IssueCategory) {
-  if (!editing.value) {
-    return
-  }
-  draft.category = id
-}
-
-function setSeverity(id: IssueSeverity) {
-  if (!editing.value) {
-    return
-  }
-  draft.severity = id
-}
 </script>
 
 <template>
   <section class="report">
-    <AppHeader :subtitle="t('report.title')" show-account />
+    <AppHeader :subtitle="t('report.title')" show-account compact />
 
-    <ol class="steps" :aria-label="t('report.stepOf', { current: phase === 'capture' ? 1 : 2, total: 2 })">
-      <li :class="{ active: phase === 'capture', done: phase === 'review' }">{{ t('report.capture') }}</li>
-      <li :class="{ active: phase === 'review' }">{{ t('report.review') }}</li>
-    </ol>
+    <ReportFlowSteps :current="step" />
 
-    <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
-      <form class="form" @submit.prevent="send">
-        <p class="lead">{{ t('report.lead') }}</p>
+    <header class="intro">
+      <p class="section-kicker">
+        {{ phase === 'capture' ? t('report.eyebrow') : t('report.reviewEyebrow') }}
+      </p>
+      <h2 class="heading">
+        {{ phase === 'capture' ? t('report.heading') : t('report.reviewHeading') }}
+      </h2>
+      <p class="lead">{{ phase === 'capture' ? t('report.lead') : t('report.reviewLead') }}</p>
+    </header>
 
-        <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
-
-        <LocationPickerField v-model:latitude="latitude" v-model:longitude="longitude" />
-
-        <label class="field">
-          <span class="field-label">{{ t('report.locationName') }}</span>
-          <input
-            v-model="form.locationLabel"
-            class="control"
-            type="text"
-            maxlength="160"
-            :placeholder="t('report.locationPlaceholder')"
-            autocomplete="street-address"
-          />
-        </label>
-
-        <VoiceCaptureField
-          ref="voiceField"
-          v-model:transcript="form.transcript"
-          v-model:audio-blob="audioBlob"
-          :include-note="false"
-        />
-
-        <label class="field">
-          <span class="field-label">{{ t('report.transcript') }}</span>
-          <p class="hint">{{ t('report.transcriptHint') }}</p>
-          <textarea
-            v-model="form.transcript"
-            class="control"
-            rows="4"
-            maxlength="800"
-            :placeholder="t('report.transcriptPlaceholder')"
-          />
-        </label>
-
-        <LocationPickerField v-model:latitude="latitude" v-model:longitude="longitude" />
-
-        <label class="field">
-          <span class="field-label">{{ t('report.locationName') }}</span>
-          <input
-            v-model="form.locationLabel"
-            class="control"
-            type="text"
-            maxlength="160"
-            :placeholder="t('report.locationPlaceholder')"
-            autocomplete="street-address"
-          />
-        </label>
-
-        <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
-      </form>
-    </GlassPanel>
-
-    <div v-if="phase === 'capture'" class="sticky">
-      <p class="sticky-status">{{ canSend ? t('report.ready') : t('report.missingInput') }}</p>
-      <div class="step-nav">
-        <button type="button" class="btn submit" :disabled="submitting || !canSend" @click="send">
-          {{ submitLabel }}
-        </button>
-        <button
-          v-if="submitError"
-          type="button"
-          class="btn-secondary"
-          :disabled="submitting || !canSend"
-          @click="send"
-        >
-          {{ t('report.retry') }}
-        </button>
-      </div>
-    </div>
-
-    <GlassPanel v-else padding="lg" tone="fill" class="form-panel">
-      <form class="form" @submit.prevent="confirm">
-        <p class="lead">{{ t('report.reviewLead') }}</p>
-        <img
-          v-if="form.photoDataUrl || draft.photoUrl"
-          class="preview-photo"
-          :src="draft.photoUrl || form.photoDataUrl"
-          alt=""
-        />
-
-        <div class="summary-list readonly">
-          <div>
-            <dt>{{ t('report.trackingId') }}</dt>
-            <dd>{{ draft.trackingId || t('report.pendingId') }}</dd>
-          </div>
-        </div>
-
-        <label class="field">
-          <span class="field-label">{{ t('report.fieldTitle') }}</span>
-          <input
-            v-model="draft.title"
-            class="control"
-            type="text"
-            maxlength="120"
-            :readonly="!editing"
-            :placeholder="t('report.titlePlaceholder')"
-            autocomplete="off"
-          />
-        </label>
-
-        <div class="field">
-          <span class="field-label">{{ t('report.category') }}</span>
-          <div class="category-row" role="group" :aria-label="t('report.category')">
-            <button
-              v-for="cat in issueCategories"
-              :key="cat.id"
-              type="button"
-              class="category-chip"
-              :class="{ active: draft.category === cat.id }"
-              :disabled="!editing"
-              @click="setCategory(cat.id)"
-            >
-              {{ t(`category.${cat.id}`) }}
-            </button>
-          </div>
-        </div>
-
-        <div class="field">
-          <span class="field-label">{{ t('sheet.severity') }}</span>
-          <div class="category-row" role="group" :aria-label="t('sheet.severity')">
-            <button
-              v-for="level in severities"
-              :key="level"
-              type="button"
-              class="category-chip"
-              :class="{ active: draft.severity === level }"
-              :disabled="!editing"
-              @click="setSeverity(level)"
-            >
-              {{ t(`severity.${level}`) }}
-            </button>
-          </div>
-        </div>
-
+    <div class="workspace">
+      <GlassPanel padding="lg" tone="fill" class="map-col">
         <LocationPickerField
           v-model:latitude="latitude"
           v-model:longitude="longitude"
-          :disabled="!editing"
+          :disabled="reviewActive"
+          tall
         />
-
-        <label class="field">
+        <label v-if="phase === 'capture'" class="field">
           <span class="field-label">{{ t('report.locationName') }}</span>
           <input
-            v-model="draft.locationLabel"
+            v-model="form.locationLabel"
             class="control"
             type="text"
             maxlength="160"
-            :readonly="!editing"
             :placeholder="t('report.locationPlaceholder')"
             autocomplete="street-address"
+            @input="markLocationLabelManual"
           />
         </label>
+        <div v-else class="place-read">
+          <p class="field-label">{{ t('report.locationName') }}</p>
+          <p class="place-value">{{ placeLabel }}</p>
+        </div>
+      </GlassPanel>
 
-        <label class="field">
-          <span class="field-label">{{ t('report.transcript') }}</span>
-          <textarea
-            v-model="draft.description"
-            class="control"
-            rows="4"
-            maxlength="800"
-            :readonly="!editing"
-            :placeholder="t('report.transcriptPlaceholder')"
+      <GlassPanel v-if="phase === 'capture'" padding="lg" tone="fill" class="form-panel">
+        <form class="form" @submit.prevent="send">
+          <PhotoCaptureField v-model:photo-data-url="form.photoDataUrl" />
+
+          <VoiceCaptureField
+            ref="voiceField"
+            v-model:transcript="form.transcript"
+            v-model:audio-blob="audioBlob"
+            :include-note="false"
           />
-        </label>
 
-        <label class="field">
-          <span class="field-label">{{ t('report.summary') }}</span>
-          <textarea
-            v-model="draft.summary"
-            class="control"
-            rows="3"
-            maxlength="400"
-            :readonly="!editing"
-          />
-        </label>
+          <label class="field">
+            <span class="field-label">{{ t('report.transcript') }}</span>
+            <p class="hint">{{ t('report.transcriptHint') }}</p>
+            <textarea
+              v-model="form.transcript"
+              class="control"
+              rows="4"
+              maxlength="800"
+              :placeholder="t('report.transcriptPlaceholder')"
+            />
+          </label>
 
-        <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
-      </form>
-    </GlassPanel>
+        </form>
+      </GlassPanel>
 
-    <div v-if="phase === 'review'" class="sticky">
-      <div class="step-nav">
-        <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
-          {{ t('report.back') }}
-        </button>
-        <button
-          v-if="!editing"
-          type="button"
-          class="btn-secondary"
-          :disabled="submitting"
-          @click="editing = true"
-        >
-          {{ t('report.edit') }}
-        </button>
-        <button type="button" class="btn" :disabled="submitting" @click="confirm">
-          {{ confirmLabel }}
-        </button>
-        <button
-          v-if="submitError"
-          type="button"
-          class="btn-secondary"
-          :disabled="submitting"
-          @click="confirm"
-        >
-          {{ t('report.retry') }}
-        </button>
-      </div>
+      <GlassPanel v-else padding="none" tone="fill" class="review-card">
+        <div v-if="photoSrc" class="hero">
+          <img class="hero-photo" :src="photoSrc" alt="" />
+          <span class="hero-badge">{{ t('report.photoBadge') }}</span>
+        </div>
+        <div v-else class="hero-empty">{{ t('report.photoEmpty') }}</div>
+
+        <div class="review-body">
+          <div v-if="aiDescription" class="ai-block">
+            <p class="field-label">{{ t('report.aiDescription') }}</p>
+            <p class="ai-text">{{ aiDescription }}</p>
+          </div>
+
+          <div class="meta-grid">
+            <div>
+              <p class="field-label">{{ t('report.fieldTitle') }}</p>
+              <p class="meta-value">{{ draft.title || t('report.untitled') }}</p>
+            </div>
+            <div>
+              <p class="field-label">{{ t('report.category') }}</p>
+              <p class="meta-value">{{ t(`category.${draft.category}`) }}</p>
+            </div>
+            <div>
+              <p class="field-label">{{ t('sheet.severity') }}</p>
+              <SeverityPill :severity="draft.severity" />
+            </div>
+            <div>
+              <p class="field-label">{{ t('report.trackingId') }}</p>
+              <p class="meta-value">{{ draft.trackingId || t('report.pendingId') }}</p>
+            </div>
+          </div>
+
+          <div v-if="currentUser" class="identity">
+            <div>
+              <p class="field-label">{{ t('report.submittedBy') }}</p>
+              <p class="meta-value">{{ currentUser.displayName }}</p>
+            </div>
+            <div>
+              <p class="field-label">{{ t('report.accountEmail') }}</p>
+              <p class="meta-value">{{ currentUser.email }}</p>
+            </div>
+          </div>
+          <p v-else class="hint">{{ t('report.guestReporter') }}</p>
+
+        </div>
+      </GlassPanel>
     </div>
+
+    <footer class="command">
+      <p v-if="submitError" class="error" role="alert">{{ submitError }}</p>
+      <div class="command-row">
+        <p id="report-command-status" class="command-status" :class="{ ready: phase === 'review' || canSend }">
+          {{
+            phase === 'capture'
+              ? canSend
+                ? t('report.ready')
+                : t('report.missingInput')
+              : t('report.reviewLead')
+          }}
+        </p>
+        <div class="command-actions">
+          <template v-if="phase === 'capture'">
+            <button
+              type="button"
+              class="btn command-primary"
+              :class="{ 'is-busy': submitting }"
+              :disabled="submitting || !canSend"
+              aria-describedby="report-command-status"
+              @click="send"
+            >
+              {{ submitLabel }}
+            </button>
+          </template>
+          <template v-else>
+            <button type="button" class="btn-secondary" :disabled="submitting" @click="goBack">
+              {{ t('report.editDetails') }}
+            </button>
+            <button
+              type="button"
+              class="btn command-primary"
+              :class="{ 'is-busy': submitting }"
+              :disabled="submitting"
+              aria-describedby="report-command-status"
+              @click="confirm"
+            >
+              {{ confirmLabel }}
+            </button>
+          </template>
+        </div>
+      </div>
+    </footer>
   </section>
 </template>
 
@@ -460,41 +404,21 @@ function setSeverity(id: IssueSeverity) {
 .report {
   display: grid;
   gap: 0.85rem;
-  padding-bottom: 1rem;
 }
 
-.steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.intro {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem;
 }
 
-.steps li {
-  padding: 0.45rem 0.4rem;
-  border-bottom: 2px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 650;
-  text-align: center;
-}
-
-.steps li.active {
+.heading {
+  margin: 0;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--text-h);
-  border-bottom-color: var(--accent);
-}
-
-.steps li.done {
-  color: var(--text-h);
-  border-bottom-color: var(--text-muted);
-}
-
-.form {
-  display: grid;
-  gap: 0.95rem;
-  padding-bottom: 7.5rem;
+  font-family: var(--font-display);
 }
 
 .lead {
@@ -502,6 +426,29 @@ function setSeverity(id: IssueSeverity) {
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1.45;
+  max-width: 40rem;
+}
+
+.workspace {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.map-col {
+  display: grid;
+  gap: 0.85rem;
+  order: 2;
+}
+
+.form-panel,
+.review-card {
+  min-width: 0;
+  order: 1;
+}
+
+.form {
+  display: grid;
+  gap: 0.95rem;
 }
 
 .field {
@@ -509,59 +456,141 @@ function setSeverity(id: IssueSeverity) {
   gap: 0.5rem;
 }
 
-.category-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+.place-read {
+  display: grid;
+  gap: 0.25rem;
 }
 
-.category-chip {
-  min-height: 2.25rem;
-  padding: 0.35rem 0.6rem;
-  border: none;
+.place-value,
+.meta-value,
+.ai-text {
+  margin: 0;
+  color: var(--text-h);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.review-card {
+  overflow: hidden;
+}
+
+.hero {
+  position: relative;
+  background: #e8e6e3;
+}
+
+.hero-photo {
+  display: block;
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+}
+
+.hero-badge {
+  position: absolute;
+  left: 0.85rem;
+  top: 0.85rem;
+  padding: 0.35rem 0.7rem;
   border-radius: var(--radius-pill);
+  background: rgba(9, 9, 10, 0.78);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.hero-empty {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
   background: #f1f0f0;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 650;
-  cursor: pointer;
 }
 
-.category-chip.active {
-  color: var(--accent-ink);
-  background: var(--ink);
-}
-
-.category-chip:disabled {
-  cursor: default;
-}
-
-.step-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.submit {
-  width: 100%;
-}
-
-.sticky {
-  position: sticky;
-  bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
-  z-index: 8;
+.review-body {
   display: grid;
-  gap: 0.45rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: var(--radius-lg);
-  background: var(--glass-regular-bg);
+  gap: 1rem;
+  padding: 1.15rem;
 }
 
-.sticky-status {
+.ai-block {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f7f4ef;
+}
+
+.ai-text {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.meta-grid,
+.identity {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.meta-grid > div,
+.identity > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.command {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.command-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.command-status {
   margin: 0;
-  font-size: 0.82rem;
+  color: var(--text);
+  font-size: 0.95rem;
   font-weight: 650;
-  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.command-status.ready {
+  color: var(--text-h);
+}
+
+.command-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.command-actions .btn-secondary,
+.command-primary {
+  width: 100%;
+  min-height: 3rem;
+}
+
+.command-primary {
+  order: -1;
+  font-weight: 650;
+}
+
+.command-primary:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.command-primary.is-busy:disabled {
+  opacity: 0.72;
+  cursor: wait;
 }
 
 .error {
@@ -570,46 +599,98 @@ function setSeverity(id: IssueSeverity) {
   color: var(--danger);
 }
 
-.preview-photo {
-  display: block;
-  width: 100%;
-  max-height: 14rem;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
+@media (min-width: 720px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+    align-items: start;
+  }
 
-.summary-list {
-  margin: 0;
-}
+  .map-col {
+    order: 1;
+  }
 
-.summary-list dt {
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: var(--text-muted);
-}
+  .form-panel,
+  .review-card {
+    order: 2;
+  }
 
-.summary-list dd {
-  margin: 0.15rem 0 0;
-  color: var(--text-h);
-  font-weight: 600;
+  .hero-photo {
+    max-height: 16rem;
+  }
+
+  .command-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+  }
+
+  .command-status {
+    max-width: 36rem;
+  }
+
+  .command-actions {
+    flex-direction: row;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  .command-actions .btn-secondary,
+  .command-primary {
+    order: 0;
+    width: auto;
+    min-width: 11rem;
+  }
 }
 
 @media (min-width: 1024px) {
   .report {
-    max-width: 44rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    height: calc(100svh - 1.1rem - 1.5rem - env(safe-area-inset-top, 0px));
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .form {
-    padding-bottom: 0;
+  .report > :not(.workspace) {
+    flex-shrink: 0;
   }
 
-  .submit {
-    width: fit-content;
+  .report :deep(.steps li) {
+    padding-top: 0.2rem;
+    padding-bottom: 0.35rem;
   }
 
-  .sticky {
-    bottom: 1rem;
+  .intro {
+    gap: 0.12rem;
+  }
+
+  .heading {
+    font-size: 1.3rem;
+  }
+
+  .lead {
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+
+  .workspace {
+    flex: 1 1 auto;
+    gap: 0.7rem;
+    min-height: 0;
+    align-content: start;
+    overflow: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .map-col {
+    position: sticky;
+    top: 0;
+  }
+
+  .command {
+    padding-top: 0.55rem;
   }
 }
 </style>

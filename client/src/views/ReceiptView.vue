@@ -4,8 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
+import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
 import SpeakButton from '../components/SpeakButton.vue'
-import StatusPill from '../components/StatusPill.vue'
+import StatusTrack from '../components/StatusTrack.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 
 const route = useRoute()
@@ -39,6 +40,7 @@ function formatWhen(iso: string) {
 <template>
   <section class="receipt">
     <AppHeader :subtitle="t('receipt.title')" show-account />
+    <ReportFlowSteps :current="3" />
 
     <GlassPanel v-if="!issue" padding="lg" tone="fill" class="empty">
       <p class="empty-title">{{ t('receipt.missingTitle') }}</p>
@@ -49,15 +51,38 @@ function formatWhen(iso: string) {
     </GlassPanel>
 
     <GlassPanel v-else padding="lg" tone="fill" class="record">
+      <div class="success" aria-hidden="true">
+        <svg class="success-mark" viewBox="0 0 24 24" fill="none">
+          <path
+            d="m5 12 4 4L19 6"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <p class="section-kicker">{{ t('receipt.eyebrow') }}</p>
       <p class="headline">{{ t('receipt.headline') }}</p>
-      <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
-      <p class="tracking">{{ issue.trackingId }}</p>
+      <p class="lead">{{ t('receipt.lead') }}</p>
+
+      <div class="reference">
+        <p class="tracking-label">{{ t('receipt.trackingId') }}</p>
+        <p class="tracking">{{ issue.trackingId }}</p>
+        <p class="hint">{{ t('receipt.trackingHint') }}</p>
+      </div>
+
       <img v-if="issue.photoDataUrl" class="photo" :src="issue.photoDataUrl" alt="" />
       <h2 class="title">{{ issue.title }}</h2>
-      <StatusPill :status="issue.status" />
       <p class="summary">{{ issue.summary }}</p>
       <p class="place">{{ issue.locationLabel }}</p>
       <p class="hint">{{ formatWhen(issue.createdAt) }}</p>
+
+      <div class="progress">
+        <p class="field-label">{{ t('receipt.progress') }}</p>
+        <StatusTrack :status="issue.status" />
+      </div>
+
       <div class="actions">
         <button type="button" class="btn" @click="router.push('/reports')">
           {{ t('receipt.viewReports') }}
@@ -85,8 +110,23 @@ function formatWhen(iso: string) {
 .empty,
 .record {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
   justify-items: start;
+}
+
+.success {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--status-resolved-bg);
+  color: var(--status-resolved-fg);
+}
+
+.success-mark {
+  width: 1.6rem;
+  height: 1.6rem;
 }
 
 .empty-title,
@@ -100,8 +140,25 @@ function formatWhen(iso: string) {
   font-family: var(--font-display);
 }
 
+.lead {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.reference {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f7f4ef;
+}
+
 .tracking-label {
-  margin: 0.2rem 0 0;
+  margin: 0;
   font-size: 0.78rem;
   font-weight: 650;
   color: var(--text-muted);
@@ -109,7 +166,7 @@ function formatWhen(iso: string) {
 
 .tracking {
   margin: 0;
-  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  font-size: clamp(1.4rem, 4.5vw, 2rem);
   font-weight: 750;
   letter-spacing: 0.04em;
   color: var(--text-h);
@@ -139,6 +196,15 @@ function formatWhen(iso: string) {
   line-height: 1.5;
 }
 
+.progress {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -147,7 +213,7 @@ function formatWhen(iso: string) {
 
 @media (min-width: 1024px) {
   .record {
-    max-width: 40rem;
+    max-width: none;
   }
 }
 </style>

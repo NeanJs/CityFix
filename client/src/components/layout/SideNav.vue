@@ -29,7 +29,7 @@ async function onAccount() {
 </script>
 
 <template>
-  <aside class="side" :aria-label="ariaLabel">
+  <aside class="side surface-frost" :aria-label="ariaLabel">
     <div class="side-head">
       <p class="side-brand">{{ appName }}</p>
       <span class="civic-rule" aria-hidden="true" />
