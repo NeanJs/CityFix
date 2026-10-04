@@ -46,19 +46,19 @@ const items = computed(() => [
   z-index: 1;
   padding: 0.45rem 0.3rem;
   border-bottom: 2px solid var(--border);
-  color: var(--text-muted);
+  color: var(--selection-inactive-fg);
   font-size: 0.78rem;
   font-weight: 650;
   text-align: center;
 }
 
 .steps li.active {
-  color: var(--text-h);
+  color: var(--selection-active-fg);
   border-bottom-color: transparent;
 }
 
 .steps li.done {
-  color: var(--text-h);
-  border-bottom-color: var(--text-muted);
+  color: var(--text);
+  border-bottom-color: var(--border);
 }
 </style>

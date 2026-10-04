@@ -452,7 +452,7 @@ function formatFiled(iso: string) {
   scrollbar-width: none;
   padding: 0.2rem;
   border-radius: var(--radius-pill);
-  background: #f1f0f0;
+  background: var(--selection-track-bg);
 }
 
 .chips::-webkit-scrollbar {
@@ -468,7 +468,7 @@ function formatFiled(iso: string) {
   border-radius: var(--radius-pill);
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--selection-inactive-fg);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -476,6 +476,7 @@ function formatFiled(iso: string) {
 
 .chip.active {
   color: var(--accent-ink);
+  font-weight: 600;
   background: transparent;
 }
 

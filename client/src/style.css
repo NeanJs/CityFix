@@ -19,6 +19,12 @@
   --danger: #9a3a30;
   --civic-bar: #7d5e30;
 
+  --selection-track-bg: #e8e5e0;
+  --selection-fill-bg: var(--surface-raised-solid);
+  --selection-fill-border: var(--border);
+  --selection-inactive-fg: var(--text-muted);
+  --selection-active-fg: var(--text-h);
+
   --scene-grid-lot: rgba(47, 61, 82, 0.018);
   --scene-grid-street: rgba(125, 94, 48, 0.026);
   --scene-horizon: rgba(47, 61, 82, 0.04);

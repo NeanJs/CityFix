@@ -65,7 +65,11 @@ function stateFor(id: IssueStatus) {
   gap: 0.3rem;
   justify-items: center;
   text-align: center;
-  color: var(--text-muted);
+  color: var(--selection-inactive-fg);
+}
+
+.track li.upcoming {
+  color: var(--selection-inactive-fg);
 }
 
 .dot {
@@ -79,8 +83,13 @@ function stateFor(id: IssueStatus) {
   background: var(--accent);
 }
 
+.track li.done {
+  color: var(--text);
+}
+
 .track li.current {
-  color: var(--text-h);
+  color: var(--selection-active-fg);
+  font-weight: 700;
 }
 
 .label {

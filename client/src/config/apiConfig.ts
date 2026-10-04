@@ -63,6 +63,17 @@ export function reportTrackUrl(trackingId: string) {
   return `${reportsCollectionUrl}/track/${encodeURIComponent(id)}`
 }
 
+export function voiceConversationIssueUrl(conversationId: string) {
+  const id = conversationId.trim()
+  if (!apiBaseUrl || !id) {
+    return ''
+  }
+  return joinApiUrl(
+    apiBaseUrl,
+    `/api/voice/conversations/${encodeURIComponent(id)}/issue`,
+  )
+}
+
 export function adminReportUrl(reportId: string) {
   const id = reportId.trim()
   if (!adminReportsUrl || !id) {

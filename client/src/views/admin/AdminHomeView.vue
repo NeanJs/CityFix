@@ -233,7 +233,11 @@ watch(mapOpen, async () => {
 }
 
 .stat.active .stat-value {
-  color: var(--text-h);
+  color: var(--selection-active-fg);
+}
+
+.stat.active .stat-label {
+  color: var(--text);
 }
 
 .stat-value {
@@ -241,7 +245,7 @@ watch(mapOpen, async () => {
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: var(--text-h);
+  color: var(--selection-inactive-fg);
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }

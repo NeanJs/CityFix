@@ -410,14 +410,14 @@ async function refresh() {
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--selection-inactive-fg);
   font: inherit;
   font-weight: 650;
   cursor: pointer;
 }
 
 .range-button.active {
-  color: var(--text-h);
+  color: var(--selection-active-fg);
 }
 
 .kpis {

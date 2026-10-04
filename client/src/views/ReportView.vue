@@ -8,7 +8,7 @@ import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { defaultIssueType } from '../services/report/issueType'
 import { apiErrorMessage } from '../services/api/apiRequestError'
-import { getConversationUserTranscript } from '../services/api/elevenLabsConversation'
+import { getVoiceConversationIssue } from '../services/api/voiceConversationIssue'
 import { takeVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { isAnalyzeImage } from '../services/media/formFile'
@@ -371,14 +371,22 @@ async function importConversation() {
   submitStage.value = 'read'
   try {
     const conversationId = pendingConversationId.value
-    const note = await getConversationUserTranscript(conversationId)
-    takeVoiceReportHandoff(conversationId)
+    const next = await getVoiceConversationIssue(conversationId)
+    const handoff = takeVoiceReportHandoff(conversationId)
+    const note = next.transcript.trim() || handoff?.userTranscript.trim() || ''
     form.transcript = note
+    applyDraft({
+      ...next,
+      transcript: next.transcript || note,
+      description: next.description || next.transcript || note,
+      locationLabel: next.locationLabel || form.locationLabel.trim(),
+      photoUrl: next.photoUrl || form.photoDataUrl,
+    })
     pendingConversationId.value = ''
     if (route.query.conversation) {
       await router.replace({ name: 'report' })
     }
-    await analyzeReportInput(note)
+    await setPhase('review')
   } catch (error) {
     submitError.value = apiErrorMessage(error, t, 'report.voiceConversationFailed')
   } finally {

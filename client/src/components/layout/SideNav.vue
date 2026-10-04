@@ -141,7 +141,7 @@ async function onAccount() {
     border: none;
     border-radius: var(--radius-pill);
     background: transparent;
-    color: var(--text);
+    color: var(--selection-inactive-fg);
     font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
@@ -152,7 +152,8 @@ async function onAccount() {
   }
 
   .side-link.active {
-    color: var(--text-h);
+    color: var(--selection-active-fg);
+    font-weight: 600;
     background: transparent;
     box-shadow: none;
   }

@@ -85,7 +85,7 @@ const columns = computed(() => props.items.length)
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text);
+  color: var(--selection-inactive-fg);
   font-size: 0.7rem;
   font-weight: 500;
   cursor: pointer;
@@ -99,8 +99,12 @@ const columns = computed(() => props.items.length)
 }
 
 .item.active {
-  color: var(--text-h);
+  color: var(--selection-active-fg);
   background: transparent;
+}
+
+.item.active .label {
+  font-weight: 600;
 }
 
 .dock :deep(.indicator.fill) {

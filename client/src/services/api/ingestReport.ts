@@ -103,8 +103,8 @@ function resolveIngestSource(payload: unknown): Record<string, unknown> | null {
     return null
   }
   const envelope =
-    firstRecord(top, ['data', 'result', 'analysis', 'draft']) ?? top
-  const nested = firstRecord(envelope, ['draft', 'report', 'analysis'])
+    firstRecord(top, ['data', 'result', 'analysis', 'draft', 'issue']) ?? top
+  const nested = firstRecord(envelope, ['draft', 'report', 'analysis', 'issue'])
   if (!nested) {
     return envelope === top ? envelope : { ...top, ...envelope }
   }

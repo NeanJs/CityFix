@@ -174,18 +174,21 @@ onUnmounted(() => {
 
 .indicator.fill {
   border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px var(--selection-fill-border);
 }
 
 .indicator.fill.muted {
-  background: #f1f0f0;
+  background: var(--selection-fill-bg);
 }
 
 .indicator.fill.ink {
   background: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(9, 9, 10, 0.2);
 }
 
 .indicator.fill.accent {
   background: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(99, 74, 38, 0.35);
 }
 
 .indicator.underline {
