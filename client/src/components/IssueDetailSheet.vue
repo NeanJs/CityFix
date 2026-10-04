@@ -304,11 +304,6 @@ function advance() {
             <p class="description">{{ issue.description }}</p>
           </div>
 
-          <div v-if="issue.recommendedAction" class="block" data-enter-block>
-            <p class="row-label">{{ t('sheet.recommendedAction') }}</p>
-            <p class="description">{{ issue.recommendedAction }}</p>
-          </div>
-
           <ul class="timeline" data-enter-block>
             <li v-for="entry in timeline" :key="entry.label">
               <span class="dot" aria-hidden="true" />

@@ -520,10 +520,6 @@ async function confirm() {
               <p class="field-label">{{ t('report.yourWords') }}</p>
               <p class="review-text">{{ citizenWords }}</p>
             </div>
-            <div v-if="draft.recommendedAction" class="review-block" data-enter-block>
-              <p class="field-label">{{ t('sheet.recommendedAction') }}</p>
-              <p class="review-text">{{ draft.recommendedAction }}</p>
-            </div>
             <dl class="facts" data-enter-block>
               <div>
                 <dt class="field-label">{{ t('report.category') }}</dt>

@@ -109,10 +109,6 @@ onMounted(() => {
       </div>
       <h2 class="title">{{ issue.title }}</h2>
       <p class="summary">{{ issue.summary }}</p>
-      <div v-if="issue.recommendedAction" class="action-note">
-        <p class="field-label">{{ t('receipt.recommendedAction') }}</p>
-        <p class="summary">{{ issue.recommendedAction }}</p>
-      </div>
       <p class="place">{{ issue.locationLabel }}</p>
       <p class="hint">{{ formatWhen(issue.createdAt) }}</p>
 
@@ -242,11 +238,6 @@ onMounted(() => {
   margin: 0;
   color: var(--text);
   line-height: 1.5;
-}
-
-.action-note {
-  display: grid;
-  gap: 0.25rem;
 }
 
 .progress {
