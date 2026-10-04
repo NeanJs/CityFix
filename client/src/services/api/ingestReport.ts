@@ -14,11 +14,32 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
+function unwrapCollectedValue(value: unknown, depth = 0): string {
+  if (depth > 3) {
+    return ''
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  const record = asRecord(value)
+  if (!record) {
+    return ''
+  }
+  return (
+    unwrapCollectedValue(record.value, depth + 1) ||
+    unwrapCollectedValue(record.data, depth + 1) ||
+    unwrapCollectedValue(record.text, depth + 1)
+  )
+}
+
 function pickString(source: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
-    const value = source[key]
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim()
+    const next = unwrapCollectedValue(source[key])
+    if (next) {
+      return next
     }
   }
   return ''
@@ -30,14 +51,27 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value
     }
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number(value)
+    const raw = unwrapCollectedValue(value)
+    if (raw) {
+      const parsed = Number(raw)
       if (Number.isFinite(parsed)) {
         return parsed
       }
     }
   }
   return undefined
+}
+
+function flattenCollected(source: Record<string, unknown> | null) {
+  if (!source) {
+    return {}
+  }
+  const flattened: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(source)) {
+    const unwrapped = unwrapCollectedValue(value)
+    flattened[key] = unwrapped || value
+  }
+  return flattened
 }
 
 function analyzePhoto(input: ReportIngestInput) {
@@ -105,10 +139,33 @@ function resolveIngestSource(payload: unknown): Record<string, unknown> | null {
   const envelope =
     firstRecord(top, ['data', 'result', 'analysis', 'draft', 'issue']) ?? top
   const nested = firstRecord(envelope, ['draft', 'report', 'analysis', 'issue'])
-  if (!nested) {
-    return envelope === top ? envelope : { ...top, ...envelope }
-  }
-  return { ...top, ...envelope, ...nested }
+  const collected = flattenCollected(
+    firstRecord(top, [
+      'data_collection_results',
+      'dataCollectionResults',
+      'collected_data',
+      'extracted',
+      'datapoints',
+      'fields',
+    ]) ??
+      firstRecord(envelope, [
+        'data_collection_results',
+        'dataCollectionResults',
+        'collected_data',
+        'extracted',
+        'datapoints',
+        'fields',
+      ]) ??
+      firstRecord(nested ?? {}, [
+        'data_collection_results',
+        'dataCollectionResults',
+        'collected_data',
+        'extracted',
+        'datapoints',
+        'fields',
+      ]),
+  )
+  return { ...top, ...envelope, ...(nested ?? {}), ...collected }
 }
 
 function hasMeaningfulAnalysisText(draft: ReportIngestDraft) {
@@ -127,11 +184,27 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   }
   const statusRaw = pickString(source, ['status']).toLowerCase()
   const transcript = pickString(source, ['transcript', 'text', 'voiceText', 'voice_text'])
-  const description = pickString(source, ['description', 'note']) || transcript
-  const locationLabel = pickString(source, ['locationLabel', 'location', 'place'])
+  const description =
+    pickString(source, ['description', 'note', 'details', 'summary_text']) || transcript
+  const locationRecord = asRecord(source.location)
+  const locationLabel =
+    pickString(source, [
+      'locationLabel',
+      'location_label',
+      'location_description',
+      'location',
+      'place',
+      'address',
+    ]) ||
+    (locationRecord
+      ? pickString(locationRecord, ['description', 'label', 'name', 'address', 'place'])
+      : '')
   const issueType = pickIssueType(payload, [source])
-  const title = pickString(source, ['title'])
-  const summary = pickString(source, ['summary'])
+  const title =
+    pickString(source, ['title', 'issue_title', 'report_title', 'headline']) ||
+    pickString(source, ['summary']) ||
+    description
+  const summary = pickString(source, ['summary']) || description || title
   const recommendedAction = pickString(source, ['recommended_action', 'recommendedAction'])
   const draft = emptyDraft({
     title,
@@ -141,8 +214,12 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
     issueType,
     severity: normalizeSeverity(pickString(source, ['severity'])),
     locationLabel,
-    latitude: pickNumber(source, ['latitude', 'lat']),
-    longitude: pickNumber(source, ['longitude', 'lng', 'lon']),
+    latitude:
+      pickNumber(source, ['latitude', 'lat']) ??
+      (locationRecord ? pickNumber(locationRecord, ['latitude', 'lat']) : undefined),
+    longitude:
+      pickNumber(source, ['longitude', 'lng', 'lon']) ??
+      (locationRecord ? pickNumber(locationRecord, ['longitude', 'lng', 'lon']) : undefined),
     photoUrl: pickString(source, ['photoUrl', 'photo_url', 'photo']),
     recommendedAction,
     trackingId: pickString(source, ['trackingId', 'tracking_id']),

@@ -379,6 +379,7 @@ async function importConversation() {
       ...next,
       transcript: next.transcript || note,
       description: next.description || next.transcript || note,
+      title: next.title || next.summary || next.description || note,
       locationLabel: next.locationLabel || form.locationLabel.trim(),
       photoUrl: next.photoUrl || form.photoDataUrl,
     })
@@ -406,10 +407,12 @@ async function confirm() {
     const note = draft.transcript.trim() || form.transcript.trim()
     const description =
       draft.description.trim() || note || draft.summary.trim() || draft.title.trim()
+    const title =
+      draft.title.trim() || draft.summary.trim() || description || t('report.untitled')
     const request = {
-      issueType: draft.issueType,
-      title: draft.title.trim() || draft.summary.trim() || undefined,
-      description: description || undefined,
+      issueType: draft.issueType.trim() || defaultIssueType,
+      title,
+      description: description || title,
       severity: draft.severity,
       locationDescription: place,
       latitude: draft.latitude ?? latitude.value,

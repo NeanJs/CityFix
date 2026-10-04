@@ -19,6 +19,7 @@ const {
   connected,
   sessionHeld,
   completedConversationId,
+  completing,
   startSession,
   endSession,
   getInputFrequency,
@@ -28,15 +29,24 @@ const {
 const router = useRouter()
 const ending = ref(false)
 const handoffErrorKey = ref('')
-const busy = computed(() => status.value === 'connecting' || starting.value || ending.value)
+const busy = computed(
+  () => status.value === 'connecting' || starting.value || ending.value || completing.value,
+)
 const activeErrorKey = computed(() => handoffErrorKey.value || errorKey.value)
 const failed = computed(
-  () => Boolean(activeErrorKey.value) && status.value === 'disconnected' && !ending.value,
+  () =>
+    Boolean(activeErrorKey.value) &&
+    status.value === 'disconnected' &&
+    !ending.value &&
+    !completing.value,
 )
 
 const phase = computed<GlyphPhase>(() => {
   if (failed.value) {
     return 'error'
+  }
+  if (completing.value && connected.value && mode.value === 'speaking') {
+    return 'speaking'
   }
   if (busy.value) {
     return 'connecting'
@@ -51,7 +61,7 @@ const statusLabel = computed(() => {
   if (failed.value) {
     return t(activeErrorKey.value)
   }
-  if (ending.value) {
+  if (ending.value || completing.value) {
     return t('voice.preparingReport')
   }
   if (busy.value) {
@@ -64,7 +74,7 @@ const statusLabel = computed(() => {
 })
 
 const actionLabel = computed(() => {
-  if (ending.value) {
+  if (ending.value || completing.value) {
     return t('voice.preparingReport')
   }
   if (connected.value) {

@@ -53,6 +53,7 @@ export function useElevenLabsConversation() {
   const errorKey = ref('')
   const starting = ref(false)
   const completedConversationId = ref('')
+  const completing = ref(false)
 
   let session: VoiceConversation | null = null
   let generation = 0
@@ -63,6 +64,10 @@ export function useElevenLabsConversation() {
   let liveUserTranscript = ''
   let discardNextDisconnect = false
   let didConnect = false
+  let endingSession: Promise<string> | null = null
+  let idleWaiters: Array<() => void> = []
+  let completeCancelled = false
+  const agentIdleTimeoutMs = 20000
 
   const connected = computed(() => status.value === 'connected')
   const sessionHeld = computed(
@@ -134,7 +139,33 @@ export function useElevenLabsConversation() {
       userTranscript: liveUserTranscript,
     })
     completedConversationId.value = id
+    completing.value = false
     return id
+  }
+
+  function resolveIdleWaiters() {
+    const waiters = idleWaiters
+    idleWaiters = []
+    for (const waiter of waiters) {
+      waiter()
+    }
+  }
+
+  function whenAgentIdle() {
+    if (mode.value !== 'speaking') {
+      return Promise.resolve()
+    }
+    return new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => {
+        idleWaiters = idleWaiters.filter((waiter) => waiter !== done)
+        resolve()
+      }, agentIdleTimeoutMs)
+      const done = () => {
+        window.clearTimeout(timer)
+        resolve()
+      }
+      idleWaiters.push(done)
+    })
   }
 
   function clearUnmuteTimer() {
@@ -186,11 +217,14 @@ export function useElevenLabsConversation() {
 
     starting.value = true
     errorKey.value = ''
+    completing.value = false
     completedConversationId.value = ''
     activeConversationId = ''
     liveUserTranscript = ''
     discardNextDisconnect = false
     didConnect = false
+    completeCancelled = false
+    endingSession = null
     const token = generation + 1
     generation = token
     status.value = 'connecting'
@@ -202,15 +236,15 @@ export function useElevenLabsConversation() {
         connectionType: 'webrtc',
         clientTools: {
           create_report: async () => {
-            finishConversation(getConversationId(session))
+            void endSession()
             return 'The report will be prepared for the resident to review.'
           },
           createReport: async () => {
-            finishConversation(getConversationId(session))
+            void endSession()
             return 'The report will be prepared for the resident to review.'
           },
           file_report: async () => {
-            finishConversation(getConversationId(session))
+            void endSession()
             return 'The report will be prepared for the resident to review.'
           },
         },
@@ -245,8 +279,7 @@ export function useElevenLabsConversation() {
           if (token !== generation) {
             return
           }
-          finishConversation(getConversationId(session))
-          void session?.endSession()
+          void endSession()
         },
         onStatusChange: ({ status: nextStatus }) => {
           if (token !== generation) {
@@ -264,6 +297,9 @@ export function useElevenLabsConversation() {
             return
           }
           mode.value = nextMode
+          if (nextMode !== 'speaking') {
+            resolveIdleWaiters()
+          }
           if (session) {
             syncMicToMode(session, token)
           }
@@ -287,8 +323,10 @@ export function useElevenLabsConversation() {
           status.value = 'disconnected'
           mode.value = 'listening'
           starting.value = false
+          resolveIdleWaiters()
           if (discardNextDisconnect) {
             discardNextDisconnect = false
+            completing.value = false
             return
           }
           if (details.reason === 'user') {
@@ -330,13 +368,14 @@ export function useElevenLabsConversation() {
     }
   }
 
-  async function endSession(options: { discard?: boolean } = {}) {
+  async function closeSession(options: { discard?: boolean } = {}) {
     generation += 1
     starting.value = false
     const current = session
     const conversationId = getConversationId(current)
     discardNextDisconnect = Boolean(options.discard)
     resetMicTurnState()
+    resolveIdleWaiters()
     current?.setMicMuted(true)
     session = null
     status.value = 'disconnected'
@@ -350,9 +389,46 @@ export function useElevenLabsConversation() {
       }
     }
     if (options.discard) {
+      completing.value = false
       return ''
     }
     return finishConversation(conversationId)
+  }
+
+  async function endSession(options: { discard?: boolean } = {}) {
+    if (options.discard) {
+      completeCancelled = true
+      endingSession = null
+      return closeSession({ discard: true })
+    }
+    if (endingSession) {
+      return endingSession
+    }
+    completeCancelled = false
+    completing.value = true
+    const pending = (async () => {
+      await whenAgentIdle()
+      if (completeCancelled) {
+        completing.value = false
+        return ''
+      }
+      if (completedConversationId.value) {
+        completing.value = false
+        return completedConversationId.value
+      }
+      if (!session) {
+        return finishConversation(getConversationId(null))
+      }
+      return closeSession()
+    })()
+    endingSession = pending
+    try {
+      return await pending
+    } finally {
+      if (endingSession === pending) {
+        endingSession = null
+      }
+    }
   }
 
   onBeforeRouteLeave(() => {
@@ -371,6 +447,7 @@ export function useElevenLabsConversation() {
     connected,
     sessionHeld,
     completedConversationId,
+    completing,
     startSession,
     endSession,
     getInputFrequency,
