@@ -82,7 +82,7 @@ export function leavePage(
   done: () => void,
 ) {
   if (intent.layer !== layer) {
-    done()
+    requestAnimationFrame(done)
     return
   }
   gsap.killTweensOf(element)
@@ -105,7 +105,7 @@ export function enterPage(
 ) {
   if (intent.layer !== layer) {
     gsap.set(element, { clearProps: 'transform,opacity' })
-    done()
+    requestAnimationFrame(done)
     return
   }
   gsap.killTweensOf(element)

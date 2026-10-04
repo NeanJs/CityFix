@@ -20,7 +20,7 @@ import GlassPanel from '../components/ui/GlassPanel.vue'
 import MorphText from '../components/ui/MorphText.vue'
 import SeverityPill from '../components/SeverityPill.vue'
 import { flipLayout } from '../motion/flip'
-import { enterBlocks, withViewTransition } from '../motion/transitions'
+import { enterBlocks } from '../motion/transitions'
 
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
@@ -405,10 +405,9 @@ async function confirm() {
       reporterId: reporterId.value,
       trackingId: next.trackingId,
     })
+    await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
+    await nextTick()
     resetForm()
-    await withViewTransition(() =>
-      router.replace({ name: 'reportReceipt', params: { id: issue.id } }),
-    )
   } catch (error) {
     submitError.value = apiErrorMessage(error, t, 'report.fileFailed')
   } finally {
