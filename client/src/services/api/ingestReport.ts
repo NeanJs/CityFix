@@ -1,17 +1,13 @@
 import { reportIngestUrl } from '../../config/apiConfig'
 import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
 import { defaultIssueType } from '../report/issueType'
+import { normalizeSeverity } from '../report/severity'
 import { pickIssueType } from './pickIssueType'
 import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
-import type { IssueSeverity, IssueStatus } from '../../types/issue'
+import type { IssueStatus } from '../../types/issue'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
 
-const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
-
-function isSeverity(value: string): value is IssueSeverity {
-  return severities.includes(value as IssueSeverity)
-}
 
 function isStatus(value: string): value is IssueStatus {
   return statuses.includes(value as IssueStatus)
@@ -53,10 +49,10 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
 function toFormData(input: ReportIngestInput) {
   const body = new FormData()
   if (input.photo) {
-    appendFormFile(body, 'photo', input.photo, photoFileName(input.photo))
+    appendFormFile(body, 'file', input.photo, photoFileName(input.photo))
   }
   if (input.audio) {
-    appendFormFile(body, 'audio', input.audio, audioFileName(input.audio))
+    appendFormFile(body, 'file', input.audio, audioFileName(input.audio))
   }
   const text = input.text?.trim()
   if (text) {
@@ -95,14 +91,24 @@ function emptyDraft(overrides: Partial<ReportIngestDraft> = {}): ReportIngestDra
   }
 }
 
+function firstRecord(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const nested = asRecord(source[key])
+    if (nested) {
+      return nested
+    }
+  }
+  return null
+}
+
 function resolveIngestSource(payload: unknown): Record<string, unknown> | null {
   const top = asRecord(payload)
   if (!top) {
     return null
   }
   const envelope =
-    asRecord(top.data) ?? asRecord(top.result) ?? asRecord(top.analysis) ?? top
-  const nested = asRecord(envelope.report) ?? asRecord(envelope.analysis)
+    firstRecord(top, ['data', 'result', 'analysis', 'draft']) ?? top
+  const nested = firstRecord(envelope, ['draft', 'report', 'analysis'])
   if (!nested) {
     return envelope === top ? envelope : { ...top, ...envelope }
   }
@@ -123,26 +129,26 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   if (!source) {
     throw new ApiRequestError('failed')
   }
-  const severityRaw = pickString(source, ['severity']).toLowerCase()
   const statusRaw = pickString(source, ['status']).toLowerCase()
   const transcript = pickString(source, ['transcript', 'text', 'voiceText', 'voice_text'])
   const description = pickString(source, ['description', 'note']) || transcript
   const locationLabel = pickString(source, ['locationLabel', 'location', 'place'])
   const issueType = pickIssueType(payload, [source])
-  const severity = isSeverity(severityRaw) ? severityRaw : 'medium'
   const title = pickString(source, ['title'])
   const summary = pickString(source, ['summary'])
+  const recommendedAction = pickString(source, ['recommended_action', 'recommendedAction'])
   const draft = emptyDraft({
     title,
     description,
     transcript,
     summary,
     issueType,
-    severity,
+    severity: normalizeSeverity(pickString(source, ['severity'])),
     locationLabel,
     latitude: pickNumber(source, ['latitude', 'lat']),
     longitude: pickNumber(source, ['longitude', 'lng', 'lon']),
     photoUrl: pickString(source, ['photoUrl', 'photo_url', 'photo']),
+    recommendedAction,
     trackingId: pickString(source, ['trackingId', 'tracking_id']),
     status: isStatus(statusRaw) ? statusRaw : 'submitted',
     createdAt: pickString(source, ['createdAt', 'created_at', 'timestamp']),

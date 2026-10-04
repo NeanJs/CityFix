@@ -69,5 +69,5 @@ export function fileFromDataUrl(dataUrl: string, filename: string) {
 
 export function appendFormFile(body: FormData, field: string, blob: Blob, filename: string) {
   const file = asFormFile(blob, filename)
-  body.append("file", file, file.name)
+  body.append(field, file, file.name)
 }

@@ -6,10 +6,10 @@ import {
 } from './apiRequestError'
 import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
 import { defaultIssueType } from '../report/issueType'
+import { normalizeSeverity } from '../report/severity'
 import { pickIssueType } from './pickIssueType'
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
 
-const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
 
 export class ReportApiError extends ApiRequestError {
@@ -47,6 +47,7 @@ export type CreateReportInput = {
   latitude?: number
   longitude?: number
   transcript?: string
+  recommendedAction?: string
   photo?: Blob
   audio?: Blob
 }
@@ -67,10 +68,6 @@ export type RemoteReport = {
   recommendedAction: string
   createdAt?: string
   updatedAt?: string
-}
-
-function isSeverity(value: string): value is IssueSeverity {
-  return severities.includes(value as IssueSeverity)
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -109,14 +106,6 @@ function pickNumber(source: Record<string, unknown>, keys: string[]) {
 function filled(value: string | undefined, fallback: string) {
   const trimmed = value?.trim() ?? ''
   return trimmed || fallback
-}
-
-function normalizeSeverity(value: string): IssueSeverity {
-  const token = value.toLowerCase()
-  if (isSeverity(token)) {
-    return token
-  }
-  return 'medium'
 }
 
 function normalizeStatus(value: string): IssueStatus {
@@ -184,7 +173,7 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
       latitude: latitude ?? 0,
       longitude: longitude ?? 0,
     },
-    recommended_action: '',
+    recommended_action: filled(input.recommendedAction, ''),
   }
   const transcript = input.transcript?.trim()
   if (transcript) {

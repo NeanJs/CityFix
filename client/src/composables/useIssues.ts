@@ -4,7 +4,8 @@ import { trackReport, type RemoteReport } from '../services/api/reportsApi'
 import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 import { defaultIssueType, normalizeIssueType } from '../services/report/issueType'
-import type { Issue, IssueSeverity, IssueStatus, NewIssueInput } from '../types/issue'
+import { normalizeSeverity } from '../services/report/severity'
+import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
 
 const storageKey = 'cityfix.issues.v1'
 
@@ -12,8 +13,6 @@ const issues = ref<Issue[]>([])
 const hydrated = ref(false)
 const storeReady = ref(false)
 let bootstrapPromise: Promise<void> | null = null
-
-const severities: IssueSeverity[] = ['low', 'medium', 'high']
 
 async function persist() {
   await writeStoreItem(storageKey, JSON.stringify(issues.value))
@@ -24,10 +23,6 @@ function createId() {
     return crypto.randomUUID()
   }
   return `issue-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-}
-
-function isSeverity(value: unknown): value is IssueSeverity {
-  return typeof value === 'string' && severities.includes(value as IssueSeverity)
 }
 
 function isoTimestamp(value: string | undefined) {
@@ -66,7 +61,7 @@ function normalizeIssue(issue: Issue & { category?: string }): Issue {
     reporterId: issue.reporterId ?? '',
     transcript,
     summary: issue.summary?.trim() || description || transcript,
-    severity: isSeverity(issue.severity) ? issue.severity : 'medium',
+    severity: normalizeSeverity(typeof issue.severity === 'string' ? issue.severity : ''),
     photoDataUrl: issue.photoDataUrl,
   }
 }

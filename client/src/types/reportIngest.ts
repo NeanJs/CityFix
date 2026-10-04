@@ -11,6 +11,7 @@ export type ReportIngestDraft = {
   latitude?: number
   longitude?: number
   photoUrl?: string
+  recommendedAction?: string
   trackingId?: string
   status?: IssueStatus
   createdAt?: string

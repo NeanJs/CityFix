@@ -179,6 +179,7 @@ function applyDraft(next: ReportIngestDraft) {
   draft.latitude = next.latitude
   draft.longitude = next.longitude
   draft.photoUrl = next.photoUrl
+  draft.recommendedAction = next.recommendedAction
   draft.trackingId = next.trackingId
   draft.status = next.status ?? 'submitted'
   draft.createdAt = next.createdAt
@@ -361,10 +362,11 @@ async function confirm() {
       latitude: draft.latitude ?? latitude.value,
       longitude: draft.longitude ?? longitude.value,
       transcript: note || undefined,
+      recommendedAction: draft.recommendedAction,
       photo,
       audio: audioBlob.value ?? undefined,
     }
-    let recommendedAction = buildCreateReportBody(request).recommended_action
+    let recommendedAction = draft.recommendedAction?.trim() || buildCreateReportBody(request).recommended_action
     const created = await createReport(request)
     recommendedAction = created.recommendedAction || recommendedAction
     const next: ReportIngestDraft = {
@@ -379,6 +381,7 @@ async function confirm() {
       latitude: created.latitude ?? request.latitude,
       longitude: created.longitude ?? request.longitude,
       photoUrl: created.photoUrl || draft.photoUrl || form.photoDataUrl,
+      recommendedAction: created.recommendedAction || draft.recommendedAction,
       trackingId: created.trackingId,
       status: created.status,
       createdAt: created.createdAt,
@@ -516,6 +519,10 @@ async function confirm() {
             <div v-if="showCitizenWords" class="review-block" data-enter-block>
               <p class="field-label">{{ t('report.yourWords') }}</p>
               <p class="review-text">{{ citizenWords }}</p>
+            </div>
+            <div v-if="draft.recommendedAction" class="review-block" data-enter-block>
+              <p class="field-label">{{ t('sheet.recommendedAction') }}</p>
+              <p class="review-text">{{ draft.recommendedAction }}</p>
             </div>
             <dl class="facts" data-enter-block>
               <div>
