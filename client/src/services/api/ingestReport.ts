@@ -1,5 +1,5 @@
 import { reportIngestUrl } from '../../config/apiConfig'
-import { apiRequestErrorFromResponse } from './apiRequestError'
+import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
 import { defaultIssueType } from '../report/issueType'
 import { pickIssueType } from './pickIssueType'
 import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
@@ -109,10 +109,19 @@ function resolveIngestSource(payload: unknown): Record<string, unknown> | null {
   return { ...top, ...envelope, ...nested }
 }
 
+function hasMeaningfulAnalysisText(draft: ReportIngestDraft) {
+  return Boolean(
+    draft.title.trim() ||
+      draft.summary.trim() ||
+      draft.description.trim() ||
+      draft.transcript.trim(),
+  )
+}
+
 export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   const source = resolveIngestSource(payload)
   if (!source) {
-    return emptyDraft()
+    throw new ApiRequestError('failed')
   }
   const severityRaw = pickString(source, ['severity']).toLowerCase()
   const statusRaw = pickString(source, ['status']).toLowerCase()
@@ -123,7 +132,7 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
   const severity = isSeverity(severityRaw) ? severityRaw : 'medium'
   const title = pickString(source, ['title'])
   const summary = pickString(source, ['summary'])
-  return emptyDraft({
+  const draft = emptyDraft({
     title,
     description,
     transcript,
@@ -138,35 +147,16 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
     status: isStatus(statusRaw) ? statusRaw : 'submitted',
     createdAt: pickString(source, ['createdAt', 'created_at', 'timestamp']),
   })
-}
-
-function localIngest(input: ReportIngestInput): ReportIngestDraft {
-  if (input.confirmed && input.draft) {
-    return {
-      ...input.draft,
-      status: input.draft.status ?? 'submitted',
-    }
+  if (!hasMeaningfulAnalysisText(draft)) {
+    throw new ApiRequestError('failed')
   }
-  const text = input.text?.trim() ?? ''
-  const locationLabel =
-    input.locationLabel?.trim() ||
-    (input.latitude !== undefined && input.longitude !== undefined
-      ? `${input.latitude.toFixed(5)}, ${input.longitude.toFixed(5)}`
-      : '')
-  return emptyDraft({
-    description: text,
-    transcript: text,
-    issueType: defaultIssueType,
-    locationLabel,
-    latitude: input.latitude,
-    longitude: input.longitude,
-  })
+  return draft
 }
 
 export async function ingestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
   const url = reportIngestUrl
   if (!url) {
-    return localIngest(input)
+    throw new ApiRequestError('unavailable')
   }
   const response = await fetch(url, {
     method: 'POST',
@@ -178,7 +168,12 @@ export async function ingestReport(input: ReportIngestInput): Promise<ReportInge
   if (!response.ok) {
     throw apiRequestErrorFromResponse(response)
   }
-  const payload = (await response.json()) as unknown
+  let payload: unknown
+  try {
+    payload = (await response.json()) as unknown
+  } catch {
+    throw new ApiRequestError('failed')
+  }
   return parseReportIngestResponse(payload)
 }
 

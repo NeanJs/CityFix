@@ -64,5 +64,8 @@ export function apiErrorMessage(error: unknown, t: Translate, fallbackKey: strin
   if (error instanceof ApiRequestError && error.code === 'rate-limited') {
     return formatRateLimitWait(error.retryAfterSeconds, t)
   }
+  if (error instanceof ApiRequestError && error.code === 'unavailable') {
+    return t('api.unavailable')
+  }
   return t(fallbackKey)
 }

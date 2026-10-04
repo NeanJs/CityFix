@@ -1,4 +1,5 @@
 import { onBeforeUnmount, ref } from 'vue'
+import { compressVoiceFile } from '../services/media/compressAudio'
 
 function recognitionCtor() {
   if (typeof window === 'undefined') {
@@ -14,6 +15,7 @@ function recorderMime() {
 
 export function useVoiceCapture() {
   const recording = ref(false)
+  const encoding = ref(false)
   const elapsed = ref(0)
   const audioUrl = ref('')
   const audioBlob = ref<Blob | null>(null)
@@ -27,6 +29,9 @@ export function useVoiceCapture() {
   let chunks: Blob[] = []
   let timer: number | null = null
   let startedAt = 0
+  let captureGeneration = 0
+  let encodePromise: Promise<Blob | null> | null = null
+  let stopResolve: ((blob: Blob | null) => void) | null = null
 
   function clearTimer() {
     if (timer !== null) {
@@ -98,10 +103,38 @@ export function useVoiceCapture() {
     }
   }
 
+  async function finalizeRecording(raw: Blob, generation: number) {
+    encoding.value = true
+    try {
+      const file = await compressVoiceFile(raw)
+      if (generation !== captureGeneration) {
+        return null
+      }
+      revokeUrl()
+      audioBlob.value = file
+      audioUrl.value = URL.createObjectURL(file)
+      return file
+    } catch {
+      if (generation !== captureGeneration) {
+        return null
+      }
+      revokeUrl()
+      audioBlob.value = null
+      errorKey.value = 'report.voiceEncodeFailed'
+      return null
+    } finally {
+      if (generation === captureGeneration) {
+        encoding.value = false
+      }
+      encodePromise = null
+    }
+  }
+
   async function start() {
-    if (recording.value) {
+    if (recording.value || encoding.value) {
       return
     }
+    captureGeneration += 1
     errorKey.value = ''
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       errorKey.value = 'report.voiceUnavailable'
@@ -131,13 +164,16 @@ export function useVoiceCapture() {
         chunks.push(event.data)
       }
     }
+    const generation = captureGeneration
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
-      revokeUrl()
-      audioBlob.value = blob
-      audioUrl.value = URL.createObjectURL(blob)
       stopStream()
       mediaRecorder = null
+      encodePromise = finalizeRecording(blob, generation)
+      void encodePromise.then((file) => {
+        stopResolve?.(file)
+        stopResolve = null
+      })
     }
     mediaRecorder.start()
     recording.value = true
@@ -150,26 +186,34 @@ export function useVoiceCapture() {
   }
 
   function stop() {
+    if (encoding.value && encodePromise) {
+      return encodePromise
+    }
     if (!recording.value) {
       return Promise.resolve(audioBlob.value)
     }
     recording.value = false
+    encoding.value = true
     clearTimer()
     stopRecognition()
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       return new Promise<Blob | null>((resolve) => {
         const recorder = mediaRecorder
         if (!recorder) {
+          encoding.value = false
           stopStream()
           resolve(audioBlob.value)
           return
         }
-        const previous = recorder.onstop
-        recorder.onstop = (event) => {
-          previous?.call(recorder, event)
-          resolve(audioBlob.value)
+        stopResolve = resolve
+        try {
+          recorder.stop()
+        } catch {
+          encoding.value = false
+          stopStream()
+          mediaRecorder = null
+          resolve(null)
         }
-        recorder.stop()
       })
     }
     stopStream()
@@ -177,12 +221,20 @@ export function useVoiceCapture() {
   }
 
   function reset() {
+    captureGeneration += 1
+    encoding.value = false
+    encodePromise = null
+    stopResolve?.(null)
+    stopResolve = null
     if (recording.value) {
       recording.value = false
       clearTimer()
       stopRecognition()
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.onstop = null
+        mediaRecorder.onstop = () => {
+          stopStream()
+          mediaRecorder = null
+        }
         try {
           mediaRecorder.stop()
         } catch {
@@ -213,6 +265,7 @@ export function useVoiceCapture() {
 
   return {
     recording,
+    encoding,
     elapsed,
     mediaStream,
     audioUrl,

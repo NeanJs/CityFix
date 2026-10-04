@@ -18,7 +18,7 @@ Copy `.env.example` to `.env` (and/or set the same keys in your host’s build e
 | `VITE_API_BASE_URL` | Yes* | — | Public API origin (no trailing slash). Files reports with `POST /api/reports` and loads them with `GET /api/reports/track/:trackingId`. Leave empty until the backend is available. |
 | `VITE_REPORT_INGEST_URL` | No | `{VITE_API_BASE_URL}/reports/analyze` | Optional full URL override for the photo and voice read step. |
 
-\*Required for saving reports on the server. The UI still builds and runs without it, and keeps the report on this device.
+\*Required for analyzing and filing reports. Without it, the report flow shows an error instead of continuing with local-only data.
 
 ## Scripts
 

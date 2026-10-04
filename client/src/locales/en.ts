@@ -1,6 +1,7 @@
 export const en = {
   boot: 'Loading workspace…',
   api: {
+    unavailable: 'The reporting service is not configured. Try again later.',
     rateLimitedGeneric: 'Too many requests. Please try again later.',
     rateLimitedSeconds: 'Too many requests. Try again in about {count} seconds.',
     rateLimitedMinutes: 'Too many requests. Try again in about {count} minutes.',

@@ -6,12 +6,10 @@ import { useAndroidBackHandler } from '../composables/useAndroidBackHandler'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
-import { reportsCollectionUrl } from '../config/apiConfig'
 import { defaultIssueType } from '../services/report/issueType'
-import { apiErrorMessage, isApiRateLimited } from '../services/api/apiRequestError'
+import { apiErrorMessage } from '../services/api/apiRequestError'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
-import { buildReportTitle, inferSeverity } from '../services/report/enrichReport'
 import type { ReportIngestDraft } from '../types/reportIngest'
 import AppHeader from '../components/layout/AppHeader.vue'
 import LocationPickerField from '../components/report/LocationPickerField.vue'
@@ -294,25 +292,6 @@ function goBack() {
   }
 }
 
-function captureDraft(note: string): ReportIngestDraft {
-  const place = form.locationLabel.trim()
-  const severity = inferSeverity(`${note} ${place}`)
-  const issueType = defaultIssueType
-  return {
-    title: place ? buildReportTitle(issueTypeLabel(issueType), place) : '',
-    description: note,
-    transcript: note,
-    summary: note,
-    issueType,
-    severity,
-    locationLabel: place,
-    latitude: latitude.value,
-    longitude: longitude.value,
-    photoUrl: form.photoDataUrl || undefined,
-    status: 'submitted',
-  }
-}
-
 function placeForApi(label: string) {
   const trimmed = label.trim()
   if (!trimmed || trimmed === t('report.locationUnset')) {
@@ -336,23 +315,15 @@ async function send() {
   submitStage.value = 'read'
   try {
     const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
-    let next: ReportIngestDraft
-    try {
-      next = await ingestReport({
-        photo,
-        audio: audioBlob.value ?? undefined,
-        text: note || undefined,
-        locationLabel: form.locationLabel.trim() || undefined,
-        latitude: latitude.value,
-        longitude: longitude.value,
-        confirmed: false,
-      })
-    } catch (error) {
-      if (isApiRateLimited(error) || !reportsCollectionUrl) {
-        throw error
-      }
-      next = captureDraft(note)
-    }
+    const next = await ingestReport({
+      photo,
+      audio: audioBlob.value ?? undefined,
+      text: note || undefined,
+      locationLabel: form.locationLabel.trim() || undefined,
+      latitude: latitude.value,
+      longitude: longitude.value,
+      confirmed: false,
+    })
     applyDraft({
       ...next,
       transcript: next.transcript || note,
@@ -393,38 +364,24 @@ async function confirm() {
       photo,
       audio: audioBlob.value ?? undefined,
     }
-    let next: ReportIngestDraft = { ...draft }
     let recommendedAction = buildCreateReportBody(request).recommended_action
-    if (reportsCollectionUrl) {
-      const created = await createReport(request)
-      recommendedAction = created.recommendedAction || recommendedAction
-      next = {
-        ...draft,
-        title: created.title,
-        description: created.description,
-        transcript: created.transcript || note,
-        summary: created.summary,
-        issueType: created.issueType,
-        severity: created.severity,
-        locationLabel: created.locationLabel || place || '',
-        latitude: created.latitude ?? request.latitude,
-        longitude: created.longitude ?? request.longitude,
-        photoUrl: created.photoUrl || draft.photoUrl || form.photoDataUrl,
-        trackingId: created.trackingId,
-        status: created.status,
-        createdAt: created.createdAt,
-      }
-    } else {
-      next = await ingestReport({
-        photo,
-        audio: audioBlob.value ?? undefined,
-        text: note || description || undefined,
-        locationLabel: place,
-        latitude: request.latitude,
-        longitude: request.longitude,
-        confirmed: true,
-        draft: { ...draft },
-      })
+    const created = await createReport(request)
+    recommendedAction = created.recommendedAction || recommendedAction
+    const next: ReportIngestDraft = {
+      ...draft,
+      title: created.title,
+      description: created.description,
+      transcript: created.transcript || note,
+      summary: created.summary,
+      issueType: created.issueType,
+      severity: created.severity,
+      locationLabel: created.locationLabel || place || '',
+      latitude: created.latitude ?? request.latitude,
+      longitude: created.longitude ?? request.longitude,
+      photoUrl: created.photoUrl || draft.photoUrl || form.photoDataUrl,
+      trackingId: created.trackingId,
+      status: created.status,
+      createdAt: created.createdAt,
     }
     applyDraft(next)
     const filedDescription =
