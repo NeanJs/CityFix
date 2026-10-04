@@ -5,6 +5,7 @@ export async function supabaseMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
+  auth: "none" | "user" = "none",
 ) {
   const request = new Request(
     `${req.protocol}://${req.get("host")}${req.originalUrl}`,
@@ -15,7 +16,7 @@ export async function supabaseMiddleware(
   );
 
   const { data: context, error } = await createSupabaseContext(request, {
-    auth: "none",
+    auth,
   });
 
   if (error) {

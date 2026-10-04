@@ -1,8 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import reportsRoutes from "./modules/reports/reports.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
 import { supabaseMiddleware } from "./middleware/supabase.js";
-import reportsRoutes from "./modules/reports/reports.route.js";
 import { reportRateLimit } from "./middleware/rateLimit.js";
 const app = express();
 
@@ -15,7 +16,14 @@ app.get("/api/health", (_req, res) => {
     message: "CityFix API is running",
   });
 });
-app.use("/api/reports", supabaseMiddleware, reportRateLimit, reportsRoutes);
+app.use("/api/reports", supabaseMiddleware, reportsRoutes);
+app.use(
+  "/api/admin",
+  (req, res, next) => {
+    supabaseMiddleware(req, res, next, "user");
+  },
+  adminRoutes,
+);
 
 const PORT = process.env.PORT || 5001;
 

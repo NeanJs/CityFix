@@ -4,7 +4,7 @@ import {
   getReportByTrackingIdController,
   analyzeReportController,
   testGeminiController
-} from "./reports.controller.js";
+} from "./reports.controllers.js";
 import { analyzeUpload } from "../../middleware/upload.js";
 
 const router = Router();

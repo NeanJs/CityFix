@@ -4,7 +4,7 @@ import {
   createReport,
   getReportByTrackingId,
   testGemini,
-} from "./reports.service.js";
+} from "./reports.services.js";
 import { analyzeImage, analyzeText } from "./ai/ai.service.js";
 
 export async function createReportController(req: Request, res: Response) {
