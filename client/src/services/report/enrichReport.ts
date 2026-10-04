@@ -1,4 +1,4 @@
-import type { IssueCategory, IssueSeverity } from '../../types/issue'
+import type { IssueSeverity } from '../../types/issue'
 
 const highMarks = [
   'dangerous',
@@ -69,9 +69,9 @@ export function narrativeText(input: {
   title?: string
   description?: string
   transcript?: string
-  category: IssueCategory
+  issueType: string
 }) {
-  return [input.transcript, input.description, input.title, input.category]
+  return [input.transcript, input.description, input.title, input.issueType]
     .filter((part): part is string => Boolean(part && part.trim()))
     .join(' ')
 }

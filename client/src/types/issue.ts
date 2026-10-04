@@ -1,11 +1,3 @@
-export type IssueCategory =
-  | 'pothole'
-  | 'lighting'
-  | 'graffiti'
-  | 'trash'
-  | 'vegetation'
-  | 'other'
-
 export type IssueStatus = 'submitted' | 'in_review' | 'scheduled' | 'resolved'
 
 export type IssueSeverity = 'low' | 'medium' | 'high'
@@ -17,7 +9,7 @@ export type Issue = {
   description: string
   transcript: string
   summary: string
-  category: IssueCategory
+  issueType: string
   severity: IssueSeverity
   status: IssueStatus
   locationLabel: string
@@ -35,7 +27,7 @@ export type NewIssueInput = {
   description: string
   transcript?: string
   summary: string
-  category: IssueCategory
+  issueType: string
   severity: IssueSeverity
   locationLabel: string
   latitude?: number

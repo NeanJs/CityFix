@@ -32,6 +32,19 @@ Set the site **base directory** to `client` (if deploying from the monorepo root
 
 ## Deploy (Cloudflare Pages)
 
+**Option A — build from repository root** (default if root directory is empty):
+
+| Setting | Value |
+|--------|--------|
+| Root directory | *(leave empty)* |
+| Build command | `pnpm build` |
+| Build output | `client/dist` |
+| Node version | 20 |
+
+The root `package.json` `build` script runs install and build inside `client/`.
+
+**Option B — build from `client/`** (recommended if you only deploy the frontend):
+
 | Setting | Value |
 |--------|--------|
 | Root directory | `client` |

@@ -1,11 +1,11 @@
-import type { IssueCategory, IssueSeverity, IssueStatus } from './issue'
+import type { IssueSeverity, IssueStatus } from './issue'
 
 export type ReportIngestDraft = {
   title: string
   description: string
   transcript: string
   summary: string
-  category: IssueCategory
+  issueType: string
   severity: IssueSeverity
   locationLabel: string
   latitude?: number

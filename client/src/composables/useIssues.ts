@@ -3,6 +3,7 @@ import { reportTrackUrl } from '../config/apiConfig'
 import { trackReport, type RemoteReport } from '../services/api/reportsApi'
 import { createTrackingId, trackingIdFromInternal } from '../services/report/enrichReport'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
+import { defaultIssueType, normalizeIssueType } from '../services/report/issueType'
 import type { Issue, IssueSeverity, IssueStatus, NewIssueInput } from '../types/issue'
 
 const storageKey = 'cityfix.issues.v1'
@@ -52,11 +53,15 @@ function remoteReportIsNewerThanLocal(current: Issue, remote: RemoteReport) {
   return remoteMs > localMs
 }
 
-function normalizeIssue(issue: Issue): Issue {
+function normalizeIssue(issue: Issue & { category?: string }): Issue {
   const description = issue.description?.trim() ?? ''
   const transcript = issue.transcript?.trim() ?? ''
+  const legacyCategory = typeof issue.category === 'string' ? issue.category : ''
+  const issueType = normalizeIssueType(issue.issueType ?? legacyCategory ?? defaultIssueType)
+  const { category: _legacy, ...rest } = issue
   return {
-    ...issue,
+    ...rest,
+    issueType,
     trackingId: issue.trackingId || trackingIdFromInternal(issue.id),
     reporterId: issue.reporterId ?? '',
     transcript,
@@ -135,7 +140,7 @@ export function useIssues() {
       description: input.description.trim(),
       transcript: input.transcript?.trim() ?? '',
       summary: input.summary.trim(),
-      category: input.category,
+      issueType: normalizeIssueType(input.issueType),
       severity: input.severity,
       status: 'submitted',
       locationLabel: input.locationLabel.trim(),
@@ -203,7 +208,7 @@ export function useIssues() {
         description: remote.description || current.description,
         transcript: remote.transcript || current.transcript,
         summary: remote.summary || current.summary,
-        category: remote.category,
+        issueType: remote.issueType,
         severity: remote.severity,
         status: acceptRemoteStatus ? remote.status : current.status,
         locationLabel: remote.locationLabel || current.locationLabel,
@@ -232,7 +237,7 @@ export function useIssues() {
       description: remote.description,
       transcript: remote.transcript,
       summary: remote.summary,
-      category: remote.category,
+      issueType: remote.issueType,
       severity: remote.severity,
       status: remote.status,
       locationLabel: remote.locationLabel,

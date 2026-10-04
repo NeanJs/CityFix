@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { en, type MessageTree } from '../locales/en'
+import { formatIssueTypeLabel, normalizeIssueType } from '../services/report/issueType'
 import { readStoreItem, writeStoreItem } from '../services/storage/persistentStore'
 
 export type LocaleCode = 'en'
@@ -67,6 +68,16 @@ export function useLocale() {
     return interpolate(value, params)
   }
 
+  function issueTypeLabel(raw: string) {
+    const token = normalizeIssueType(raw)
+    const key = `issueType.${token}`
+    const localized = lookup(messages.value, key) ?? lookup(dictionaries[fallbackLocale], key)
+    if (localized) {
+      return localized
+    }
+    return formatIssueTypeLabel(token)
+  }
+
   async function setLocale(next: LocaleCode) {
     locale.value = next
     await writeStoreItem(localeKey, next)
@@ -76,6 +87,7 @@ export function useLocale() {
     locale,
     ready,
     t,
+    issueTypeLabel,
     setLocale,
   }
 }

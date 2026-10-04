@@ -17,7 +17,7 @@ const route = useRoute()
 const router = useRouter()
 const { reporterId } = useAuth()
 const { getIssue, syncTrackedReport } = useIssues()
-const { t } = useLocale()
+const { t, issueTypeLabel } = useLocale()
 
 const issue = computed(() => {
   const id = route.params.id
@@ -40,7 +40,7 @@ const confirmation = computed(() => {
     return ''
   }
   return t('receipt.confirmationSpeech', {
-    category: t(`category.${issue.value.category}`).toLowerCase(),
+    category: issueTypeLabel(issue.value.issueType).toLowerCase(),
     trackingId: issue.value.trackingId,
   })
 })

@@ -1,6 +1,7 @@
 import { reportIngestUrl } from '../../config/apiConfig'
 import { apiRequestErrorFromResponse } from './apiRequestError'
-import { normalizeIssueCategory } from '../../data/categories'
+import { defaultIssueType } from '../report/issueType'
+import { pickIssueType } from './pickIssueType'
 import { appendFormFile, fileFromDataUrl, photoFileName, audioFileName } from '../media/formFile'
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
@@ -86,7 +87,7 @@ function emptyDraft(overrides: Partial<ReportIngestDraft> = {}): ReportIngestDra
     description: '',
     transcript: '',
     summary: '',
-    category: 'other',
+    issueType: defaultIssueType,
     severity: 'medium',
     locationLabel: '',
     status: 'submitted',
@@ -94,20 +95,31 @@ function emptyDraft(overrides: Partial<ReportIngestDraft> = {}): ReportIngestDra
   }
 }
 
+function resolveIngestSource(payload: unknown): Record<string, unknown> | null {
+  const top = asRecord(payload)
+  if (!top) {
+    return null
+  }
+  const envelope =
+    asRecord(top.data) ?? asRecord(top.result) ?? asRecord(top.analysis) ?? top
+  const nested = asRecord(envelope.report) ?? asRecord(envelope.analysis)
+  if (!nested) {
+    return envelope === top ? envelope : { ...top, ...envelope }
+  }
+  return { ...top, ...envelope, ...nested }
+}
+
 export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
-  const root = asRecord(payload)
-  const nested = root ? asRecord(root.report) ?? asRecord(root.data) : null
-  const source = nested ?? root
+  const source = resolveIngestSource(payload)
   if (!source) {
     return emptyDraft()
   }
-  const categoryRaw = pickString(source, ['category', 'type', 'issueType', 'issue_type'])
   const severityRaw = pickString(source, ['severity']).toLowerCase()
   const statusRaw = pickString(source, ['status']).toLowerCase()
   const transcript = pickString(source, ['transcript', 'text', 'voiceText', 'voice_text'])
   const description = pickString(source, ['description', 'note']) || transcript
   const locationLabel = pickString(source, ['locationLabel', 'location', 'place'])
-  const category = normalizeIssueCategory(categoryRaw || `${description} ${transcript}`)
+  const issueType = pickIssueType(payload, [source])
   const severity = isSeverity(severityRaw) ? severityRaw : 'medium'
   const title = pickString(source, ['title'])
   const summary = pickString(source, ['summary'])
@@ -115,8 +127,8 @@ export function parseReportIngestResponse(payload: unknown): ReportIngestDraft {
     title,
     description,
     transcript,
-    summary: summary || description || title,
-    category,
+    summary,
+    issueType,
     severity,
     locationLabel,
     latitude: pickNumber(source, ['latitude', 'lat']),
@@ -144,7 +156,7 @@ function localIngest(input: ReportIngestInput): ReportIngestDraft {
   return emptyDraft({
     description: text,
     transcript: text,
-    category: normalizeIssueCategory(text),
+    issueType: defaultIssueType,
     locationLabel,
     latitude: input.latitude,
     longitude: input.longitude,

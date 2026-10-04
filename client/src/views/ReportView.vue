@@ -7,7 +7,7 @@ import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useLocationLabelSync } from '../composables/useLocationLabelSync'
 import { reportsCollectionUrl } from '../config/apiConfig'
-import { normalizeIssueCategory } from '../data/categories'
+import { defaultIssueType } from '../services/report/issueType'
 import { apiErrorMessage, isApiRateLimited } from '../services/api/apiRequestError'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
@@ -26,7 +26,7 @@ import { enterBlocks, withViewTransition } from '../motion/transitions'
 
 const { addIssue } = useIssues()
 const { reporterId } = useAuth()
-const { t } = useLocale()
+const { t, issueTypeLabel } = useLocale()
 const router = useRouter()
 const submitting = ref(false)
 const submitStage = ref<'read' | 'file'>('read')
@@ -53,7 +53,7 @@ const draft = reactive<ReportIngestDraft>({
   description: '',
   transcript: '',
   summary: '',
-  category: 'other',
+  issueType: defaultIssueType,
   severity: 'medium',
   locationLabel: '',
   status: 'submitted',
@@ -74,14 +74,29 @@ const { markLocationLabelManual, resetLocationLabelSync } = useLocationLabelSync
 const step = computed<1 | 2>(() => (phase.value === 'review' ? 2 : 1))
 const photoSrc = computed(() => draft.photoUrl || form.photoDataUrl)
 const reviewTitle = computed(() => draft.title.trim() || t('report.untitled'))
-const reviewSummary = computed(() => draft.summary.trim() || draft.description.trim())
+const reviewDescription = computed(() => draft.description.trim())
+const reviewSummary = computed(() => {
+  const summary = draft.summary.trim()
+  const description = reviewDescription.value
+  if (!summary || (description && summary.toLowerCase() === description.toLowerCase())) {
+    return ''
+  }
+  return summary
+})
 const citizenWords = computed(() => draft.transcript.trim() || form.transcript.trim())
 const showCitizenWords = computed(() => {
   const words = citizenWords.value
   if (!words) {
     return false
   }
-  return words.toLowerCase() !== reviewSummary.value.toLowerCase()
+  const normalized = words.toLowerCase()
+  if (reviewDescription.value && normalized === reviewDescription.value.toLowerCase()) {
+    return false
+  }
+  if (reviewSummary.value && normalized === reviewSummary.value.toLowerCase()) {
+    return false
+  }
+  return true
 })
 const placeLabel = computed(
   () => draft.locationLabel.trim() || form.locationLabel.trim() || t('report.locationUnset'),
@@ -160,7 +175,7 @@ function applyDraft(next: ReportIngestDraft) {
   draft.description = next.description
   draft.transcript = next.transcript
   draft.summary = next.summary
-  draft.category = next.category
+  draft.issueType = next.issueType
   draft.severity = next.severity
   draft.locationLabel = next.locationLabel
   draft.latitude = next.latitude
@@ -261,7 +276,7 @@ function resetForm() {
     description: '',
     transcript: '',
     summary: '',
-    category: 'other',
+    issueType: defaultIssueType,
     severity: 'medium',
     locationLabel: '',
     status: 'submitted',
@@ -281,14 +296,14 @@ function goBack() {
 
 function captureDraft(note: string): ReportIngestDraft {
   const place = form.locationLabel.trim()
-  const category = normalizeIssueCategory(`${note} ${place}`)
   const severity = inferSeverity(`${note} ${place}`)
+  const issueType = defaultIssueType
   return {
-    title: place ? buildReportTitle(t(`category.${category}`), place) : '',
+    title: place ? buildReportTitle(issueTypeLabel(issueType), place) : '',
     description: note,
     transcript: note,
     summary: note,
-    category,
+    issueType,
     severity,
     locationLabel: place,
     latitude: latitude.value,
@@ -367,7 +382,7 @@ async function confirm() {
       draft.description.trim() || note || draft.summary.trim() || draft.title.trim()
     const photo = photoFile.value ?? (form.photoDataUrl ? await blobFromDataUrl(form.photoDataUrl) : undefined)
     const request = {
-      issueType: draft.category,
+      issueType: draft.issueType,
       title: draft.title.trim() || draft.summary.trim() || undefined,
       description: description || undefined,
       severity: draft.severity,
@@ -389,7 +404,7 @@ async function confirm() {
         description: created.description,
         transcript: created.transcript || note,
         summary: created.summary,
-        category: created.category,
+        issueType: created.issueType,
         severity: created.severity,
         locationLabel: created.locationLabel || place || '',
         latitude: created.latitude ?? request.latitude,
@@ -422,7 +437,7 @@ async function confirm() {
       description: filedDescription || t('report.untitled'),
       transcript: next.transcript.trim() || next.description.trim() || form.transcript.trim(),
       summary: next.summary.trim() || filedDescription || t('report.untitled'),
-      category: next.category,
+      issueType: next.issueType,
       severity: next.severity,
       locationLabel: next.locationLabel.trim() || t('report.locationUnset'),
       latitude: next.latitude ?? latitude.value,
@@ -533,6 +548,10 @@ async function confirm() {
         <div class="review-layout">
           <div class="review-copy">
             <h3 class="review-title">{{ reviewTitle }}</h3>
+            <div v-if="reviewDescription" class="review-block" data-enter-block>
+              <p class="field-label">{{ t('report.aiDescription') }}</p>
+              <p class="review-text">{{ reviewDescription }}</p>
+            </div>
             <div v-if="reviewSummary" class="review-block" data-enter-block>
               <p class="field-label">{{ t('report.summary') }}</p>
               <p class="review-text">{{ reviewSummary }}</p>
@@ -544,7 +563,7 @@ async function confirm() {
             <dl class="facts" data-enter-block>
               <div>
                 <dt class="field-label">{{ t('report.category') }}</dt>
-                <dd class="meta-value">{{ t(`category.${draft.category}`) }}</dd>
+                <dd class="meta-value">{{ issueTypeLabel(draft.issueType) }}</dd>
               </div>
               <div>
                 <dt class="field-label">{{ t('sheet.severity') }}</dt>

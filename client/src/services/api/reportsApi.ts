@@ -4,9 +4,10 @@ import {
   ApiRequestError,
   type ApiRequestErrorCode,
 } from './apiRequestError'
-import { normalizeIssueCategory } from '../../data/categories'
 import { appendFormFile, audioFileName, photoFileName } from '../media/formFile'
-import type { IssueCategory, IssueSeverity, IssueStatus } from '../../types/issue'
+import { defaultIssueType } from '../report/issueType'
+import { pickIssueType } from './pickIssueType'
+import type { IssueSeverity, IssueStatus } from '../../types/issue'
 
 const severities: IssueSeverity[] = ['low', 'medium', 'high']
 const statuses: IssueStatus[] = ['submitted', 'in_review', 'scheduled', 'resolved']
@@ -56,7 +57,7 @@ export type RemoteReport = {
   description: string
   transcript: string
   summary: string
-  category: IssueCategory
+  issueType: string
   severity: IssueSeverity
   status: IssueStatus
   locationLabel: string
@@ -174,7 +175,7 @@ export function buildCreateReportBody(input: CreateReportInput): CreateReportBod
   const latitude = input.latitude
   const longitude = input.longitude
   const body: CreateReportBody = {
-    issue_type: filled(input.issueType, 'other'),
+    issue_type: filled(input.issueType, defaultIssueType),
     title: filled(input.title, ''),
     description: filled(input.description, ''),
     severity: filled(input.severity, 'medium'),
@@ -231,7 +232,7 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
   const description = pickString(source, ['description', 'note']) || transcript
   const title = pickString(source, ['title']) || description
   const summary = pickString(source, ['summary']) || description || title
-  const category = normalizeIssueCategory(pickString(source, ['issue_type', 'issueType', 'category', 'type']))
+  const issueType = pickIssueType(payload, [top, envelope, source])
   const severity = normalizeSeverity(pickString(source, ['severity']))
   const status = normalizeStatus(pickString(source, ['status', 'current_status', 'currentStatus']))
   const recommendedAction =
@@ -243,7 +244,7 @@ export function parseRemoteReport(payload: unknown): RemoteReport {
     description: description || title,
     transcript,
     summary,
-    category,
+    issueType,
     severity,
     status,
     locationLabel: location.description,

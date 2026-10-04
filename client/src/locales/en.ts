@@ -227,12 +227,7 @@ export const en = {
     medium: 'Medium',
     high: 'High',
   },
-  category: {
-    pothole: 'Pothole',
-    lighting: 'Street light',
-    graffiti: 'Graffiti',
-    trash: 'Trash',
-    vegetation: 'Vegetation',
+  issueType: {
     other: 'Other',
   },
   sheet: {

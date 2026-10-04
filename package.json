@@ -4,6 +4,7 @@
   "description": "sfu-hackathon-project",
   "main": "index.js",
   "scripts": {
+    "build": "pnpm --dir client install && pnpm --dir client build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

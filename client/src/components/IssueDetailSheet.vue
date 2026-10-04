@@ -22,7 +22,7 @@ const emit = defineEmits<{
   statusChange: [id: string, status: IssueStatus]
 }>()
 
-const { t } = useLocale()
+const { t, issueTypeLabel } = useLocale()
 const overlayRef = ref<HTMLElement | null>(null)
 const sheetRef = ref<HTMLElement | null>(null)
 const rendered = ref(false)
@@ -37,7 +37,7 @@ const confirmation = computed(() => {
     return ''
   }
   return t('receipt.confirmationSpeech', {
-    category: t(`category.${props.issue.category}`).toLowerCase(),
+    category: issueTypeLabel(props.issue.issueType).toLowerCase(),
     trackingId: props.issue.trackingId,
   })
 })
@@ -275,7 +275,7 @@ function advance() {
 
           <div class="pills" data-enter-block>
             <SeverityPill :severity="issue.severity" />
-            <span class="stamp">{{ t(`category.${issue.category}`) }}</span>
+            <span class="stamp">{{ issueTypeLabel(issue.issueType) }}</span>
           </div>
 
           <div class="block" data-enter-block>

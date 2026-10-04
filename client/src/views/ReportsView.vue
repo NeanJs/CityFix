@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { issueCategories } from '../data/categories'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import { useFlipGroup } from '../motion/useFlipGroup'
 import { apiErrorMessage } from '../services/api/apiRequestError'
 import { ReportApiError } from '../services/api/reportsApi'
-import type { IssueCategory, IssueStatus } from '../types/issue'
+import type { IssueStatus } from '../types/issue'
 import IssueCard from '../components/IssueCard.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import SeverityPill from '../components/SeverityPill.vue'
@@ -19,7 +18,7 @@ import SelectionIndicator from '../components/ui/SelectionIndicator.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useLocale()
+const { t, issueTypeLabel } = useLocale()
 const { reporterId } = useAuth()
 const { issues, issuesForReporter, getIssueByTrackingId, syncTrackedReport } = useIssues()
 
@@ -42,7 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const statusFilter = ref<'all' | IssueStatus>('all')
-const categoryFilter = ref<'all' | IssueCategory>('all')
+const issueTypeFilter = ref<'all' | string>('all')
 const query = ref('')
 const trackingQuery = ref('')
 const tracking = ref(false)
@@ -56,7 +55,7 @@ const filtered = computed(() => {
     if (statusFilter.value !== 'all' && issue.status !== statusFilter.value) {
       return false
     }
-    if (categoryFilter.value !== 'all' && issue.category !== categoryFilter.value) {
+    if (issueTypeFilter.value !== 'all' && issue.issueType !== issueTypeFilter.value) {
       return false
     }
     if (!q) {
@@ -82,9 +81,19 @@ function setStatusFilter(id: (typeof statusFilters)[number]['id']) {
   })
 }
 
-function setCategoryFilter(value: 'all' | IssueCategory) {
+const issueTypeOptions = computed(() => {
+  const values = new Set<string>()
+  for (const issue of scopedIssues.value) {
+    if (issue.issueType) {
+      values.add(issue.issueType)
+    }
+  }
+  return [...values].sort((a, b) => issueTypeLabel(a).localeCompare(issueTypeLabel(b)))
+})
+
+function setIssueTypeFilter(value: 'all' | string) {
   void animateResults(() => {
-    categoryFilter.value = value
+    issueTypeFilter.value = value
   })
 }
 
@@ -218,12 +227,12 @@ function formatFiled(iso: string) {
         <span class="sr-label">{{ t('reports.category') }}</span>
         <select
           class="control"
-          :value="categoryFilter"
-          @change="setCategoryFilter(($event.target as HTMLSelectElement).value as 'all' | IssueCategory)"
+          :value="issueTypeFilter"
+          @change="setIssueTypeFilter(($event.target as HTMLSelectElement).value)"
         >
           <option value="all">{{ t('reports.allCategories') }}</option>
-          <option v-for="cat in issueCategories" :key="cat.id" :value="cat.id">
-            {{ t(`category.${cat.id}`) }}
+          <option v-for="type in issueTypeOptions" :key="type" :value="type">
+            {{ issueTypeLabel(type) }}
           </option>
         </select>
       </label>
@@ -294,7 +303,7 @@ function formatFiled(iso: string) {
             >
               <td class="id">{{ issue.trackingId }}</td>
               <td>{{ formatFiled(issue.createdAt) }}</td>
-              <td>{{ t(`category.${issue.category}`) }}</td>
+              <td>{{ issueTypeLabel(issue.issueType) }}</td>
               <td><SeverityPill :severity="issue.severity" /></td>
               <td>{{ issue.locationLabel }}</td>
               <td><StatusPill :status="issue.status" /></td>
