@@ -67,11 +67,6 @@ export const en = {
     resolved: 'Resolved',
     onRecord: 'On record',
     highSeverity: 'High severity',
-    playBriefing: 'Play briefing',
-    playingBriefing: 'Playing…',
-    briefingUnavailable: 'Spoken briefing is not available on this device.',
-    briefingSpeech:
-      'Today, citizens reported {count} new reports, {high} of them high severity.',
     emptyTitle: 'No reports in this filter',
     emptyHint: 'Choose another filter or wait for new filings.',
     advance: 'Advance',
@@ -172,11 +167,6 @@ export const en = {
     summary: 'Summary',
     location: 'Place',
     filed: 'Filed',
-    play: 'Play confirmation',
-    playing: 'Playing…',
-    playUnavailable: 'Spoken confirmation is not available on this device.',
-    confirmationSpeech:
-      'Your {category} report {trackingId} has been logged and routed to the road maintenance team.',
     viewReports: 'View my reports',
     fileAnother: 'File another',
     missingTitle: 'Report not found',
@@ -243,9 +233,6 @@ export const en = {
     updated: 'Updated',
     advanceTo: 'Advance to {status}',
     markResolved: 'Mark resolved',
-    play: 'Play confirmation',
-    playing: 'Playing…',
-    playUnavailable: 'Spoken confirmation is not available on this device.',
   },
   map: {
     label: 'Reports map',

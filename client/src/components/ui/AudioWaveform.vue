@@ -29,10 +29,10 @@ function readInk(node: HTMLCanvasElement) {
 }
 
 function sampleAt(frame: AudioWaveformFrame, index: number) {
-  if (index >= 0 && index < frame.count) {
-    return frame.levels[index] ?? 0
+  if (index >= frame.origin && index < frame.count) {
+    return frame.levels[index - frame.origin] ?? 0
   }
-  if (frame.live && index === frame.count && index < frame.levels.length) {
+  if (frame.live && index === frame.count) {
     return frame.incoming
   }
   return 0
@@ -40,11 +40,11 @@ function sampleAt(frame: AudioWaveformFrame, index: number) {
 
 function levelAt(frame: AudioWaveformFrame, index: number) {
   const raw = sampleAt(frame, index)
-  const end = frame.live && frame.count < frame.levels.length ? frame.count : frame.count - 1
-  if (index < 0 || index > end) {
+  const end = frame.live ? frame.count : frame.count - 1
+  if (index < frame.origin || index > end) {
     return raw
   }
-  const prev = index > 0 ? sampleAt(frame, index - 1) : raw
+  const prev = index > frame.origin ? sampleAt(frame, index - 1) : raw
   const next = index < end ? sampleAt(frame, index + 1) : raw
   return prev * 0.16 + raw * 0.68 + next * 0.16
 }
@@ -97,7 +97,7 @@ function draw(frame: AudioWaveformFrame) {
   const midY = height / 2
   const first = Math.floor(frame.scroll) - 1
   const last = Math.ceil(frame.scroll + visible) + 1
-  const fadesLeft = frame.live && frame.scroll > 0
+  const fadesLeft = frame.live && frame.scroll > frame.origin
   const fadesRight = !frame.live && frame.count > frame.scroll + visible
   for (let index = first; index <= last; index += 1) {
     const level = Math.max(0, Math.min(1, levelAt(frame, index)))

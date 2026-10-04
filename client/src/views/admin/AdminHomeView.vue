@@ -6,7 +6,6 @@ import { useLocale } from '../../composables/useLocale'
 import IssueCard from '../../components/IssueCard.vue'
 import IssuesMap from '../../components/IssuesMap.vue'
 import AppHeader from '../../components/layout/AppHeader.vue'
-import SpeakButton from '../../components/SpeakButton.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
 import { useFlipGroup } from '../../motion/useFlipGroup'
@@ -14,7 +13,7 @@ import { compareQueuePriority, nextStatus } from '../../services/report/statusFl
 
 type DeskFilter = 'open' | 'high' | 'resolved' | 'all'
 
-const { issues, openCount, resolvedCount, highSeverityCount, issuesCreatedOn, updateStatus } =
+const { issues, openCount, resolvedCount, highSeverityCount, updateStatus } =
   useIssues()
 const { t } = useLocale()
 const router = useRouter()
@@ -26,14 +25,6 @@ const mapOpen = ref(
 const mapRef = ref<{ resizeMap: () => void } | null>(null)
 const queueRoot = ref<HTMLElement | null>(null)
 const { animate: animateQueue } = useFlipGroup(queueRoot)
-
-const briefing = computed(() => {
-  const today = issuesCreatedOn(new Date())
-  return t('adminHome.briefingSpeech', {
-    count: today.length,
-    high: today.filter((issue) => issue.severity === 'high').length,
-  })
-})
 
 const mappedIssues = computed(() =>
   issues.value.filter(
@@ -122,13 +113,6 @@ watch(mapOpen, async () => {
         <div class="section-head">
           <h2 class="section-title">{{ t('adminHome.queue') }}</h2>
           <div class="queue-actions">
-            <SpeakButton
-              class="briefing"
-              :text="briefing"
-              play-key="adminHome.playBriefing"
-              playing-key="adminHome.playingBriefing"
-              unavailable-key="adminHome.briefingUnavailable"
-            />
             <button type="button" class="btn-ghost" @click="router.push('/admin/reports')">
               {{ t('adminHome.viewLedger') }}
             </button>
@@ -276,10 +260,6 @@ watch(mapOpen, async () => {
   gap: 0.35rem;
 }
 
-.briefing {
-  display: none;
-}
-
 .queue-results {
   display: grid;
   gap: 0.65rem;
@@ -317,9 +297,6 @@ watch(mapOpen, async () => {
     display: block !important;
   }
 
-  .briefing {
-    display: grid;
-  }
 }
 
 @media (min-width: 1024px) {

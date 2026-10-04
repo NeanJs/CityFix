@@ -3,7 +3,7 @@ import { nextTick } from 'vue'
 import { easings } from './easings'
 import { blur, duration, scale } from './tokens'
 
-export type SurfaceOrigin = 'bottom' | 'end'
+export type SurfaceOrigin = 'bottom' | 'end' | 'center'
 
 export function killMotion(targets: gsap.TweenTarget) {
   gsap.killTweensOf(targets)
@@ -38,7 +38,9 @@ export function presentSurface(
   const from =
     origin === 'end'
       ? { xPercent: 100, yPercent: 0 }
-      : { xPercent: 0, yPercent: 100 }
+      : origin === 'center'
+        ? { xPercent: 0, yPercent: 0 }
+        : { xPercent: 0, yPercent: 100 }
   gsap.set(overlay, { opacity: 0 })
   gsap.set(surface, {
     ...from,
@@ -76,7 +78,9 @@ export function dismissSurface(
   const to =
     origin === 'end'
       ? { xPercent: 100, yPercent: 0 }
-      : { xPercent: 0, yPercent: 100 }
+      : origin === 'center'
+        ? { xPercent: 0, yPercent: 0 }
+        : { xPercent: 0, yPercent: 100 }
   const timeline = gsap.timeline({ overwrite: 'auto' })
   timeline.to(
     overlay,

@@ -6,7 +6,6 @@ import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ReportFlowSteps from '../components/report/ReportFlowSteps.vue'
-import SpeakButton from '../components/SpeakButton.vue'
 import StatusTrack from '../components/StatusTrack.vue'
 import GlassPanel from '../components/ui/GlassPanel.vue'
 import gsap from 'gsap'
@@ -17,7 +16,7 @@ const route = useRoute()
 const router = useRouter()
 const { reporterId } = useAuth()
 const { getIssue, syncTrackedReport } = useIssues()
-const { t, issueTypeLabel } = useLocale()
+const { t } = useLocale()
 
 const issue = computed(() => {
   const id = route.params.id
@@ -34,16 +33,6 @@ watch(
   },
   { immediate: true },
 )
-
-const confirmation = computed(() => {
-  if (!issue.value) {
-    return ''
-  }
-  return t('receipt.confirmationSpeech', {
-    category: issueTypeLabel(issue.value.issueType).toLowerCase(),
-    trackingId: issue.value.trackingId,
-  })
-})
 
 function formatWhen(iso: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -125,12 +114,6 @@ onMounted(() => {
           {{ t('receipt.fileAnother') }}
         </button>
       </div>
-      <SpeakButton
-        :text="confirmation"
-        play-key="receipt.play"
-        playing-key="receipt.playing"
-        unavailable-key="receipt.playUnavailable"
-      />
     </GlassPanel>
   </section>
 </template>

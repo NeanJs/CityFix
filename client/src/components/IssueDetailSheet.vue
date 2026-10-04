@@ -7,7 +7,6 @@ import { dismissSurface, enterBlocks, presentSurface } from '../motion/transitio
 import { nextStatus } from '../services/report/statusFlow'
 import type { Issue, IssueStatus } from '../types/issue'
 import SeverityPill from './SeverityPill.vue'
-import SpeakButton from './SpeakButton.vue'
 import StatusPill from './StatusPill.vue'
 import StatusTrack from './StatusTrack.vue'
 
@@ -31,16 +30,6 @@ let generation = 0
 let dragPointer: number | null = null
 let dragStartY = 0
 const { run } = useMotionScope(overlayRef)
-
-const confirmation = computed(() => {
-  if (!props.issue) {
-    return ''
-  }
-  return t('receipt.confirmationSpeech', {
-    category: issueTypeLabel(props.issue.issueType).toLowerCase(),
-    trackingId: props.issue.trackingId,
-  })
-})
 
 const upcoming = computed(() => (props.issue ? nextStatus(props.issue.status) : null))
 
@@ -71,7 +60,7 @@ function formatDateTime(date: Date) {
 }
 
 function surfaceOrigin() {
-  return window.matchMedia('(min-width: 1024px)').matches ? 'end' : 'bottom'
+  return window.matchMedia('(min-width: 1024px)').matches ? 'center' : 'bottom'
 }
 
 function onBackdropClick(event: MouseEvent) {
@@ -314,13 +303,6 @@ function advance() {
             </li>
           </ul>
 
-          <SpeakButton
-            data-enter-block
-            :text="confirmation"
-            play-key="sheet.play"
-            playing-key="sheet.playing"
-            unavailable-key="sheet.playUnavailable"
-          />
         </div>
         </div>
       </div>
@@ -531,19 +513,22 @@ function advance() {
 
 @media (min-width: 1024px) {
   .overlay {
-    align-items: stretch;
-    justify-content: flex-end;
-    padding: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
   }
 
   .sheet {
-    width: 28rem;
-    max-height: none;
-    height: 100%;
-    border-radius: 0;
-    border: none;
-    border-left: 1px solid var(--border);
-    box-shadow: -12px 0 48px rgba(9, 9, 10, 0.14);
+    width: min(42rem, calc(100vw - 3rem));
+    max-height: min(85dvh, 100%);
+    height: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 56px rgba(9, 9, 10, 0.22);
+  }
+
+  .sheet-drag {
+    max-height: min(85dvh, 100%);
   }
 
   .grab {
@@ -551,10 +536,7 @@ function advance() {
   }
 
   .sheet-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+    padding-top: 1rem;
   }
 
   .sheet-body {

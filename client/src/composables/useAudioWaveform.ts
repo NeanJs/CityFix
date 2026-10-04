@@ -2,6 +2,7 @@ import { onBeforeUnmount, toValue, watch, type MaybeRefOrGetter } from 'vue'
 
 export type AudioWaveformFrame = {
   levels: Float32Array
+  origin: number
   count: number
   incoming: number
   scroll: number
@@ -20,6 +21,7 @@ const noiseFloor = 0.014
 
 export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
   let levels = new Float32Array(0)
+  let origin = 0
   let count = 0
   let incoming = 0
   let envelope = 0
@@ -32,6 +34,7 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
   let loopOn = false
   let mode: Mode = 'idle'
   let rewindFrom = 0
+  let rewindTarget = 0
   let rewindStarted = 0
   let rewindDuration = 640
   let context: AudioContext | null = null
@@ -44,6 +47,7 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
   function snapshot(): AudioWaveformFrame {
     return {
       levels,
+      origin,
       count,
       incoming,
       scroll,
@@ -57,6 +61,42 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
     for (const listener of listeners) {
       listener(frame)
     }
+  }
+
+  function desiredCapacity() {
+    return Math.max(1, Math.round(Math.max(visibleBars, barsPerSecond * storedSeconds)))
+  }
+
+  function growLevels() {
+    const needed = desiredCapacity()
+    if (needed <= levels.length) {
+      return
+    }
+    const next = new Float32Array(needed)
+    next.set(levels.subarray(0, Math.max(0, count - origin)))
+    levels = next
+  }
+
+  function writeBars(from: number, to: number, value: number) {
+    if (to <= from) {
+      return
+    }
+    const capacity = levels.length
+    if (to - from >= capacity) {
+      origin = to - capacity
+      count = to
+      levels.fill(value)
+      return
+    }
+    const overflow = to - origin - capacity
+    if (overflow > 0) {
+      levels.copyWithin(0, overflow)
+      origin += overflow
+    }
+    for (let index = Math.max(from, origin); index < to; index += 1) {
+      levels[index - origin] = value
+    }
+    count = to
   }
 
   function readLevel() {
@@ -92,30 +132,17 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
       const follow = target > envelope ? 0.58 : 0.22
       envelope += (target - envelope) * follow
       incoming = envelope
-      const headTarget = Math.min(levels.length, ((now - recordStarted) / 1000) * barsPerSecond)
-      while (count < headTarget && count < levels.length) {
-        levels[count] = incoming
-        count += 1
-      }
+      const headTarget = Math.max(0, ((now - recordStarted) / 1000) * barsPerSecond)
+      writeBars(count, Math.floor(headTarget), incoming)
       carry = Math.max(0, headTarget - count)
-      if (count >= levels.length) {
-        carry = 0
-        incoming = 0
-        followHead()
-        sourceNode?.disconnect()
-        sourceNode = null
-        emit()
-        stopLoop()
-        return
-      }
       followHead()
     } else if (mode === 'rewind') {
       const elapsed = now - rewindStarted
       const progress = rewindDuration <= 0 ? 1 : Math.min(1, elapsed / rewindDuration)
       const eased = 1 - (1 - progress) ** 3
-      scroll = rewindFrom * (1 - eased)
+      scroll = rewindFrom + (rewindTarget - rewindFrom) * eased
       if (progress >= 1) {
-        scroll = 0
+        scroll = rewindTarget
         mode = 'hold'
         emit()
         stopLoop()
@@ -146,11 +173,12 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
     carry = 0
     incoming = 0
     rewindFrom = scroll
-    const distance = Math.abs(rewindFrom)
+    rewindTarget = origin
+    const distance = Math.abs(rewindFrom - rewindTarget)
     rewindDuration = Math.min(1200, Math.max(480, 420 + distance * 12))
     rewindStarted = performance.now()
     if (distance < 0.35) {
-      scroll = 0
+      scroll = rewindTarget
       mode = 'hold'
       emit()
       stopLoop()
@@ -163,6 +191,7 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
   function clear() {
     mode = 'idle'
     levels = new Float32Array(0)
+    origin = 0
     count = 0
     incoming = 0
     envelope = 0
@@ -201,7 +230,8 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
     }
     sourceNode?.disconnect()
     barsPerSecond = Math.max(16, visibleBars / windowSeconds)
-    levels = new Float32Array(Math.max(1, Math.round(barsPerSecond * storedSeconds)))
+    levels = new Float32Array(desiredCapacity())
+    origin = 0
     count = 0
     incoming = 0
     envelope = 0
@@ -221,9 +251,8 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
     if (mode !== 'live') {
       return
     }
-    if (carry > 0.2 && count < levels.length && envelope >= 0.02) {
-      levels[count] = incoming
-      count += 1
+    if (carry > 0.2 && envelope >= 0.02) {
+      writeBars(count, count + 1, incoming)
     }
     if (count === 0) {
       clear()
@@ -250,6 +279,7 @@ export function useAudioWaveform(stream: MaybeRefOrGetter<MediaStream | null>) {
       return
     }
     visibleBars = next
+    growLevels()
     if (mode === 'live') {
       followHead()
     }
