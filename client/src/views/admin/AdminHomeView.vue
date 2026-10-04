@@ -10,6 +10,7 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
+import { useSkeletonHold } from '../../composables/useSkeletonHold'
 import { useFlipGroup } from '../../motion/useFlipGroup'
 import { compareQueuePriority, isOpenStatus, nextStatus } from '../../services/report/statusFlow'
 
@@ -19,9 +20,10 @@ const { issues, openCount, resolvedCount, highSeverityCount, updateStatus, staff
   useIssues()
 const { t } = useLocale()
 const router = useRouter()
-const staffWaiting = computed(
-  () => staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading',
+const staffSettled = computed(
+  () => staffLoadStatus.value === 'ready' || staffLoadStatus.value === 'error',
 )
+const showSkeleton = useSkeletonHold(staffSettled)
 
 const filter = ref<DeskFilter>('open')
 const mapOpen = ref(
@@ -143,13 +145,13 @@ watch(mapOpen, async () => {
         </div>
 
         <div ref="queueRoot" class="queue-results">
-        <p v-if="staffWaiting && queue.length === 0" class="sr-only" aria-live="polite">
+        <p v-if="showSkeleton" class="sr-only" aria-live="polite">
           {{ t('adminHome.loading') }}
         </p>
-        <div v-if="staffWaiting && queue.length === 0" class="list">
+        <div v-if="showSkeleton" class="list">
           <SkeletonCard v-for="index in 4" :key="index" />
         </div>
-        <GlassPanel v-if="staffLoadStatus === 'error'" padding="lg" tone="fill" class="empty">
+        <GlassPanel v-if="!showSkeleton && staffLoadStatus === 'error'" padding="lg" tone="fill" class="empty">
           <p class="empty-title">{{ t('adminHome.loadFailed') }}</p>
           <button type="button" class="btn" @click="loadStaffReports">
             {{ t('adminHome.retry') }}
@@ -157,7 +159,7 @@ watch(mapOpen, async () => {
         </GlassPanel>
         <p v-if="statusError" class="hint" role="alert">{{ statusError }}</p>
         <GlassPanel
-          v-if="queue.length === 0 && staffLoadStatus === 'ready'"
+          v-if="!showSkeleton && queue.length === 0 && staffLoadStatus === 'ready'"
           padding="lg"
           tone="fill"
           class="empty"
@@ -167,7 +169,7 @@ watch(mapOpen, async () => {
           <p class="hint">{{ t('adminHome.emptyHint') }}</p>
         </GlassPanel>
 
-        <div v-if="queue.length > 0" class="list">
+        <div v-if="!showSkeleton && queue.length > 0" class="list">
           <IssueCard
             v-for="issue in queue"
             :key="issue.id"

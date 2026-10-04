@@ -1,6 +1,26 @@
+import type { AppIconName } from '../components/ui/AppIcon.vue'
 import type { UserRole } from '../types/user'
 
 export type NavIcon = 'home' | 'report' | 'reports' | 'dashboard' | 'voice' | 'insights'
+
+const pageTitleIcons: Partial<Record<string, AppIconName>> = {
+  home: 'home',
+  report: 'report',
+  voice: 'voice',
+  reports: 'reports',
+  adminReports: 'reports',
+  reportReceipt: 'checkCircle',
+  adminHome: 'dashboard',
+  adminInsights: 'insights',
+  login: 'signIn',
+}
+
+export function pageTitleIconForRoute(name: string | symbol | null | undefined): AppIconName | undefined {
+  if (typeof name !== 'string') {
+    return undefined
+  }
+  return pageTitleIcons[name]
+}
 
 export type NavItem = {
   name: string

@@ -7,6 +7,7 @@ import { useLocale } from '../composables/useLocale'
 import AppHeader from '../components/layout/AppHeader.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import MorphText from '../components/ui/MorphText.vue'
+import ElevenLabsAttribution from '../components/voice/ElevenLabsAttribution.vue'
 import VoiceGlyph from '../components/voice/VoiceGlyph.vue'
 import type { GlyphPhase } from '../services/voice/glyphShapes'
 
@@ -161,13 +162,15 @@ async function onAction() {
         </button>
       </div>
     </div>
+
+    <ElevenLabsAttribution />
   </section>
 </template>
 
 <style scoped>
 .voice {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: calc(100dvh - 8rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   max-height: calc(100dvh - 8rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   gap: 0.15rem;

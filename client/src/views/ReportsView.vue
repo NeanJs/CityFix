@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useIssues } from '../composables/useIssues'
 import { useLocale } from '../composables/useLocale'
+import { useSkeletonHold } from '../composables/useSkeletonHold'
 import { useFlipGroup } from '../motion/useFlipGroup'
 import { apiErrorMessage } from '../services/api/apiRequestError'
 import { ReportApiError } from '../services/api/reportsApi'
@@ -31,9 +32,11 @@ const highlightIssueId = computed(() => {
 })
 
 const isStaffQueue = computed(() => route.meta.issueScope === 'all')
-const staffWaiting = computed(
-  () => isStaffQueue.value && (staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading'),
+const staffSettled = computed(
+  () => !isStaffQueue.value || staffLoadStatus.value === 'ready' || staffLoadStatus.value === 'error',
 )
+const showSkeleton = useSkeletonHold(staffSettled)
+const staffSkeleton = computed(() => isStaffQueue.value && showSkeleton.value)
 
 const scopedIssues = computed(() => {
   if (isStaffQueue.value) {
@@ -262,17 +265,17 @@ function formatFiled(iso: string) {
 
     <div ref="resultsRoot" class="results">
     <p
-      v-if="staffWaiting && scopedIssues.length === 0"
+      v-if="staffSkeleton"
       class="sr-only"
       aria-live="polite"
     >
       {{ t('reports.loading') }}
     </p>
-    <div v-if="staffWaiting && scopedIssues.length === 0" class="list">
+    <div v-if="staffSkeleton" class="list">
       <SkeletonCard v-for="index in 5" :key="index" />
     </div>
     <GlassPanel
-      v-if="isStaffQueue && staffLoadStatus === 'error'"
+      v-if="!staffSkeleton && isStaffQueue && staffLoadStatus === 'error'"
       padding="lg"
       tone="fill"
       class="empty"
@@ -283,12 +286,12 @@ function formatFiled(iso: string) {
       </button>
     </GlassPanel>
 
-    <p v-if="scopedIssues.length > 0" class="results-count">
+    <p v-if="!staffSkeleton && scopedIssues.length > 0" class="results-count">
       {{ t('reports.count', { filtered: filtered.length, total: scopedIssues.length }) }}
     </p>
 
     <GlassPanel
-      v-if="scopedIssues.length === 0 && !(isStaffQueue && staffLoadStatus !== 'ready')"
+      v-if="!staffSkeleton && scopedIssues.length === 0 && !(isStaffQueue && staffLoadStatus !== 'ready')"
       padding="lg"
       tone="fill"
       class="empty"
@@ -310,7 +313,7 @@ function formatFiled(iso: string) {
       </button>
     </GlassPanel>
 
-    <GlassPanel v-else-if="filtered.length === 0 && scopedIssues.length > 0" padding="lg" tone="fill" class="empty">
+    <GlassPanel v-else-if="!staffSkeleton && filtered.length === 0 && scopedIssues.length > 0" padding="lg" tone="fill" class="empty">
       <AppIcon class="empty-icon" name="magnifyingGlass" size="1.75rem" />
       <p class="empty-title">{{ t('reports.noMatches') }}</p>
       <p class="hint">{{ t('reports.noMatchesHint') }}</p>
@@ -329,7 +332,7 @@ function formatFiled(iso: string) {
       />
     </div>
 
-    <div v-if="filtered.length > 0 && isStaffQueue" class="staff-results">
+    <div v-if="!staffSkeleton && filtered.length > 0 && isStaffQueue" class="staff-results">
       <div class="list cards">
         <IssueCard
           v-for="issue in filtered"

@@ -9,6 +9,7 @@ import SelectionIndicator from '../../components/ui/SelectionIndicator.vue'
 import SkeletonPanel from '../../components/ui/SkeletonPanel.vue'
 import { useIssues } from '../../composables/useIssues'
 import { useLocale } from '../../composables/useLocale'
+import { useSkeletonHold } from '../../composables/useSkeletonHold'
 import {
   calculateInsights,
   type InsightAlert,
@@ -23,9 +24,10 @@ const { issues, staffLoadStatus, loadStaffReports } = useIssues()
 const { t, issueTypeLabel } = useLocale()
 const range = ref<InsightsRange>('30d')
 const refreshing = ref(false)
-const staffWaiting = computed(
-  () => staffLoadStatus.value === 'idle' || staffLoadStatus.value === 'loading',
+const staffSettled = computed(
+  () => staffLoadStatus.value === 'ready' || staffLoadStatus.value === 'error',
 )
+const showSkeleton = useSkeletonHold(staffSettled)
 
 const insights = computed(() => calculateInsights(issues.value, range.value))
 
@@ -213,7 +215,7 @@ async function refresh() {
       </div>
     </div>
 
-    <template v-if="staffWaiting && !issues.length">
+    <template v-if="showSkeleton">
       <p class="sr-only" aria-live="polite">{{ t('adminInsights.loading') }}</p>
       <div class="kpis">
         <SkeletonPanel v-for="index in 4" :key="index" :lines="2" />

@@ -16,6 +16,7 @@ import { apiErrorMessage } from '../services/api/apiRequestError'
 import { getVoiceConversationIssue } from '../services/api/voiceConversationIssue'
 import { takeVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 import { blobFromDataUrl, ingestReport } from '../services/api/ingestReport'
+import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
 import { isAnalyzeImage } from '../services/media/formFile'
 import { buildCreateReportBody, createReport } from '../services/api/reportsApi'
 import type { ReportIngestDraft } from '../types/reportIngest'
@@ -493,6 +494,7 @@ async function confirm() {
       trackingId: next.trackingId,
     })
     await router.replace({ name: 'reportReceipt', params: { id: issue.id } })
+    playVoiceCaptureEffect('send')
     await nextTick()
     resetForm()
   } catch (error) {

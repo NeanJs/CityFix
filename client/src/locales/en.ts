@@ -249,6 +249,8 @@ export const en = {
     unavailable: 'Voice conversation is not available on this device.',
     failed: 'Could not start the conversation. Try again.',
     reportFailed: 'Could not prepare a report from this conversation. Try again.',
+    poweredBy: 'Powered by',
+    elevenLabs: 'ElevenLabs',
   },
   receipt: {
     title: 'Report received',

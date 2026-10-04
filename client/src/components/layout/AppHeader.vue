@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { pageTitleIconForRoute } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 import AppIcon from '../ui/AppIcon.vue'
+import type { AppIconName } from '../ui/AppIcon.vue'
 
 const props = defineProps<{
   subtitle?: string
+  titleIcon?: AppIconName
   showAccount?: boolean
   compact?: boolean
 }>()
+
+const route = useRoute()
+const resolvedTitleIcon = computed(
+  () => props.titleIcon ?? pageTitleIconForRoute(route.name),
+)
+const titleIconSize = computed(() => (props.compact ? '1.55rem' : '2.15rem'))
 
 const { t } = useLocale()
 const { currentUser, logout } = useAuth()
@@ -27,7 +37,16 @@ async function onAccount() {
 <template>
   <header class="header" :class="{ compact: props.compact }">
     <div v-if="subtitle" class="title-block">
-      <h1 class="page-title">{{ subtitle }}</h1>
+      <div class="title-row">
+        <AppIcon
+          v-if="resolvedTitleIcon"
+          class="page-title-icon"
+          :name="resolvedTitleIcon"
+          :size="titleIconSize"
+          weight="duotone"
+        />
+        <h1 class="page-title">{{ subtitle }}</h1>
+      </div>
       <span class="civic-rule" aria-hidden="true" />
     </div>
     <button v-if="showAccount" type="button" class="btn-ghost logout" @click="onAccount">
@@ -48,6 +67,18 @@ async function onAccount() {
 
 .title-block {
   min-width: 0;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.page-title-icon {
+  color: var(--accent);
+  opacity: 0.95;
 }
 
 .page-title {

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
+import { pageTitleIconForRoute } from '../../config/nav'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 import { AuthError, homePathForRole } from '../../services/auth/authService'
 
 const { t } = useLocale()
+const titleIcon = pageTitleIconForRoute('login')
 const { login } = useAuth()
 const router = useRouter()
 
@@ -39,7 +42,16 @@ function submit() {
 
 <template>
   <GlassPanel padding="lg" tone="fill" class="card">
-    <h1 class="title">{{ t('auth.signIn') }}</h1>
+    <div class="title-row">
+      <AppIcon
+        v-if="titleIcon"
+        class="title-icon"
+        :name="titleIcon"
+        size="2.15rem"
+        weight="duotone"
+      />
+      <h1 class="title">{{ t('auth.signIn') }}</h1>
+    </div>
     <p class="lead">{{ t('auth.loginLead') }}</p>
 
     <RouterLink class="btn skip" to="/report">{{ t('auth.toReport') }}</RouterLink>
@@ -79,6 +91,18 @@ function submit() {
   width: min(100%, 26rem);
   display: grid;
   gap: 0.9rem;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.title-icon {
+  color: var(--accent);
+  opacity: 0.95;
+  flex-shrink: 0;
 }
 
 .title {
